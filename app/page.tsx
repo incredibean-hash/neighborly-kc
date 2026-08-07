@@ -23,23 +23,15 @@ export default function Page(){
   const [showDM,setShowDM]=useState(false); const [threads,setThreads]=useState<any[]>([]); const [activeThread,setActiveThread]=useState<any>(null);
   const [dmMessages,setDmMessages]=useState<any[]>([]); const [dmInput,setDmInput]=useState(''); 
   const dmBottomRef=useRef<HTMLDivElement>(null); const dmInputRef=useRef<HTMLInputElement>(null);
-  // PWA INSTALL - header only, auto-hide
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstall, setShowInstall] = useState(false);
   useEffect(()=>{
-    // hide if already installed as PWA
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
     if(isStandalone){ setShowInstall(false); return; }
     const handler = (e:any)=>{ e.preventDefault(); setDeferredPrompt(e); setShowInstall(true); };
     window.addEventListener('beforeinstallprompt', handler);
-    // For iOS where beforeinstallprompt doesn't fire, still show button for manual instructions
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     if(isIOS) setShowInstall(true);
-    else {
-      // show after 2 sec if not standalone, even if prompt hasn't fired yet (helps desktop)
-      const t = setTimeout(()=>{ if(!isStandalone) setShowInstall(true); }, 2000);
-      return ()=>{ clearTimeout(t); window.removeEventListener('beforeinstallprompt', handler); };
-    }
     return ()=> window.removeEventListener('beforeinstallprompt', handler);
   },[]);
   useEffect(()=>{
@@ -54,7 +46,7 @@ export default function Page(){
       if(outcome==='accepted') setShowInstall(false);
       setDeferredPrompt(null);
     } else {
-      alert('To install:\n\niPhone: Tap Share (square + arrow) → Add to Home Screen → Add\n\nAndroid/Desktop: Tap 3 dots → Install App');
+      alert('To install:\n\niPhone: Tap Share → Add to Home Screen\n\nAndroid/Desktop: 3 dots → Install App');
     }
   };
 
@@ -76,8 +68,8 @@ export default function Page(){
   })() },[]);
   const loadThreads = async () => {
     if(!profile) return;
-    const {data}=await supabase.from('dm_threads').select('*').or(`user_a.eq.${profile.full_name},user_b.eq.${profile.full_name}`).order('last_message_at',{ascending:false});
-    if(data) setThreads(data);
+    const {data, error}=await supabase.from('dm_threads').select('*').or(`user_a.eq.${profile.full_name},user_b.eq.${profile.full_name}`).order('last_message_at',{ascending:false});
+    if(!error && data) setThreads(data);
   };
   useEffect(()=>{ if(profile) loadThreads(); },[profile, showDM]);
   useEffect(()=>{ dmBottomRef.current?.scrollIntoView({behavior:'smooth'}); },[dmMessages]);
@@ -126,32 +118,39 @@ export default function Page(){
     if(!confirm('Delete comment?')) return; await supabase.from('comments').delete().eq('id', cId);
     setComments((prev)=>{ const next={...prev}; next[postId]=prev[postId].filter((x:any)=>x.id!==cId); return next; });
   };
+  // FIXED DM LOGIC - uses maybeSingle and better error handling
   const startDM = async (otherName:string) => {
     if(!profile) return setShowJoin(true); 
     const cleanName = (otherName||'').trim();
     if(!cleanName || cleanName==='Neighbor') return alert('That user has no name saved yet');
     if(cleanName===profile.full_name) return alert("That's you!");
     const [a,b]=[profile.full_name, cleanName].sort();
-    let {data:existing}=await supabase.from('dm_threads').select('*').eq('user_a',a).eq('user_b',b).single();
+    console.log('Starting DM', a,b);
+    let existing = null;
+    const {data:found, error:findErr} = await supabase.from('dm_threads').select('*').eq('user_a',a).eq('user_b',b).maybeSingle();
+    if(findErr){ alert('DM error: '+findErr.message+' - Run the SQL fix I sent!'); return; }
+    existing = found;
     if(!existing){
-      const {data:newThread}=await supabase.from('dm_threads').insert({user_a:a, user_b:b, last_message:`Started chat`, last_message_at: new Date().toISOString()}).select().single();
+      const {data:newThread, error:insErr}=await supabase.from('dm_threads').insert({user_a:a, user_b:b, last_message:`Chat with ${cleanName}`, last_message_at: new Date().toISOString()}).select().single();
+      if(insErr){ alert('Could not create chat: '+insErr.message+' - Run the SQL fix!'); return; }
       existing=newThread;
     }
     setActiveThread(existing); setShowDM(true);
     const {data:msgs}=await supabase.from('dm_messages').select('*').eq('thread_id', existing.id).order('created_at',{ascending:true});
-    if(msgs) setDmMessages(msgs);
+    setDmMessages(msgs||[]);
     loadThreads();
     setTimeout(()=>dmInputRef.current?.focus(), 400);
   };
   const openThread = async (thread:any) => {
     setActiveThread(thread);
     const {data:msgs}=await supabase.from('dm_messages').select('*').eq('thread_id', thread.id).order('created_at',{ascending:true});
-    if(msgs) setDmMessages(msgs);
+    setDmMessages(msgs||[]);
     setTimeout(()=>dmInputRef.current?.focus(), 300);
   };
   const sendDM = async () => {
     if(!dmInput.trim() || !activeThread || !profile) return;
-    const {data}=await supabase.from('dm_messages').insert({thread_id:activeThread.id, sender_name:profile.full_name, body:dmInput.trim()}).select().single();
+    const {data, error}=await supabase.from('dm_messages').insert({thread_id:activeThread.id, sender_name:profile.full_name, body:dmInput.trim()}).select().single();
+    if(error){ alert('Send failed: '+error.message); return; }
     if(data){
       setDmMessages([...dmMessages, data]);
       await supabase.from('dm_threads').update({last_message:dmInput.trim().slice(0,40), last_message_at: new Date().toISOString()}).eq('id', activeThread.id);
