@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 const CATS = ['All','General','For Sale & Free','Safety Alert','Recommendation','Event','Lost & Found'];
-
 async function compressImage(file: File): Promise<File> {
   const img = document.createElement('img'); const canvas = document.createElement('canvas');
   const dataUrl = await new Promise<string>(r=>{ const reader=new FileReader(); reader.onload=()=>r(reader.result as string); reader.readAsDataURL(file); });
@@ -13,7 +12,6 @@ async function compressImage(file: File): Promise<File> {
   const blob = await new Promise<Blob>(res=>canvas.toBlob(b=>res(b!), 'image/jpeg', 0.7));
   return new File([blob], file.name.replace(/\.\w+$/, '.jpg'), {type:'image/jpeg'});
 }
-
 export default function Page(){
   const [hoods,setHoods]=useState<any[]>([]); const [posts,setPosts]=useState<any[]>([]);
   const [comments,setComments]=useState<any>({}); const [likes,setLikes]=useState<any>({}); const [cLikes,setCLikes]=useState<any>({});
@@ -22,10 +20,9 @@ export default function Page(){
   const [profile,setProfile]=useState<any>(null); const [showJoin,setShowJoin]=useState(false);
   const [name,setName]=useState(''); const [email,setEmail]=useState(''); const [addr,setAddr]=useState('');
   const [file,setFile]=useState<File|null>(null); const [uploading,setUploading]=useState(false);
-
   const loadAll = async (postIds:string[]) => {
     if(!postIds.length) return;
-    const {data:com}=await supabase.from('comments').select('*').in('post_id', postIds).order('created_at',{ascending:false}); // NEWEST FIRST
+    const {data:com}=await supabase.from('comments').select('*').in('post_id', postIds).order('created_at',{ascending:false});
     if(com){ const g:any={}; com.forEach((c:any)=>{ if(!g[c.post_id]) g[c.post_id]=[]; g[c.post_id].push(c); }); setComments(g);
       const cIds=com.map((c:any)=>c.id);
       if(cIds.length){ const {data:cl}=await supabase.from('likes').select('*').in('comment_id', cIds); if(cl){ const cg:any={}; cl.forEach((l:any)=>{ if(!cg[l.comment_id]) cg[l.comment_id]=[]; cg[l.comment_id].push(l); }); setCLikes(cg); } }
@@ -33,17 +30,14 @@ export default function Page(){
     const {data:lk}=await supabase.from('likes').select('*').in('post_id', postIds).is('comment_id', null);
     if(lk){ const lg:any={}; lk.forEach((l:any)=>{ if(!lg[l.post_id]) lg[l.post_id]=[]; lg[l.post_id].push(l); }); setLikes(lg); }
   };
-
   useEffect(()=>{ (async()=>{
     const {data:h}=await supabase.from('neighborhoods').select('*').order('member_count',{ascending:false}); if(h) setHoods(h);
     const {data:p}=await supabase.from('posts').select('*,profiles(full_name)').order('created_at',{ascending:false}).limit(50);
     if(p){ setPosts(p); loadAll(p.map((x:any)=>x.id)); }
     const s=typeof window!=='undefined'? localStorage.getItem('nkc_profile'):null; if(s) setProfile(JSON.parse(s));
   })() },[]);
-
   const cur = hoods.find((x:any)=>x.slug===hood) || hoods[0] || {name:'Parkwood Hills', zip:'64155', id: null, slug:'parkwood-hills', member_count: 247};
   const filtered = cat==='All'? posts : posts.filter((p:any)=>p.category===cat);
-
   const handlePost = async () => {
     if(!profile) return setShowJoin(true); if(!body.trim() &&!file) return;
     if(file && file.size > 3*1024*1024){ alert('Max 3MB!'); return; }
@@ -59,62 +53,53 @@ export default function Page(){
       if(error) throw error; setPosts([{...data, profiles:{full_name:profile.full_name}},...posts]); setBody(''); setFile(null); (document.getElementById('file-input') as any).value='';
     } catch(e:any){ alert('Could not save: '+(e.message||e)); } finally{ setUploading(false); }
   };
-
   const addComment = async (postId:string) => {
     if(!profile) return setShowJoin(true); const text=commentText[postId]?.trim(); if(!text) return;
     const {data, error}=await supabase.from('comments').insert({ post_id: postId, content:text, body:text, author_name:profile.full_name }).select().single();
     if(error) return alert(error.message);
-    setComments((prev:any)=> ({...prev, [postId]: [data,...(prev[postId]||[])]})); // newest on top
+    setComments((prev:any)=> ({...prev, [postId]: [data,...(prev[postId]||[])]}));
     setCommentText((prev:any)=>({...prev,[postId]:''}));
   };
-
   const togglePostLike = async (postId:string) => {
     if(!profile) return setShowJoin(true);
     const myLike = (likes[postId]||[]).find((l:any)=>l.author_name===profile.full_name);
     if(myLike){ await supabase.from('likes').delete().eq('id', myLike.id); setLikes((p:any)=>({...p,[postId]:p[postId].filter((x:any)=>x.id!==myLike.id)})); }
     else { const {data}=await supabase.from('likes').insert({post_id:postId, author_name:profile.full_name}).select().single(); if(data) setLikes((p:any)=>({...p,[postId]:[...(p[postId]||[]), data]})); }
   };
-
   const toggleCommentLike = async (cId:string) => {
     if(!profile) return setShowJoin(true);
     const myLike = (cLikes[cId]||[]).find((l:any)=>l.author_name===profile.full_name);
     if(myLike){ await supabase.from('likes').delete().eq('id', myLike.id); setCLikes((p:any)=>({...p,[cId]:p[cId].filter((x:any)=>x.id!==myLike.id)})); }
     else { const {data}=await supabase.from('likes').insert({comment_id:cId, author_name:profile.full_name}).select().single(); if(data) setCLikes((p:any)=>({...p,[cId]:[...(p[cId]||[]), data]})); }
   };
-
   const deletePost = async (id:string, image_url:string|null) => {
     if(!confirm('Delete this post?')) return;
     await supabase.from('posts').delete().eq('id', id);
     if(image_url){ const path=image_url.split('/post-images/')[1]; if(path) await supabase.storage.from('post-images').remove([path]); }
     setPosts(posts.filter((p:any)=>p.id!==id));
   };
-
   const deleteComment = async (cId:string, postId:string) => {
     if(!confirm('Delete comment?')) return;
     await supabase.from('comments').delete().eq('id', cId);
     setComments((prev:any)=>({...prev,[postId]:prev[postId].filter((x:any)=>x.id!==cId)}));
   };
-
   return (
     <div className="min-h-screen bg-[#f8f5ee] text-[#1a3a2f]">
       <header className="sticky top-0 bg-white border-b z-40"><div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
         <div className="flex items-center gap-2"><div className="w-8 h-8 bg-[#1a3a2f] text-white rounded-lg flex items-center justify-center font-black">N</div><b>Neighborly KC</b><span className="ml-3 text-xs bg-green-100 border px-2 py-1 rounded-full font-bold">● LIVE {cur?.name} {cur?.zip}</span></div>
         <div className="flex gap-2"><select value={hood} onChange={e=>setHood(e.target.value)} className="bg-[#f8f5ee] border rounded-full px-4 py-2 text-sm font-bold">{hoods.map((h:any)=><option key={h.slug} value={h.slug}>{h.name} {h.zip}</option>)}</select>{profile?<span className="bg-[#1a3a2f] text-white px-4 py-2 rounded-full text-sm">Hi, {profile.full_name.split(' ')[0]} ✓</span>:<button onClick={()=>setShowJoin(true)} className="bg-[#1a3a2f] text-white px-5 py-2 rounded-full text-sm font-bold">Join {cur?.name}</button>}</div>
       </div></header>
-
       <div className="max-w-6xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-[220px_1fr_300px] gap-6">
         <aside className="bg-white rounded-2xl p-3 h-fit border hidden lg:block"><p className="text-xs font-bold opacity-40 px-3 py-2">FILTER</p>{CATS.map(c=><button key={c} onClick={()=>setCat(c)} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm ${cat===c?'bg-[#1a3a2f] text-white':'hover:bg-black/5'}`}>{c}</button>)}</aside>
-
         <main className="space-y-3">
           <div className="bg-white rounded-2xl p-4 border">
             <textarea value={body} onChange={e=>setBody(e.target.value)} placeholder={profile?`What's up in ${cur?.name}?`:'Join Parkwood Hills to post...'} className="w-full bg-[#f8f5ee] rounded-xl p-3 min-h- text-sm outline-none" />
             <div className="flex items-center gap-2 mt-3"><input id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="text-xs" />{file && <span className="text-xs opacity-60">{(file.size/1024).toFixed(0)}KB → ~400KB</span>}</div>
             <div className="flex justify-end mt-2"><button disabled={uploading} onClick={handlePost} className="bg-[#1a3a2f] text-white px-5 py-2 rounded-full text-sm font-bold disabled:opacity-50">{uploading?'Uploading...':'Post to neighbors'}</button></div>
           </div>
-
           {filtered.map((p:any)=>{
             const cList=comments[p.id]||[]; const isOpen=openComments[p.id]; const pLikes=likes[p.id]||[]; const liked=pLikes.some((l:any)=>l.author_name===profile?.full_name);
-            const canDelete = profile && (p.profiles?.full_name===profile.full_name || p.author_name===profile.full_name);
+            const canDelete =!!profile;
             return (
             <div key={p.id} className="bg-white rounded-2xl p-4 border">
               <div className="flex justify-between"><p className="text-xs font-bold opacity-60">{p.profiles?.full_name||p.author_name||'Neighbor'} · {p.category}</p>{canDelete && <button onClick={()=>deletePost(p.id,p.image_url)} className="text-xs opacity-40 hover:text-red-600">🗑️ Delete</button>}</div>
@@ -129,7 +114,7 @@ export default function Page(){
                 <div className="mt-3 bg-[#f8f5ee] rounded-xl p-3 space-y-2">
                   {cList.map((c:any)=>{
                     const cl=cLikes[c.id]||[]; const cliked=cl.some((l:any)=>l.author_name===profile?.full_name);
-                    const canDelC = profile && c.author_name===profile.full_name;
+                    const canDelC =!!profile;
                     return (<div key={c.id} className="text-sm bg-white rounded-lg p-2 flex justify-between gap-2">
                       <div><b className="text-xs">{c.author_name}:</b> {c.content||c.body} <span className="text- opacity-40 ml-2">{new Date(c.created_at).toLocaleTimeString()}</span>
                       <button onClick={()=>toggleCommentLike(c.id)} className={`ml-3 text-xs ${cliked?'text-red-600':'opacity-50'}`}>{cliked?'❤️':'🤍'} {cl.length}</button>
