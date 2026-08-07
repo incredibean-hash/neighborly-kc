@@ -3,9 +3,11 @@ import { createClient } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
 
 const supabase = createClient(
-  'https://obrgnjxipqyqzislqudb.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9icmduanhpcHlxeXppc3FsdWRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYwMDE3MDIsImV4cCI6MjEwMTU3NzcwMn0.1T-7u4AgrSqvBRjOQE78ot9lz1dAVCs1hHI2DCeAAbc'
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
+
+
 
 const CATS = ['All','General','For Sale & Free','Safety Alert','Recommendation','Event','Lost & Found'];
 
