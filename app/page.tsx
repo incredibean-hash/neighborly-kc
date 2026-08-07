@@ -35,7 +35,6 @@ export default function Page(){
     if(!profile) return setShowJoin(true);
     if(!body.trim()) return;
 
-    // Get the real UUID for neighborhood
     const realId = hoods.find((x:any)=>x.slug===hood)?.id || cur?.id;
     if(!realId){
       alert('Neighborhood not loaded yet, try again in 2 sec');
@@ -44,7 +43,6 @@ export default function Page(){
 
     const { data, error } = await supabase.from('posts').insert({
       body: body,
-      content: body, // support both column names
       category: cat==='All'? 'General' : cat,
       neighborhood_id: realId,
     }).select().single();
