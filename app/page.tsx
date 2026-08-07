@@ -23,6 +23,30 @@ export default function Page(){
   const [showDM,setShowDM]=useState(false); const [threads,setThreads]=useState<any[]>([]); const [activeThread,setActiveThread]=useState<any>(null);
   const [dmMessages,setDmMessages]=useState<any[]>([]); const [dmInput,setDmInput]=useState(''); 
   const dmBottomRef=useRef<HTMLDivElement>(null); const dmInputRef=useRef<HTMLInputElement>(null);
+  // PWA INSTALL
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstall, setShowInstall] = useState(false);
+  useEffect(()=>{
+    const handler = (e:any)=>{ e.preventDefault(); setDeferredPrompt(e); setShowInstall(true); };
+    window.addEventListener('beforeinstallprompt', handler);
+    // also show manual instructions if already installable or iOS
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isStandalone = (window.matchMedia('(display-mode: standalone)').matches);
+    if(isIOS && !isStandalone) setShowInstall(true);
+    return ()=> window.removeEventListener('beforeinstallprompt', handler);
+  },[]);
+  const handleInstall = async () => {
+    if(deferredPrompt){
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if(outcome==='accepted') setShowInstall(false);
+      setDeferredPrompt(null);
+    } else {
+      // iOS or manual
+      alert('To install:\n\niPhone: Tap Share button (square with arrow) → Add to Home Screen → Add\n\nAndroid: Tap 3 dots top-right → Install App\n\nDesktop: Look for install icon in address bar or 3 dots → Install');
+    }
+  };
+
   const loadAll = async (postIds:string[]) => {
     if(!postIds.length) return;
     const {data:com}=await supabase.from('comments').select('*').in('post_id', postIds).order('created_at',{ascending:false});
@@ -47,11 +71,9 @@ export default function Page(){
   useEffect(()=>{ if(profile) loadThreads(); },[profile, showDM]);
   useEffect(()=>{ dmBottomRef.current?.scrollIntoView({behavior:'smooth'}); },[dmMessages]);
   useEffect(()=>{ if(showDM && activeThread) setTimeout(()=>dmInputRef.current?.focus(), 300); },[activeThread, showDM]);
-
   const cur = hoods.find((x:any)=>x.slug===hood) || hoods[0] || {name:'Parkwood Hills', zip:'64155', id: null, slug:'parkwood-hills', member_count: 247};
   const filtered = cat==='All'? posts : posts.filter((p:any)=>p.category===cat);
   const isAdmin = profile?.full_name?.toLowerCase().includes('jason');
-
   const handlePost = async () => {
     if(!profile) return setShowJoin(true); if(!body.trim() &&!file) return;
     if(file && file.size > 3*1024*1024){ alert('Max 3MB!'); return; }
@@ -63,7 +85,6 @@ export default function Page(){
         const {data}=supabase.storage.from('post-images').getPublicUrl(path); image_url=data.publicUrl;
       }
       const realId = hoods.find((x:any)=>x.slug===hood)?.id || cur?.id;
-      // FIX: save author_name so name shows even without profile join
       const { data, error } = await supabase.from('posts').insert({ body, category: cat==='All'? 'General' : cat, neighborhood_id: realId, image_url, author_name: profile.full_name }).select().single();
       if(error) throw error; setPosts([{...data, profiles:{full_name:profile.full_name}},...posts]); setBody(''); setFile(null);
       const el = document.getElementById('file-input') as HTMLInputElement; if(el) el.value='';
@@ -97,7 +118,7 @@ export default function Page(){
   const startDM = async (otherName:string) => {
     if(!profile) return setShowJoin(true); 
     const cleanName = (otherName||'').trim();
-    if(!cleanName || cleanName==='Neighbor') return alert('That user has no name saved yet — they need to re-join. You can still comment to them!');
+    if(!cleanName || cleanName==='Neighbor') return alert('That user has no name saved yet');
     if(cleanName===profile.full_name) return alert("That's you!");
     const [a,b]=[profile.full_name, cleanName].sort();
     let {data:existing}=await supabase.from('dm_threads').select('*').eq('user_a',a).eq('user_b',b).single();
@@ -128,7 +149,6 @@ export default function Page(){
       setTimeout(()=>dmInputRef.current?.focus(), 100);
     }
   };
-  const getOtherName = (t:any) => t.user_a===profile?.full_name ? t.user_b : t.user_a;
 
   return (
     <div className="min-h-screen bg-[#f8f5ee] text-[#1a3a2f] w-full overflow-x-hidden">
@@ -139,7 +159,8 @@ export default function Page(){
             <b className="truncate">Neighborly KC</b>
             <span className="text-[10px] sm:text-xs bg-green-100 border px-2 py-1 rounded-full font-bold whitespace-nowrap">● LIVE {cur?.name} {cur?.zip}</span>
           </div>
-          <div className="flex gap-2 w-full sm:w-auto items-center">
+          <div className="flex gap-2 w-full sm:w-auto items-center flex-wrap">
+            {showInstall && <button onClick={handleInstall} className="bg-[#1a3a2f] text-white border-2 border-[#1a3a2f] px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-bold shrink-0 animate-pulse">⬇️ Install App</button>}
             <select value={hood} onChange={e=>setHood(e.target.value)} className="bg-[#f8f5ee] border rounded-full px-3 py-2 text-xs sm:text-sm font-bold flex-1 sm:flex-none min-w-0">
               {hoods.map((h:any)=><option key={h.slug} value={h.slug}>{h.name} {h.zip}</option>)}
             </select>
@@ -147,6 +168,7 @@ export default function Page(){
             {profile?<span className="bg-[#1a3a2f] text-white px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm shrink-0">Hi, {profile.full_name.split(' ')[0]} ✓</span>:<button onClick={()=>setShowJoin(true)} className="bg-[#1a3a2f] text-white px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-bold shrink-0">Join {cur?.name}</button>}
           </div>
         </div>
+        {showInstall && <div className="bg-[#1a3a2f] text-white text-center py-2 text-xs font-bold">📱 Install Neighborly KC to your home screen for quick access — <button onClick={handleInstall} className="underline">Tap here</button></div>}
       </header>
 
       <div className="w-full flex justify-center">
@@ -168,9 +190,8 @@ export default function Page(){
               </div>
               {filtered.map((p:any)=>{
                 const cList=comments[p.id]||[]; const isOpen=openComments[p.id]; const pLikes=likes[p.id]||[]; const liked=pLikes.some((l:any)=>l.author_name===profile?.full_name);
-                const isOwner = profile && (p.profiles?.full_name===profile.full_name || p.author_name===profile.full_name || p.author_name===profile.full_name); 
+                const isOwner = profile && (p.profiles?.full_name===profile.full_name || p.author_name===profile.full_name); 
                 const canDelete = isOwner || isAdmin;
-                // FIX: show real name
                 const authorName = p.author_name || p.profiles?.full_name || 'Neighbor';
                 return (
                 <div key={p.id} className="bg-white rounded-2xl p-3 sm:p-4 border w-full shadow-sm min-w-0 overflow-hidden">
@@ -200,7 +221,8 @@ export default function Page(){
             <aside className="bg-white rounded-2xl p-4 sm:p-5 border h-fit w-full max-w-full lg:sticky lg:top-24 lg:mt-8 order-first lg:order-last shadow-sm">
               <h3 className="font-black truncate">{cur?.name}</h3><p className="text-xs opacity-60 truncate">{cur?.zip} · Kansas City, MO</p>
               <div className="grid grid-cols-2 gap-2 mt-4"><div className="bg-[#f8f5ee] rounded-xl p-3 text-center min-w-0"><b className="text-lg">{cur?.member_count}</b><p className="text-[10px]">NEIGHBORS</p></div><div className="bg-[#f8f5ee] rounded-xl p-3 text-center min-w-0"><b className="text-lg">{posts.length}</b><p className="text-[10px]">POSTS</p></div></div>
-              {profile && <button onClick={()=>{setShowDM(true); loadThreads();}} className="mt-4 w-full bg-[#1a3a2f] text-white py-3 rounded-full text-sm font-bold">💬 Open DMs</button>}
+              {showInstall && <button onClick={handleInstall} className="mt-4 w-full bg-[#1a3a2f] text-white py-3 rounded-full text-sm font-bold animate-pulse">⬇️ Install App to Home Screen</button>}
+              {profile && <button onClick={()=>{setShowDM(true); loadThreads();}} className="mt-2 w-full bg-white border-2 border-[#1a3a2f] py-3 rounded-full text-sm font-bold">💬 Open DMs</button>}
             </aside>
           </div>
         </div>
