@@ -23,17 +23,29 @@ export default function Page(){
   const [showDM,setShowDM]=useState(false); const [threads,setThreads]=useState<any[]>([]); const [activeThread,setActiveThread]=useState<any>(null);
   const [dmMessages,setDmMessages]=useState<any[]>([]); const [dmInput,setDmInput]=useState(''); 
   const dmBottomRef=useRef<HTMLDivElement>(null); const dmInputRef=useRef<HTMLInputElement>(null);
-  // PWA INSTALL
+  // PWA INSTALL - header only, auto-hide
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstall, setShowInstall] = useState(false);
   useEffect(()=>{
+    // hide if already installed as PWA
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+    if(isStandalone){ setShowInstall(false); return; }
     const handler = (e:any)=>{ e.preventDefault(); setDeferredPrompt(e); setShowInstall(true); };
     window.addEventListener('beforeinstallprompt', handler);
-    // also show manual instructions if already installable or iOS
+    // For iOS where beforeinstallprompt doesn't fire, still show button for manual instructions
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const isStandalone = (window.matchMedia('(display-mode: standalone)').matches);
-    if(isIOS && !isStandalone) setShowInstall(true);
+    if(isIOS) setShowInstall(true);
+    else {
+      // show after 2 sec if not standalone, even if prompt hasn't fired yet (helps desktop)
+      const t = setTimeout(()=>{ if(!isStandalone) setShowInstall(true); }, 2000);
+      return ()=>{ clearTimeout(t); window.removeEventListener('beforeinstallprompt', handler); };
+    }
     return ()=> window.removeEventListener('beforeinstallprompt', handler);
+  },[]);
+  useEffect(()=>{
+    const onInstalled = ()=> setShowInstall(false);
+    window.addEventListener('appinstalled', onInstalled);
+    return ()=> window.removeEventListener('appinstalled', onInstalled);
   },[]);
   const handleInstall = async () => {
     if(deferredPrompt){
@@ -42,8 +54,7 @@ export default function Page(){
       if(outcome==='accepted') setShowInstall(false);
       setDeferredPrompt(null);
     } else {
-      // iOS or manual
-      alert('To install:\n\niPhone: Tap Share button (square with arrow) → Add to Home Screen → Add\n\nAndroid: Tap 3 dots top-right → Install App\n\nDesktop: Look for install icon in address bar or 3 dots → Install');
+      alert('To install:\n\niPhone: Tap Share (square + arrow) → Add to Home Screen → Add\n\nAndroid/Desktop: Tap 3 dots → Install App');
     }
   };
 
@@ -168,7 +179,6 @@ export default function Page(){
             {profile?<span className="bg-[#1a3a2f] text-white px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm shrink-0">Hi, {profile.full_name.split(' ')[0]} ✓</span>:<button onClick={()=>setShowJoin(true)} className="bg-[#1a3a2f] text-white px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-bold shrink-0">Join {cur?.name}</button>}
           </div>
         </div>
-        {showInstall && <div className="bg-[#1a3a2f] text-white text-center py-2 text-xs font-bold">📱 Install Neighborly KC to your home screen for quick access — <button onClick={handleInstall} className="underline">Tap here</button></div>}
       </header>
 
       <div className="w-full flex justify-center">
@@ -221,8 +231,7 @@ export default function Page(){
             <aside className="bg-white rounded-2xl p-4 sm:p-5 border h-fit w-full max-w-full lg:sticky lg:top-24 lg:mt-8 order-first lg:order-last shadow-sm">
               <h3 className="font-black truncate">{cur?.name}</h3><p className="text-xs opacity-60 truncate">{cur?.zip} · Kansas City, MO</p>
               <div className="grid grid-cols-2 gap-2 mt-4"><div className="bg-[#f8f5ee] rounded-xl p-3 text-center min-w-0"><b className="text-lg">{cur?.member_count}</b><p className="text-[10px]">NEIGHBORS</p></div><div className="bg-[#f8f5ee] rounded-xl p-3 text-center min-w-0"><b className="text-lg">{posts.length}</b><p className="text-[10px]">POSTS</p></div></div>
-              {showInstall && <button onClick={handleInstall} className="mt-4 w-full bg-[#1a3a2f] text-white py-3 rounded-full text-sm font-bold animate-pulse">⬇️ Install App to Home Screen</button>}
-              {profile && <button onClick={()=>{setShowDM(true); loadThreads();}} className="mt-2 w-full bg-white border-2 border-[#1a3a2f] py-3 rounded-full text-sm font-bold">💬 Open DMs</button>}
+              {profile && <button onClick={()=>{setShowDM(true); loadThreads();}} className="mt-4 w-full bg-white border-2 border-[#1a3a2f] py-3 rounded-full text-sm font-bold">💬 Open DMs</button>}
             </aside>
           </div>
         </div>
