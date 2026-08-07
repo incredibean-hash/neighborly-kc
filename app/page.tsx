@@ -9,6 +9,26 @@ const supabase = createClient(
 
 const CATS = ['All','General','For Sale & Free','Safety Alert','Recommendation','Event','Lost & Found'];
 
+// compress image in browser to save your free storage
+async function compressImage(file: File): Promise<File> {
+  const img = document.createElement('img');
+  const canvas = document.createElement('canvas');
+  const dataUrl = await new Promise<string>(r=>{
+    const reader = new FileReader(); reader.onload=()=>r(reader.result as string); reader.readAsDataURL(file);
+  });
+  await new Promise<void>(res=>{ img.onload=()=>res(); img.src=dataUrl; });
+  const max = 1200;
+  let {width, height} = img;
+  if (width>max || height>max){
+    if (width>height){ height = height*max/width; width=max; }
+    else { width = width*max/height; height=max; }
+  }
+  canvas.width=width; canvas.height=height;
+  canvas.getContext('2d')!.drawImage(img,0,0,width,height);
+  const blob = await new Promise<Blob>(res=>canvas.toBlob(b=>res(b!), 'image/jpeg', 0.7));
+  return new File([blob], file.name.replace(/\.\w+$/, '.jpg'), {type:'image/jpeg'});
+}
+
 export default function Page(){
   const [hoods,setHoods]=useState<any[]>([]);
   const [posts,setPosts]=useState<any[]>([]);
@@ -18,6 +38,8 @@ export default function Page(){
   const [profile,setProfile]=useState<any>(null);
   const [showJoin,setShowJoin]=useState(false);
   const [name,setName]=useState(''); const [email,setEmail]=useState(''); const [addr,setAddr]=useState('');
+  const [file,setFile]=useState<File|null>(null);
+  const [uploading,setUploading]=useState(false);
 
   useEffect(()=>{ (async()=>{
     const {data:h}=await supabase.from('neighborhoods').select('*').order('member_count',{ascending:false});
@@ -33,29 +55,40 @@ export default function Page(){
 
   const handlePost = async () => {
     if(!profile) return setShowJoin(true);
-    if(!body.trim()) return;
-
-    const realId = hoods.find((x:any)=>x.slug===hood)?.id || cur?.id;
-    if(!realId){
-      alert('Neighborhood not loaded yet, try again in 2 sec');
-      return;
+    if(!body.trim() &&!file) return;
+    if(file){
+      if(!file.type.startsWith('image/')){ alert('Images only!'); return; }
+      if(file.size > 3*1024*1024){ alert('Max 3MB please - your file is '+(file.size/1024/1024).toFixed(1)+'MB'); return; }
     }
 
-    const { data, error } = await supabase.from('posts').insert({
-      body: body,
-      category: cat==='All'? 'General' : cat,
-      neighborhood_id: realId,
-    }).select().single();
+    setUploading(true);
+    try{
+      let image_url: string | null = null;
+      if(file){
+        const compressed = await compressImage(file);
+        const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+        const {error: upErr} = await supabase.storage.from('post-images').upload(path, compressed);
+        if(upErr) throw upErr;
+        const {data} = supabase.storage.from('post-images').getPublicUrl(path);
+        image_url = data.publicUrl;
+      }
 
-    if(error){
-      console.error(error);
-      alert('Could not save: ' + error.message);
-      return;
-    }
+      const realId = hoods.find((x:any)=>x.slug===hood)?.id || cur?.id;
+      const { data, error } = await supabase.from('posts').insert({
+        body: body,
+        category: cat==='All'? 'General' : cat,
+        neighborhood_id: realId,
+        image_url,
+      }).select().single();
 
-    const newPost = {...data, profiles: { full_name: profile.full_name } };
-    setPosts([newPost,...posts]);
-    setBody('');
+      if(error) throw error;
+      const newPost = {...data, profiles: { full_name: profile.full_name } };
+      setPosts([newPost,...posts]);
+      setBody(''); setFile(null);
+      (document.getElementById('file-input') as any).value='';
+    } catch(e:any){
+      alert('Could not save: '+(e.message||e));
+    } finally{ setUploading(false); }
   };
 
   return (
@@ -69,8 +102,17 @@ export default function Page(){
         <aside className="bg-white rounded-2xl p-3 h-fit border hidden lg:block"><p className="text-xs font-bold opacity-40 px-3 py-2">FILTER</p>{CATS.map(c=><button key={c} onClick={()=>setCat(c)} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm ${cat===c?'bg-[#1a3a2f] text-white':'hover:bg-black/5'}`}>{c}</button>)}</aside>
 
         <main className="space-y-3">
-          <div className="bg-white rounded-2xl p-4 border"><textarea value={body} onChange={e=>setBody(e.target.value)} placeholder={profile?`What's up in ${cur?.name}?`:'Join Parkwood Hills to post...'} className="w-full bg-[#f8f5ee] rounded-xl p-3 min-h- text-sm outline-none" /><div className="flex justify-end mt-2"><button onClick={handlePost} className="bg-[#1a3a2f] text-white px-5 py-2 rounded-full text-sm font-bold">Post to neighbors</button></div></div>
-          {filtered.length===0? <div className="bg-white rounded-2xl p-12 text-center border border-dashed"><div className="text-4xl">🏡</div><b>Be first in {cur?.name}!</b><p className="text-sm opacity-60">{cur?.member_count} neighbors watching {cur?.zip}</p></div> : filtered.map((p:any)=><div key={p.id} className="bg-white rounded-2xl p-4 border"><p className="text-xs font-bold opacity-60">{p.profiles?.full_name||'Neighbor'} · {p.category}</p><p className="mt-1 whitespace-pre-wrap">{p.body || p.content}</p><p className="text-xs opacity-40 mt-2">{new Date(p.created_at).toLocaleString()}</p></div>)}
+          <div className="bg-white rounded-2xl p-4 border">
+            <textarea value={body} onChange={e=>setBody(e.target.value)} placeholder={profile?`What's up in ${cur?.name}?`:'Join Parkwood Hills to post...'} className="w-full bg-[#f8f5ee] rounded-xl p-3 min-h- text-sm outline-none" />
+            <div className="flex items-center gap-2 mt-3">
+              <input id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="text-xs" />
+              {file && <span className="text-xs opacity-60">{(file.size/1024).toFixed(0)}KB - will be compressed</span>}
+            </div>
+            <div className="flex justify-end mt-2"><button disabled={uploading} onClick={handlePost} className="bg-[#1a3a2f] text-white px-5 py-2 rounded-full text-sm font-bold disabled:opacity-50">{uploading?'Uploading...':'Post to neighbors 📷'}</button></div>
+            <p className="text- opacity-40 mt-2">Free hosting: 3MB max, jpg/png/webp only, auto-compressed to ~400KB to save your 1GB free tier</p>
+          </div>
+
+          {filtered.map((p:any)=><div key={p.id} className="bg-white rounded-2xl p-4 border"><p className="text-xs font-bold opacity-60">{p.profiles?.full_name||'Neighbor'} · {p.category}</p><p className="mt-1 whitespace-pre-wrap">{p.body || p.content}</p>{p.image_url && <img src={p.image_url} alt="post" className="mt-3 rounded-xl max-h- w-full object-cover border" />}<p className="text-xs opacity-40 mt-2">{new Date(p.created_at).toLocaleString()}</p></div>)}
         </main>
 
         <aside className="bg-white rounded-2xl p-5 border h-fit"><h3 className="font-black">{cur?.name}</h3><p className="text-xs opacity-60">{cur?.zip} · Kansas City, MO</p><div className="grid grid-cols-2 gap-2 mt-4"><div className="bg-[#f8f5ee] rounded-xl p-3 text-center"><b className="text-lg">{cur?.member_count}</b><p className="text-xs">NEIGHBORS</p></div><div className="bg-[#f8f5ee] rounded-xl p-3 text-center"><b className="text-lg">{posts.length}</b><p className="text-xs">POSTS</p></div></div></aside>
