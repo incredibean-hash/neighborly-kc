@@ -20,9 +20,9 @@ export default function Page(){
   const [profile,setProfile]=useState<any>(null); const [showJoin,setShowJoin]=useState(false);
   const [name,setName]=useState(''); const [email,setEmail]=useState(''); const [addr,setAddr]=useState('');
   const [file,setFile]=useState<File|null>(null); const [uploading,setUploading]=useState(false); const [showFilters,setShowFilters]=useState(false);
-  // DM STATE
   const [showDM,setShowDM]=useState(false); const [threads,setThreads]=useState<any[]>([]); const [activeThread,setActiveThread]=useState<any>(null);
-  const [dmMessages,setDmMessages]=useState<any[]>([]); const [dmInput,setDmInput]=useState(''); const dmBottomRef=useRef<HTMLDivElement>(null);
+  const [dmMessages,setDmMessages]=useState<any[]>([]); const [dmInput,setDmInput]=useState(''); 
+  const dmBottomRef=useRef<HTMLDivElement>(null); const dmInputRef=useRef<HTMLInputElement>(null);
   const loadAll = async (postIds:string[]) => {
     if(!postIds.length) return;
     const {data:com}=await supabase.from('comments').select('*').in('post_id', postIds).order('created_at',{ascending:false});
@@ -46,9 +46,12 @@ export default function Page(){
   };
   useEffect(()=>{ if(profile) loadThreads(); },[profile, showDM]);
   useEffect(()=>{ dmBottomRef.current?.scrollIntoView({behavior:'smooth'}); },[dmMessages]);
+  useEffect(()=>{ if(showDM && activeThread) setTimeout(()=>dmInputRef.current?.focus(), 300); },[activeThread, showDM]);
+
   const cur = hoods.find((x:any)=>x.slug===hood) || hoods[0] || {name:'Parkwood Hills', zip:'64155', id: null, slug:'parkwood-hills', member_count: 247};
   const filtered = cat==='All'? posts : posts.filter((p:any)=>p.category===cat);
   const isAdmin = profile?.full_name?.toLowerCase().includes('jason');
+
   const handlePost = async () => {
     if(!profile) return setShowJoin(true); if(!body.trim() &&!file) return;
     if(file && file.size > 3*1024*1024){ alert('Max 3MB!'); return; }
@@ -60,7 +63,8 @@ export default function Page(){
         const {data}=supabase.storage.from('post-images').getPublicUrl(path); image_url=data.publicUrl;
       }
       const realId = hoods.find((x:any)=>x.slug===hood)?.id || cur?.id;
-      const { data, error } = await supabase.from('posts').insert({ body, category: cat==='All'? 'General' : cat, neighborhood_id: realId, image_url }).select().single();
+      // FIX: save author_name so name shows even without profile join
+      const { data, error } = await supabase.from('posts').insert({ body, category: cat==='All'? 'General' : cat, neighborhood_id: realId, image_url, author_name: profile.full_name }).select().single();
       if(error) throw error; setPosts([{...data, profiles:{full_name:profile.full_name}},...posts]); setBody(''); setFile(null);
       const el = document.getElementById('file-input') as HTMLInputElement; if(el) el.value='';
     } catch(e:any){ alert('Could not save: '+(e.message||e)); } finally{ setUploading(false); }
@@ -91,8 +95,11 @@ export default function Page(){
     setComments((prev)=>{ const next={...prev}; next[postId]=prev[postId].filter((x:any)=>x.id!==cId); return next; });
   };
   const startDM = async (otherName:string) => {
-    if(!profile) return setShowJoin(true); if(otherName===profile.full_name) return alert("That's you!");
-    const [a,b]=[profile.full_name, otherName].sort();
+    if(!profile) return setShowJoin(true); 
+    const cleanName = (otherName||'').trim();
+    if(!cleanName || cleanName==='Neighbor') return alert('That user has no name saved yet — they need to re-join. You can still comment to them!');
+    if(cleanName===profile.full_name) return alert("That's you!");
+    const [a,b]=[profile.full_name, cleanName].sort();
     let {data:existing}=await supabase.from('dm_threads').select('*').eq('user_a',a).eq('user_b',b).single();
     if(!existing){
       const {data:newThread}=await supabase.from('dm_threads').insert({user_a:a, user_b:b, last_message:`Started chat`, last_message_at: new Date().toISOString()}).select().single();
@@ -102,11 +109,13 @@ export default function Page(){
     const {data:msgs}=await supabase.from('dm_messages').select('*').eq('thread_id', existing.id).order('created_at',{ascending:true});
     if(msgs) setDmMessages(msgs);
     loadThreads();
+    setTimeout(()=>dmInputRef.current?.focus(), 400);
   };
   const openThread = async (thread:any) => {
     setActiveThread(thread);
     const {data:msgs}=await supabase.from('dm_messages').select('*').eq('thread_id', thread.id).order('created_at',{ascending:true});
     if(msgs) setDmMessages(msgs);
+    setTimeout(()=>dmInputRef.current?.focus(), 300);
   };
   const sendDM = async () => {
     if(!dmInput.trim() || !activeThread || !profile) return;
@@ -116,6 +125,7 @@ export default function Page(){
       await supabase.from('dm_threads').update({last_message:dmInput.trim().slice(0,40), last_message_at: new Date().toISOString()}).eq('id', activeThread.id);
       setDmInput('');
       loadThreads();
+      setTimeout(()=>dmInputRef.current?.focus(), 100);
     }
   };
   const getOtherName = (t:any) => t.user_a===profile?.full_name ? t.user_b : t.user_a;
@@ -158,11 +168,13 @@ export default function Page(){
               </div>
               {filtered.map((p:any)=>{
                 const cList=comments[p.id]||[]; const isOpen=openComments[p.id]; const pLikes=likes[p.id]||[]; const liked=pLikes.some((l:any)=>l.author_name===profile?.full_name);
-                const isOwner = profile && (p.profiles?.full_name===profile.full_name || p.author_name===profile.full_name); const canDelete = isOwner || isAdmin;
-                const authorName = p.profiles?.full_name || p.author_name || 'Neighbor';
+                const isOwner = profile && (p.profiles?.full_name===profile.full_name || p.author_name===profile.full_name || p.author_name===profile.full_name); 
+                const canDelete = isOwner || isAdmin;
+                // FIX: show real name
+                const authorName = p.author_name || p.profiles?.full_name || 'Neighbor';
                 return (
                 <div key={p.id} className="bg-white rounded-2xl p-3 sm:p-4 border w-full shadow-sm min-w-0 overflow-hidden">
-                  <div className="flex justify-between gap-2 min-w-0"><button onClick={()=>startDM(authorName)} className="text-xs font-bold opacity-60 truncate min-w-0 flex-1 text-left hover:underline hover:opacity-100">👤 {authorName} · {p.category} → Message</button>{canDelete && <button onClick={()=>deletePost(p.id,p.image_url)} className="text-xs opacity-40 hover:text-red-600 shrink-0">🗑️ Delete</button>}</div>
+                  <div className="flex justify-between gap-2 min-w-0"><button onClick={()=>startDM(authorName)} className="text-xs font-bold opacity-80 truncate min-w-0 flex-1 text-left hover:underline">👤 {authorName} · {p.category} → Message</button>{canDelete && <button onClick={()=>deletePost(p.id,p.image_url)} className="text-xs opacity-40 hover:text-red-600 shrink-0">🗑️ Delete</button>}</div>
                   <p className="mt-2 whitespace-pre-wrap break-words text-sm sm:text-[15px] leading-relaxed w-full">{p.body || p.content}</p>
                   {p.image_url && <img src={p.image_url} alt="post" className="mt-3 rounded-xl max-h-[500px] w-full max-w-full object-cover border" />}
                   <p className="text-[10px] sm:text-xs opacity-40 mt-2 truncate">{new Date(p.created_at).toLocaleString()}</p>
@@ -196,48 +208,22 @@ export default function Page(){
 
       {showJoin && <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"><div className="bg-white rounded-2xl w-full max-w-sm p-6 max-h-[90vh] overflow-y-auto"><h2 className="font-black text-xl">Join {cur?.name}</h2><form onSubmit={e=>{e.preventDefault(); const pr={full_name:name,email,street_address:addr,zip:cur?.zip,neighborhood_id:cur?.id}; localStorage.setItem('nkc_profile',JSON.stringify(pr)); setProfile(pr); setShowJoin(false);}} className="mt-4 space-y-2"><input required value={name} onChange={e=>setName(e.target.value)} placeholder="Full name" className="w-full bg-[#f8f5ee] border rounded-xl px-3 py-3 text-sm"/><input required value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" className="w-full bg-[#f8f5ee] border rounded-xl px-3 py-3 text-sm"/><input required value={addr} onChange={e=>setAddr(e.target.value)} placeholder={`Address in ${cur?.zip}`} className="w-full bg-[#f8f5ee] border rounded-xl px-3 py-3 text-sm"/><div className="flex gap-2 pt-2"><button type="button" onClick={()=>setShowJoin(false)} className="flex-1 bg-[#f8f5ee] py-3 rounded-full font-bold text-sm">Cancel</button><button className="flex-1 bg-[#1a3a2f] text-white py-3 rounded-full font-bold text-sm">Join</button></div></form></div></div>}
 
-      {/* DM DRAWER */}
       {showDM && (
         <div className="fixed inset-0 z-[60] flex justify-end">
           <div className="absolute inset-0 bg-black/30" onClick={()=>setShowDM(false)}></div>
           <div className="relative w-full sm:w-[400px] bg-white h-full flex flex-col shadow-2xl">
-            <div className="p-4 border-b flex justify-between items-center bg-[#1a3a2f] text-white">
-              <b>💬 Messages</b>
-              <button onClick={()=>setShowDM(false)} className="opacity-70 hover:opacity-100">✕</button>
-            </div>
-            
+            <div className="p-4 border-b flex justify-between items-center bg-[#1a3a2f] text-white"><b>💬 Messages</b><button onClick={()=>setShowDM(false)} className="opacity-70 hover:opacity-100">✕</button></div>
             {!activeThread ? (
-              <div className="flex-1 overflow-y-auto">
-                <p className="p-4 text-xs font-bold opacity-40">YOUR CONVERSATIONS</p>
-                {threads.length===0 && <p className="p-4 text-sm opacity-60">No DMs yet. Click "DM" on any post to start chatting with a neighbor!</p>}
-                {threads.map((t:any)=>(
-                  <button key={t.id} onClick={()=>openThread(t)} className="w-full text-left p-4 border-b hover:bg-[#f8f5ee] flex justify-between items-center">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-bold text-sm truncate">{getOtherName(t)}</p>
-                      <p className="text-xs opacity-60 truncate">{t.last_message}</p>
-                    </div>
-                    <span className="text-[10px] opacity-40 shrink-0 ml-2">{new Date(t.last_message_at).toLocaleDateString()}</span>
-                  </button>
-                ))}
-                <div className="p-4"><button onClick={()=>setActiveThread(null)} className="text-xs opacity-60">Tip: Click a neighbor's name on any post to start a new DM</button></div>
-              </div>
+              <div className="flex-1 overflow-y-auto"><p className="p-4 text-xs font-bold opacity-40">YOUR CONVERSATIONS</p>{threads.length===0 && <p className="p-4 text-sm opacity-60">No DMs yet. Click "DM" on any post to start!</p>}{threads.map((t:any)=>(<button key={t.id} onClick={()=>openThread(t)} className="w-full text-left p-4 border-b hover:bg-[#f8f5ee] flex justify-between items-center"><div className="min-w-0 flex-1"><p className="font-bold text-sm truncate">{t.user_a===profile?.full_name ? t.user_b : t.user_a}</p><p className="text-xs opacity-60 truncate">{t.last_message}</p></div><span className="text-[10px] opacity-40 shrink-0 ml-2">{new Date(t.last_message_at).toLocaleDateString()}</span></button>))}</div>
             ) : (
               <div className="flex-1 flex flex-col min-h-0">
-                <div className="p-3 border-b flex items-center gap-2">
-                  <button onClick={()=>setActiveThread(null)} className="text-sm font-bold">← Back</button>
-                  <b className="text-sm truncate">{getOtherName(activeThread)}</b>
-                </div>
+                <div className="p-3 border-b flex items-center gap-2"><button onClick={()=>setActiveThread(null)} className="text-sm font-bold">← Back</button><b className="text-sm truncate">{activeThread.user_a===profile?.full_name ? activeThread.user_b : activeThread.user_a}</b></div>
                 <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#f8f5ee]">
-                  {dmMessages.map((m:any)=>{
-                    const isMe = m.sender_name===profile?.full_name;
-                    return (<div key={m.id} className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm break-words ${isMe?'bg-[#1a3a2f] text-white ml-auto rounded-br-sm':'bg-white border mr-auto rounded-bl-sm'}`}>
-                      <p>{m.body}</p><p className={`text-[9px] mt-1 ${isMe?'opacity-60':'opacity-40'}`}>{new Date(m.created_at).toLocaleTimeString()}</p>
-                    </div>);
-                  })}
+                  {dmMessages.map((m:any)=>{ const isMe = m.sender_name===profile?.full_name; return (<div key={m.id} className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm break-words ${isMe?'bg-[#1a3a2f] text-white ml-auto rounded-br-sm':'bg-white border mr-auto rounded-bl-sm'}`}><p>{m.body}</p><p className={`text-[9px] mt-1 ${isMe?'opacity-60':'opacity-40'}`}>{new Date(m.created_at).toLocaleTimeString()}</p></div>); })}
                   <div ref={dmBottomRef}></div>
                 </div>
                 <div className="p-3 border-t flex gap-2">
-                  <input value={dmInput} onChange={e=>setDmInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter') sendDM();}} placeholder={`Message ${getOtherName(activeThread)}...`} className="flex-1 bg-[#f8f5ee] rounded-full px-4 py-3 text-sm outline-none min-w-0" />
+                  <input ref={dmInputRef} value={dmInput} onChange={e=>setDmInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter') sendDM();}} placeholder={`Message...`} className="flex-1 bg-[#f8f5ee] rounded-full px-4 py-3 text-sm outline-none min-w-0" autoFocus inputMode="text" />
                   <button onClick={sendDM} className="bg-[#1a3a2f] text-white px-5 py-3 rounded-full text-sm font-bold shrink-0">Send</button>
                 </div>
               </div>
