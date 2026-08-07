@@ -9,7 +9,6 @@ const supabase = createClient(
 
 const CATS = ['All','General','For Sale & Free','Safety Alert','Recommendation','Event','Lost & Found'];
 
-// compress image in browser to save your free storage
 async function compressImage(file: File): Promise<File> {
   const img = document.createElement('img');
   const canvas = document.createElement('canvas');
@@ -32,6 +31,9 @@ async function compressImage(file: File): Promise<File> {
 export default function Page(){
   const [hoods,setHoods]=useState<any[]>([]);
   const [posts,setPosts]=useState<any[]>([]);
+  const [comments,setComments]=useState<any>({});
+  const [openComments,setOpenComments]=useState<any>({});
+  const [commentText,setCommentText]=useState<any>({});
   const [hood,setHood]=useState('parkwood-hills');
   const [cat,setCat]=useState('All');
   const [body,setBody]=useState('');
@@ -41,11 +43,20 @@ export default function Page(){
   const [file,setFile]=useState<File|null>(null);
   const [uploading,setUploading]=useState(false);
 
+  const loadComments = async (postIds:string[]) => {
+    if(!postIds.length) return;
+    const {data} = await supabase.from('comments').select('*').in('post_id', postIds).order('created_at',{ascending:true});
+    if(!data) return;
+    const grouped:any = {};
+    data.forEach(c=>{ if(!grouped[c.post_id]) grouped[c.post_id]=[]; grouped[c.post_id].push(c); });
+    setComments((prev:any)=>({...prev,...grouped}));
+  };
+
   useEffect(()=>{ (async()=>{
     const {data:h}=await supabase.from('neighborhoods').select('*').order('member_count',{ascending:false});
     if(h) setHoods(h);
     const {data:p}=await supabase.from('posts').select('*,profiles(full_name)').order('created_at',{ascending:false}).limit(50);
-    if(p) setPosts(p);
+    if(p){ setPosts(p); loadComments(p.map((x:any)=>x.id)); }
     const s=typeof window!=='undefined'? localStorage.getItem('nkc_profile') : null;
     if(s) setProfile(JSON.parse(s));
   })() },[]);
@@ -56,11 +67,7 @@ export default function Page(){
   const handlePost = async () => {
     if(!profile) return setShowJoin(true);
     if(!body.trim() &&!file) return;
-    if(file){
-      if(!file.type.startsWith('image/')){ alert('Images only!'); return; }
-      if(file.size > 3*1024*1024){ alert('Max 3MB please - your file is '+(file.size/1024/1024).toFixed(1)+'MB'); return; }
-    }
-
+    if(file && file.size > 3*1024*1024){ alert('Max 3MB!'); return; }
     setUploading(true);
     try{
       let image_url: string | null = null;
@@ -72,23 +79,23 @@ export default function Page(){
         const {data} = supabase.storage.from('post-images').getPublicUrl(path);
         image_url = data.publicUrl;
       }
-
       const realId = hoods.find((x:any)=>x.slug===hood)?.id || cur?.id;
-      const { data, error } = await supabase.from('posts').insert({
-        body: body,
-        category: cat==='All'? 'General' : cat,
-        neighborhood_id: realId,
-        image_url,
-      }).select().single();
-
+      const { data, error } = await supabase.from('posts').insert({ body, category: cat==='All'? 'General' : cat, neighborhood_id: realId, image_url }).select().single();
       if(error) throw error;
       const newPost = {...data, profiles: { full_name: profile.full_name } };
       setPosts([newPost,...posts]);
-      setBody(''); setFile(null);
-      (document.getElementById('file-input') as any).value='';
-    } catch(e:any){
-      alert('Could not save: '+(e.message||e));
-    } finally{ setUploading(false); }
+      setBody(''); setFile(null); (document.getElementById('file-input') as any).value='';
+    } catch(e:any){ alert('Could not save: '+(e.message||e)); } finally{ setUploading(false); }
+  };
+
+  const addComment = async (postId:string) => {
+    if(!profile) return setShowJoin(true);
+    const text = commentText[postId]?.trim();
+    if(!text) return;
+    const {data, error} = await supabase.from('comments').insert({ post_id: postId, content: text, author_name: profile.full_name }).select().single();
+    if(error) return alert(error.message);
+    setComments((prev:any)=> ({...prev, [postId]: [...(prev[postId]||[]), data]}));
+    setCommentText((prev:any)=>({...prev,[postId]:''}));
   };
 
   return (
@@ -104,15 +111,36 @@ export default function Page(){
         <main className="space-y-3">
           <div className="bg-white rounded-2xl p-4 border">
             <textarea value={body} onChange={e=>setBody(e.target.value)} placeholder={profile?`What's up in ${cur?.name}?`:'Join Parkwood Hills to post...'} className="w-full bg-[#f8f5ee] rounded-xl p-3 min-h- text-sm outline-none" />
-            <div className="flex items-center gap-2 mt-3">
-              <input id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="text-xs" />
-              {file && <span className="text-xs opacity-60">{(file.size/1024).toFixed(0)}KB - will be compressed</span>}
-            </div>
-            <div className="flex justify-end mt-2"><button disabled={uploading} onClick={handlePost} className="bg-[#1a3a2f] text-white px-5 py-2 rounded-full text-sm font-bold disabled:opacity-50">{uploading?'Uploading...':'Post to neighbors 📷'}</button></div>
-            <p className="text- opacity-40 mt-2">Free hosting: 3MB max, jpg/png/webp only, auto-compressed to ~400KB to save your 1GB free tier</p>
+            <div className="flex items-center gap-2 mt-3"><input id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="text-xs" />{file && <span className="text-xs opacity-60">{(file.size/1024).toFixed(0)}KB</span>}</div>
+            <div className="flex justify-end mt-2"><button disabled={uploading} onClick={handlePost} className="bg-[#1a3a2f] text-white px-5 py-2 rounded-full text-sm font-bold disabled:opacity-50">{uploading?'Uploading...':'Post to neighbors'}</button></div>
           </div>
 
-          {filtered.map((p:any)=><div key={p.id} className="bg-white rounded-2xl p-4 border"><p className="text-xs font-bold opacity-60">{p.profiles?.full_name||'Neighbor'} · {p.category}</p><p className="mt-1 whitespace-pre-wrap">{p.body || p.content}</p>{p.image_url && <img src={p.image_url} alt="post" className="mt-3 rounded-xl max-h- w-full object-cover border" />}<p className="text-xs opacity-40 mt-2">{new Date(p.created_at).toLocaleString()}</p></div>)}
+          {filtered.map((p:any)=>{
+            const cList = comments[p.id]||[];
+            const isOpen = openComments[p.id];
+            return (
+            <div key={p.id} className="bg-white rounded-2xl p-4 border">
+              <p className="text-xs font-bold opacity-60">{p.profiles?.full_name||'Neighbor'} · {p.category}</p>
+              <p className="mt-1 whitespace-pre-wrap">{p.body || p.content}</p>
+              {p.image_url && <img src={p.image_url} alt="post" className="mt-3 rounded-xl max-h- w-full object-cover border" />}
+              <p className="text-xs opacity-40 mt-2">{new Date(p.created_at).toLocaleString()}</p>
+
+              <div className="mt-3 pt-3 border-t flex gap-4">
+                <button onClick={()=>setOpenComments((prev:any)=>({...prev,[p.id]:!prev[p.id]}))} className="text-xs font-bold hover:underline">💬 {cList.length} Comment{cList.length!==1?'s':''} {isOpen?'▲':'▼'}</button>
+              </div>
+
+              {isOpen && (
+                <div className="mt-3 bg-[#f8f5ee] rounded-xl p-3 space-y-2">
+                  {cList.map((c:any)=><div key={c.id} className="text-sm"><b className="text-xs">{c.author_name}:</b> {c.content} <span className="text- opacity-40 ml-2">{new Date(c.created_at).toLocaleTimeString()}</span></div>)}
+                  {cList.length===0 && <p className="text-xs opacity-50">Be first to comment</p>}
+                  <div className="flex gap-2 pt-2">
+                    <input value={commentText[p.id]||''} onChange={e=>setCommentText((prev:any)=>({...prev,[p.id]:e.target.value}))} placeholder={profile?'Add a comment...':'Join to comment'} className="flex-1 bg-white border rounded-full px-3 py-2 text-sm outline-none" />
+                    <button onClick={()=>addComment(p.id)} className="bg-[#1a3a2f] text-white px-4 py-2 rounded-full text-xs font-bold">Reply</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )})}
         </main>
 
         <aside className="bg-white rounded-2xl p-5 border h-fit"><h3 className="font-black">{cur?.name}</h3><p className="text-xs opacity-60">{cur?.zip} · Kansas City, MO</p><div className="grid grid-cols-2 gap-2 mt-4"><div className="bg-[#f8f5ee] rounded-xl p-3 text-center"><b className="text-lg">{cur?.member_count}</b><p className="text-xs">NEIGHBORS</p></div><div className="bg-[#f8f5ee] rounded-xl p-3 text-center"><b className="text-lg">{posts.length}</b><p className="text-xs">POSTS</p></div></div></aside>
