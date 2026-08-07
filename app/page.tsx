@@ -28,7 +28,7 @@ export default function Page(){
     if(s) setProfile(JSON.parse(s));
   })() },[]);
 
-  const cur = hoods.find((x:any)=>x.slug===hood) || hoods[0];
+  const cur = hoods.find((x:any)=>x.slug===hood) || hoods[0] || {name:'Parkwood Hills', zip:'64155', id:'parkwood-hills', member_count: 247, slug:'parkwood-hills'};
   const filtered = cat==='All'? posts : posts.filter((p:any)=>p.category===cat);
 
   return (
