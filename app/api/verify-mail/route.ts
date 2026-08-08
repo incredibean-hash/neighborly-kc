@@ -7,9 +7,7 @@ export async function POST(req: NextRequest) {
     const file = form.get('file') as File | null;
     if (!file) return NextResponse.json({ success: false, error: 'No file' }, { status: 400 });
     const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ success: true, street: '', zip: '', city: '', full_address: 'Mail uploaded', address: '' });
-    }
+    if (!apiKey) return NextResponse.json({ success: true, street: '', zip: '', city: '', full_address: 'Mail uploaded', address: '' });
     const bytes = await file.arrayBuffer();
     const base64 = Buffer.from(bytes).toString('base64');
     const dataUrl = `data:${file.type};base64,${base64}`;
@@ -18,7 +16,7 @@ export async function POST(req: NextRequest) {
       headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: [{ type: 'text', text: `Extract mailing address from image. Return JSON: {"street":"...","city":"...","zip":"...","full_address":"..."}` }, { type: 'image_url', image_url: { url: dataUrl } }] }],
+        messages: [{ role: 'user', content: [{ type: 'text', text: `Extract mailing address. Return JSON: {"street":"...","city":"...","zip":"...","full_address":"..."}` }, { type: 'image_url', image_url: { url: dataUrl } }] }],
         max_tokens: 200
       })
     });
