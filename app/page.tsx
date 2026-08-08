@@ -123,15 +123,27 @@ export default function Page(){
     const {data:p}=await supabase.from('posts').select('*,profiles(full_name)').order('created_at',{ascending:false}).limit(80);
     if(p){ setPosts(p); loadAll(p.map((x:any)=>x.id)); }
     const s=typeof window!=='undefined'? localStorage.getItem('nkc_profile_tiered_40') || localStorage.getItem('nkc_profile_tiered') || localStorage.getItem('nkc_profile') : null;
-    if(s){ try{ const pr=JSON.parse(s); setProfile(pr); setRadius(pr.max_radius===40?'40':pr.max_radius===25?'25':'5'); if(pr.street_address) setAddr(pr.street_address); if(pr.zip) setZip(pr.zip); }catch{} }
+    let loadedProfile:any=null;
+    if(s){ try{ const pr=JSON.parse(s); loadedProfile=pr; setProfile(pr); setRadius(pr.max_radius===40?'40':pr.max_radius===25?'25':'5'); if(pr.street_address) setAddr(pr.street_address); if(pr.zip) setZip(pr.zip); }catch{} }
     if(typeof window!=='undefined' && 'Notification' in window && Notification.permission==='granted') setNotifOn(true);
-    // Check secure vault - if user verified before, auto-mark verified
+    // AUTO-UPGRADE: if user has verification vault but profile is still 5mi, upgrade them to 40mi automatically
     try{
       const vaultRaw=localStorage.getItem('nkc_verification_vault');
       if(vaultRaw){
         const vault=JSON.parse(vaultRaw);
         const keys=Object.keys(vault);
-        if(keys.length>0){ setAiVerified(true); }
+        if(keys.length>0){ 
+          setAiVerified(true); 
+          // If profile exists and is not yet 40mi, auto-upgrade
+          if(loadedProfile && (loadedProfile.max_radius||5) < 40){
+            const upgraded={...loadedProfile, max_radius:40, verification_method:'ai_mail_photo', ai_verified:true };
+            localStorage.setItem('nkc_profile_tiered_40', JSON.stringify(upgraded));
+            localStorage.setItem('nkc_profile', JSON.stringify(upgraded));
+            setProfile(upgraded);
+            setRadius('40');
+            console.log('Auto-upgraded to 40mi from vault');
+          }
+        }
       }
     }catch{}
   })() },[]);
@@ -373,7 +385,7 @@ export default function Page(){
                 </select>
                 {isMailVerified ? (
                   <div className="border-2 border-green-300 bg-green-50 rounded-full px-3 py-2 text-xs font-black flex items-center gap-1">
-                    ✓ {maxRadius} Mile • KC Metro Unlocked 🤖 <span className="text-[10px] opacity-60">• {profile?.zip}</span>
+                    ✓ {maxRadius} Mile • KC Metro Unlocked 🤖 <span className="text-[10px] opacity-60">• {profile?.zip} • Auto-40mi</span>
                   </div>
                 ) : (
                   <select value={radius} onChange={e=>{
