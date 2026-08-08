@@ -660,6 +660,22 @@ export default function Page(){
           </div>
         </div>
       )}
+      {showIosInstallGuide && (
+        <div className="fixed inset-0 bg-black/60 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={()=>setShowIosInstallGuide(false)}>
+          <div className="bg-white rounded-t-[24px] sm:rounded-[24px] w-full max-w-[380px] p-6 pb-8 sm:pb-6 shadow-2xl" onClick={e=>e.stopPropagation()}>
+            <div className="w-10 h-1 bg-black/20 rounded-full mx-auto mb-4 sm:hidden"></div>
+            <h3 className="font-black text-lg text-center">Add to Home Screen</h3>
+            <p className="text-xs text-center opacity-60 mt-1">Installs as <b>Neighborly KC</b> — 3 taps, no App Store</p>
+            <div className="mt-6 space-y-3">
+              <div className="flex items-center gap-3 bg-[#f8f5ee] rounded-xl p-3"><div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center font-black text-sm">1</div><div className="flex-1"><p className="font-bold text-sm">Tap Share button</p><p className="text-[11px] opacity-60">Bottom of Safari — square with arrow up ⬆️</p></div></div>
+              <div className="flex items-center gap-3 bg-[#f8f5ee] rounded-xl p-3"><div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center font-black text-sm">2</div><div className="flex-1"><p className="font-bold text-sm">Tap "Add to Home Screen"</p><p className="text-[11px] opacity-60">Scroll down in share menu if needed</p></div></div>
+              <div className="flex items-center gap-3 bg-[#1a3a2f] text-white rounded-xl p-3"><div className="w-8 h-8 bg-white text-[#1a3a2f] rounded-full flex items-center justify-center font-black text-sm">3</div><div className="flex-1"><p className="font-bold text-sm">Tap Add → Done!</p><p className="text-[11px] opacity-70">Saves as Neighborly KC on home screen</p></div></div>
+            </div>
+            <div className="mt-6 flex gap-2"><button onClick={()=>setShowIosInstallGuide(false)} className="flex-1 bg-[#f8f5ee] py-3 rounded-full font-bold text-sm">Got it</button><button onClick={()=>{ setShowIosInstallGuide(false); setShowInstallBanner(false); localStorage.setItem('nkc_install_dismissed', Date.now().toString()); }} className="flex-1 bg-black text-white py-3 rounded-full font-bold text-sm">Don't show again</button></div>
+            <p className="text-[10px] opacity-40 text-center mt-3">Apple blocks auto-install — this is the direct Apple method</p>
+          </div>
+        </div>
+      )}
       {dmSentToast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-black text-white px-5 py-2.5 rounded-full text-sm font-bold z-[200] shadow-xl">
           {dmSentToast}
