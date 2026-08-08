@@ -79,6 +79,7 @@ export default function Page(){
   const [aiParsedAddress,setAiParsedAddress]=useState<{street?:string, zip?:string, city?:string}>({});
   const [deferredPrompt,setDeferredPrompt]=useState<any>(null);
   const [showInstall,setShowInstall]=useState(false);
+  const [showInstallBanner,setShowInstallBanner]=useState(false);
   const [dmUnseen,setDmUnseen]=useState(0);
 
   useEffect(()=>{
@@ -93,9 +94,12 @@ export default function Page(){
     }
     const isStandalone= (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || (window.navigator as any).standalone;
     if(isStandalone) return;
-    const handler=(e:any)=>{ e.preventDefault(); setDeferredPrompt(e); setShowInstall(true); };
+    const handler=(e:any)=>{ e.preventDefault(); setDeferredPrompt(e); setShowInstall(true); setShowInstallBanner(true); };
     window.addEventListener('beforeinstallprompt', handler);
-    const t=setTimeout(()=>setShowInstall(true), 800);
+    const t=setTimeout(()=>{ setShowInstall(true); setShowInstallBanner(true); }, 800);
+    // Don't show if dismissed recently
+    const dismissed = localStorage.getItem('nkc_install_dismissed');
+    if(dismissed && Date.now() - parseInt(dismissed) < 24*60*60*1000) { setShowInstallBanner(false); }
     return()=>{ window.removeEventListener('beforeinstallprompt', handler); clearTimeout(t); };
   },[]);
 
@@ -392,14 +396,27 @@ export default function Page(){
 
   return (
     <div className="min-h-screen bg-[#f8f5ee] overflow-x-hidden">
-      <header className="bg-white border-b sticky top-0 z-30 w-full">
+      {showInstallBanner && false && (
+        <div className="bg-[#1a3a2f] text-white w-full px-3 sm:px-6 py-2.5 flex items-center justify-between gap-3 sticky top-0 z-[60] text-xs sm:text-sm">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-base">📲</span>
+            <span className="font-bold truncate">Install Neighborly KC — Add to Home Screen for quick access</span>
+            <span className="hidden sm:inline opacity-70 text-[11px] ml-2">Saves as Neighborly KC</span>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button onClick={handleInstall} className="bg-white text-[#1a3a2f] px-4 py-1.5 rounded-full font-black text-xs hover:bg-[#f8f5ee]">Install</button>
+            <button onClick={()=>{ setShowInstallBanner(false); localStorage.setItem('nkc_install_dismissed', Date.now().toString()); }} className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20">✕</button>
+          </div>
+        </div>
+      )}
+      <header className="bg-white border-b sticky top-0 z-30 w-full" style={{top: showInstallBanner && showInstall ? '44px' : '0'}}>
         <div className="w-full px-3 sm:px-6 py-3 flex justify-between items-center gap-2 max-w-[1600px] mx-auto">
           <h1 className="font-black text-[18px] sm:text-xl leading-tight flex-shrink">
             Neighborly KC <span className="font-bold text-[#0f2b1f] whitespace-nowrap">- Meadowbrook</span>
             <span className="font-normal text-gray-500 text-[11px] sm:text-sm ml-2 hidden sm:inline">{maxRadius} Mile • {isMailVerified?'AI Verified 🤖':'Zip Verified'} • {profile?.zip||'64155'} ✓ {profile?.is_founder && '👑'}</span>
           </h1>
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-            {showInstall && <button onClick={handleInstall} className="px-3 py-2 rounded-full bg-[#1a3a2f] text-white font-black text-[11px] sm:text-xs animate-pulse">📲 Add to Device</button>}
+            
             <Link href="/dms" onClick={()=>{ if(profile) localStorage.setItem('nkc_dms_last_seen_'+profile.full_name, new Date().toISOString()); setDmUnseen(0); }} className="relative w-9 h-9 sm:w-auto sm:px-3 sm:py-2 rounded-full text-base flex items-center justify-center border-2 bg-white hover:bg-black hover:text-white transition-colors font-bold text-xs">
               💬 DMs
               {dmUnseen>0 && <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black animate-pulse">{dmUnseen>9?'9+':dmUnseen}</span>}
