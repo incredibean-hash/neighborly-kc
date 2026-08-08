@@ -21,13 +21,6 @@ export async function POST(req: NextRequest){
         body: `Security alert`
       } as any);
     }catch{}
-    try{
-      await supabase.from('address_attempts').insert({
-        street, zip, full_address: full, existing_owner: existingOwner, requester, attempted_at: new Date().toISOString(), blocked: true
-      } as any);
-    }catch{}
     return NextResponse.json({ success:true, alerted:true });
-  }catch(e:any){
-    return NextResponse.json({ success:true });
-  }
+  }catch{ return NextResponse.json({ success:true }); }
 }
