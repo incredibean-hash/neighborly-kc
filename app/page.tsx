@@ -18,24 +18,39 @@ const KC_ZIPS_5MI = ['64155','64156','64119','64158','64068','64030'];
 const KC_ZIPS_40MI = ['64155','64156','64119','64116','64117','64118','64112','64113','64114','64110','64111','64068','64030','64090','64132','64133','64151','64152','64153','64154','64158','64157','64089','64012','64014','64015','64016','64024','64048','64052','64055','64056','64064','64081','64082','64101','64102','64105','64106','64108','64109','64120','64121','64124','64126','64127','64128','64130','64131','64145','64146','66201','66202','66203','66204','66205','66206','66207','66208','66209','66210','66211','66212','66213','66214','66215','66216','66217','66218','66219','66220','66221','66223','66224','66225','66226','66227','66002','66006','66012','66018','66030','66062','66063','64014','64015','64029','64050','64063','64070','64081'];
 
 
-// Content moderation safeguards
-const BANNED_WORDS = ['porn','xxx','nude','naked','sex tape','escort','onlyfans'];
+// Content moderation safeguards - MY CODE ONLY, no third-party APIs
+const BANNED_WORDS = ['porn','xxx','nude','naked','sex tape','escort','onlyfans','nsfw','hentai'];
+const BANNED_EXTENSIONS = ['exe','bat','sh'];
 function containsBannedWords(text:string){
   const lower=text.toLowerCase();
   return BANNED_WORDS.some(w=> lower.includes(w));
 }
 async function moderateImage(file:File): Promise<{safe:boolean, reason?:string}>{
+  // My code only - no external APIs
+  // 1. Size check
   if(file.size > 8*1024*1024) return {safe:false, reason:'File too large (max 8MB)'};
+  if(file.size < 1024) return {safe:false, reason:'File too small, possibly corrupted'};
+  // 2. Type check - only images
+  const allowedTypes = ['image/jpeg','image/png','image/webp','image/gif','image/jpg'];
+  if(!allowedTypes.includes(file.type)) return {safe:false, reason:'Only JPG, PNG, WEBP, GIF allowed'};
+  // 3. Extension check
+  const ext = file.name.split('.').pop()?.toLowerCase() || '';
+  if(BANNED_EXTENSIONS.includes(ext)) return {safe:false, reason:'File type not allowed'};
+  // 4. Filename check for banned words
+  if(containsBannedWords(file.name)) return {safe:false, reason:'Filename contains inappropriate content'};
+  // 5. Basic image validation - try to load it
   try{
-    const form=new FormData();
-    form.append('file', file);
-    const res=await fetch('/api/moderate-image',{method:'POST', body:form});
-    if(res.ok){
-      const j=await res.json();
-      if(j.safe===false) return {safe:false, reason:j.reason||'Image flagged as inappropriate'};
-      return {safe:true};
-    }
-  }catch{}
+    const img = document.createElement('img');
+    const url = URL.createObjectURL(file);
+    await new Promise<void>((res, rej)=>{
+      img.onload = ()=>{ URL.revokeObjectURL(url); res(); };
+      img.onerror = ()=>{ URL.revokeObjectURL(url); rej(); };
+      img.src = url;
+    });
+  }catch{
+    return {safe:false, reason:'Invalid image file'};
+  }
+  // Passes all my local checks
   return {safe:true};
 }
 
@@ -101,6 +116,7 @@ export default function Page(){
   const [aiParsedAddress,setAiParsedAddress]=useState<{street?:string, zip?:string, city?:string}>({});
   const [deferredPrompt,setDeferredPrompt]=useState<any>(null);
   const [showInstall,setShowInstall]=useState(false);
+  const [showInstallBanner,setShowInstallBanner]=useState(true);
   const [dmUnseen,setDmUnseen]=useState(0);
   const markDMsAsRead = ()=>{ if(profile?.full_name){ localStorage.setItem('nkc_dms_last_seen_'+profile.full_name, new Date().toISOString()); setDmUnseen(0); } };
 
@@ -113,6 +129,8 @@ export default function Page(){
       let m2=document.querySelector('meta[name="application-name"]');
       if(!m2){ m2=document.createElement('meta'); (m2 as any).name='application-name'; document.head.appendChild(m2); }
       (m2 as any).content='Neighborly KC';
+      const dismissed=localStorage.getItem('nkc_install_dismissed');
+      if(dismissed && Date.now() - parseInt(dismissed) < 24*60*60*1000) setShowInstallBanner(false);
     }
     const isStandalone= (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || (window.navigator as any).standalone;
     if(isStandalone) return;
@@ -415,6 +433,19 @@ export default function Page(){
 
   return (
     <div className="min-h-screen bg-[#f8f5ee] overflow-x-hidden">
+      {showInstall && showInstallBanner && (
+        <div className="bg-[#1a3a2f] text-white w-full px-3 sm:px-6 py-2.5 flex items-center justify-between gap-3 relative z-40 border-b border-white/10 text-xs sm:text-sm">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <span className="text-base flex-shrink-0">📲</span>
+            <span className="font-bold truncate">Install Neighborly KC — Add to Home Screen</span>
+            <span className="hidden md:inline opacity-60 text-[11px] ml-2">Saves as Neighborly KC</span>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button onClick={handleInstall} className="bg-white text-[#1a3a2f] px-4 py-1.5 rounded-full font-black text-xs hover:bg-[#f8f5ee]">Install</button>
+            <button onClick={()=>{ setShowInstallBanner(false); localStorage.setItem('nkc_install_dismissed', Date.now().toString()); }} className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center">✕</button>
+          </div>
+        </div>
+      )}
       <header className="bg-white border-b sticky top-0 z-30 w-full">
         <div className="w-full px-3 sm:px-6 py-3 flex justify-between items-center gap-2 max-w-[1600px] mx-auto">
           <h1 className="font-black text-[18px] sm:text-xl leading-tight flex-shrink">
@@ -422,7 +453,6 @@ export default function Page(){
             <span className="font-normal text-gray-500 text-[11px] sm:text-sm ml-2 hidden sm:inline">{maxRadius} Mile • {isMailVerified?'AI Verified 🤖':'Zip Verified'} • {profile?.zip||'64155'} ✓ {profile?.is_founder && '👑'}</span>
           </h1>
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-            {showInstall && <button onClick={handleInstall} className="px-3 py-2 rounded-full bg-[#1a3a2f] text-white font-black text-[11px] sm:text-xs animate-pulse">📲 Add to Device</button>}
             <Link href="/dms" onClick={()=>markDMsAsRead()} className="relative w-9 h-9 sm:w-auto sm:px-3 sm:py-2 rounded-full text-base flex items-center justify-center border-2 bg-white hover:bg-black hover:text-white transition-colors font-bold text-xs">
               💬 DMs
               {dmUnseen>0 && <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black animate-pulse">{dmUnseen>9?'9+':dmUnseen}</span>}
