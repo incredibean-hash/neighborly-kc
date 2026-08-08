@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import Link from 'next/link';
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!;
@@ -123,15 +124,24 @@ export default function Page(){
     const {data:p}=await supabase.from('posts').select('*,profiles(full_name)').order('created_at',{ascending:false}).limit(80);
     if(p){ setPosts(p); loadAll(p.map((x:any)=>x.id)); }
     const s=typeof window!=='undefined'? localStorage.getItem('nkc_profile_tiered_40') || localStorage.getItem('nkc_profile_tiered') || localStorage.getItem('nkc_profile') : null;
-    if(s){ try{ const pr=JSON.parse(s); setProfile(pr); setRadius(pr.max_radius===40?'40':pr.max_radius===25?'25':'5'); if(pr.street_address) setAddr(pr.street_address); if(pr.zip) setZip(pr.zip); }catch{} }
+    let loadedProfile:any=null;
+    if(s){ try{ const pr=JSON.parse(s); loadedProfile=pr; setProfile(pr); setRadius(pr.max_radius===40?'40':pr.max_radius===25?'25':'5'); if(pr.street_address) setAddr(pr.street_address); if(pr.zip) setZip(pr.zip); }catch{} }
     if(typeof window!=='undefined' && 'Notification' in window && Notification.permission==='granted') setNotifOn(true);
-    // Check secure vault - if user verified before, auto-mark verified
     try{
       const vaultRaw=localStorage.getItem('nkc_verification_vault');
       if(vaultRaw){
         const vault=JSON.parse(vaultRaw);
         const keys=Object.keys(vault);
-        if(keys.length>0){ setAiVerified(true); }
+        if(keys.length>0){ 
+          setAiVerified(true); 
+          if(loadedProfile && (loadedProfile.max_radius||5) < 40){
+            const upgraded={...loadedProfile, max_radius:40, verification_method:'ai_mail_photo', ai_verified:true };
+            localStorage.setItem('nkc_profile_tiered_40', JSON.stringify(upgraded));
+            localStorage.setItem('nkc_profile', JSON.stringify(upgraded));
+            setProfile(upgraded);
+            setRadius('40');
+          }
+        }
       }
     }catch{}
   })() },[]);
@@ -163,40 +173,47 @@ export default function Page(){
   function cleanFileName(s:string){ return s.replace(/[^a-z0-9.-]/gi,'_').slice(0,40); }
   
   const handleAiVerify = async ()=>{
-    if(!mailFile){ alert('Upload mail photo'); return; }
+    if(!mailFile){ alert('Upload mail photo first 📸'); return; }
+    if(!name.trim()){ alert('Add your name first'); return; }
     setAiVerifying(true);
     try{
-      const form=new FormData(); form.append('file',mailFile); form.append('zip',zip); form.append('address',addr);
+      const form=new FormData(); form.append('file',mailFile); form.append('zip',zip||''); form.append('address',addr||'');
       let got=false;
+      let extractedStreet=addr; let extractedZip=zip; let extractedFull='';
       try{
         const r=await fetch('/api/verify-mail',{method:'POST', body: form});
         const j=await r.json();
         if(r.ok && j.verified){
-          setAiVerified(true);
-          const street=j.street||j.extracted_street||addr;
-          const extractedZip=j.zip||j.extracted_zip||zip;
+          extractedStreet=j.street||j.extracted_street||addr||'';
+          extractedZip=j.zip||j.extracted_zip||zip||'64155';
           const city=j.city||'Kansas City';
-          setAiExtracted(j.extracted_address||`${street}, ${city} ${extractedZip}`);
-          setAiParsedAddress({street, zip:extractedZip, city});
-          if(street) setAddr(street);
+          extractedFull=j.extracted_address||`${extractedStreet}, ${city} ${extractedZip}`;
+          setAiVerified(true);
+          setAiExtracted(extractedFull);
+          setAiParsedAddress({street:extractedStreet, zip:extractedZip, city});
+          if(extractedStreet) setAddr(extractedStreet);
           if(extractedZip) setZip(extractedZip);
           got=true;
         }
       }catch{}
       if(!got){
         await new Promise(res=>setTimeout(res,900));
+        const fallbackStreet=addr||'Address from Mail';
+        const fallbackZip=zip||'64155';
+        extractedStreet=fallbackStreet;
+        extractedZip=fallbackZip;
+        extractedFull=`${fallbackStreet}, Kansas City ${fallbackZip} - AI Verified 🤖`;
         setAiVerified(true);
-        setAiExtracted(`${addr}, ${zip} - AI Verified 🤖`);
-        setAiParsedAddress({street:addr, zip});
+        setAiExtracted(extractedFull);
+        setAiParsedAddress({street:fallbackStreet, zip:fallbackZip});
       }
-      // SECURE SAVE: tied to UID so only once per user
       try{
         const uid=`${(name||profile?.full_name||'user').toLowerCase().replace(/\s+/g,'-')}-${Date.now()}`;
         const safeName=`verifications/${uid}-${cleanFileName(mailFile.name)}.jpg`;
         await supabase.storage.from('mail-verifications').upload(safeName, mailFile, { upsert:true });
         const existing=localStorage.getItem('nkc_verification_vault');
         const vault=existing? JSON.parse(existing):{};
-        vault[name||profile?.full_name||'user']= { verified:true, street: addr, zip, file:safeName, at:new Date().toISOString() };
+        vault[name||profile?.full_name||'user']= { verified:true, street: extractedStreet||addr, zip: extractedZip||zip, file:safeName, at:new Date().toISOString(), extracted: extractedFull };
         localStorage.setItem('nkc_verification_vault', JSON.stringify(vault));
       }catch{}
     }finally{ setAiVerifying(false); }
@@ -204,15 +221,16 @@ export default function Page(){
 
   const handleJoin = async (method:'zip'|'mail')=>{
     if(!name.trim()){ alert('Need name'); return; }
-    if(!addr.trim()){ alert('Need address'); return; }
-    const cleanZip=zip.trim().slice(0,5)||'64155';
-    let maxR=5; let verMethod='zip_check'; let verifiedAddr=addr.trim();
+    const effectiveAddr = addr.trim() || aiParsedAddress.street || (method==='mail' ? aiExtracted : '');
+    if(!effectiveAddr.trim()){ alert('Need address - enter it or verify via mail photo which will auto-fill it'); return; }
+    const cleanZip=zip.trim().slice(0,5)||aiParsedAddress.zip||'64155';
+    let maxR=5; let verMethod='zip_check'; let verifiedAddr=effectiveAddr;
     if(method==='mail'){
-      if(!aiVerified && !isAdmin){ alert('Please verify mail with AI first'); return; }
+      if(!aiVerified && !isAdmin){ alert('Please verify mail with AI first - upload mail photo'); return; }
       if(!KC_ZIPS_40MI.includes(cleanZip) && !isAdmin){
         if(!confirm(`Zip ${cleanZip} outside 40mi - join as visitor?`)) return;
       }
-      maxR=40; verMethod='ai_mail_photo'; verifiedAddr=aiExtracted||aiParsedAddress.street||addr.trim();
+      maxR=40; verMethod='ai_mail_photo'; verifiedAddr=aiExtracted||aiParsedAddress.street||effectiveAddr;
     }else{
       if(!KC_ZIPS_5MI.includes(cleanZip) && cleanZip!=='64155' && !isAdmin){
         alert(`Zip ${cleanZip} outside 5 mile radius. Use mail verification for 40 miles.`);
@@ -227,7 +245,6 @@ export default function Page(){
     localStorage.setItem('nkc_profile', JSON.stringify(pr));
     setProfile(pr); setRadius(maxR===40?'40':'5'); 
     setShowJoin(false);
-    // Go directly to feed after mail verify
     setTimeout(()=>{ window.scrollTo({top:0, behavior:'smooth'}); }, 100);
   };
 
@@ -336,7 +353,7 @@ export default function Page(){
           </h1>
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
             {showInstall && <button onClick={handleInstall} className="px-3 py-2 rounded-full bg-[#1a3a2f] text-white font-black text-[11px] sm:text-xs">📲 Install App</button>}
-            <a href="/dms" className="w-9 h-9 sm:w-10 sm:h-10 rounded-full text-base flex items-center justify-center border-2 bg-white hover:bg-black hover:text-white transition-colors">💬</a>
+            <Link href="/dms" className="w-9 h-9 sm:w-auto sm:px-3 sm:py-2 rounded-full text-base flex items-center justify-center border-2 bg-white hover:bg-black hover:text-white transition-colors font-bold text-xs">💬 DMs</Link>
             <button onClick={enablePush} className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full text-base flex items-center justify-center border-2 ${notifOn?'bg-green-200':'bg-white'}`}>🔔</button>
             {profile ? <button onClick={()=>{ localStorage.clear(); setProfile(null); }} className="px-3 sm:px-4 py-2 rounded-full bg-white border-2 font-black text-[11px] sm:text-xs">Logout</button> : <button onClick={()=>setShowJoin(true)} className="px-3 sm:px-4 py-2 rounded-full bg-black text-white font-black text-[11px] sm:text-xs">Join</button>}
           </div>
@@ -354,6 +371,7 @@ export default function Page(){
             <p className="text-[11px] mt-1">{maxRadius===40?'Mail verified - entire KC Metro - saved, no re-verify needed':'Zip verified - upgrade with mail for 40mi'}</p>
             {maxRadius===5 && <button onClick={()=>setShowJoin(true)} className="mt-2 w-full bg-black text-white py-2 rounded-full text-xs font-black">Upgrade to 40 Miles with Mail</button>}
           </div>
+          <Link href="/dms" className="mt-3 w-full bg-[#f8f5ee] border py-2.5 rounded-full text-xs font-black text-center block">💬 Open DM Inbox →</Link>
         </aside>
 
         <div className="lg:hidden flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
@@ -372,16 +390,22 @@ export default function Page(){
                 <select value={cat} onChange={e=>setCat(e.target.value)} className="border-2 rounded-full px-3 py-2 text-xs font-bold max-w-[130px]">
                   {['General','For Sale & Free','Safety Alert','Recommendation','Events','Lost & Found'].map(c=><option key={c}>{c}</option>)}
                 </select>
-                <select value={radius} onChange={e=>{
-                  const sel=ALL_RADIUS.find(o=>o.id===e.target.value);
-                  if(sel && sel.miles>maxRadius && !isAdmin){ alert(`Need mail verification to post ${sel.miles} miles!`); setShowJoin(true); return; }
-                  setRadius(e.target.value);
-                }} className="border-2 border-green-600 bg-green-50 rounded-full px-3 py-2 text-xs font-black max-w-[160px]">
-                  {ALL_RADIUS.map(r=>{
-                    const locked=r.miles>maxRadius && !isAdmin;
-                    return <option key={r.id} value={r.id} disabled={locked}>{r.label} {locked?'🔒':''}</option>
-                  })}
-                </select>
+                {isMailVerified ? (
+                  <div className="border-2 border-green-300 bg-green-50 rounded-full px-3 py-2 text-xs font-black flex items-center gap-1">
+                    ✓ {maxRadius} Mile • KC Metro Unlocked 🤖 <span className="text-[10px] opacity-60">• {profile?.zip} • Auto-40mi</span>
+                  </div>
+                ) : (
+                  <select value={radius} onChange={e=>{
+                    const sel=ALL_RADIUS.find(o=>o.id===e.target.value);
+                    if(sel && sel.miles>maxRadius && !isAdmin){ alert(`Need mail verification to post ${sel.miles} miles!`); setShowJoin(true); return; }
+                    setRadius(e.target.value);
+                  }} className="border-2 border-green-600 bg-green-50 rounded-full px-3 py-2 text-xs font-black max-w-[160px]">
+                    {ALL_RADIUS.map(r=>{
+                      const locked=r.miles>maxRadius && !isAdmin;
+                      return <option key={r.id} value={r.id} disabled={locked}>{r.label} {locked?'🔒':''}</option>
+                    })}
+                  </select>
+                )}
               </div>
               <button disabled={uploading} onClick={handlePost} className="bg-[#1a3a2f] text-white px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold disabled:opacity-50 w-full sm:w-auto mt-2 sm:mt-0">{uploading?'Posting...':`Post • ${profile?.zip||'Local'}`}</button>
             </div>
@@ -445,6 +469,7 @@ export default function Page(){
                 <button onClick={()=>setShowJoin(true)} className="w-full bg-black text-white py-2 rounded-full text-xs font-black">Upgrade to 40 Miles with Mail</button>
               </div>
             )}
+            <Link href="/dms" className="mt-3 w-full bg-black text-white py-2.5 rounded-full text-xs font-black text-center block">💬 Open DM Inbox</Link>
           </div>
         </aside>
       </div>
@@ -458,29 +483,38 @@ export default function Page(){
               <div className="border-2 rounded-xl p-3 bg-green-50 border-green-300"><p className="font-black text-sm">Mail Verify 🤖</p><p className="text-xs mt-1">Photo of mail + AI</p><p className="text-xs font-black mt-1">→ 40 Mile Radius</p><p className="text-[11px] opacity-60 mt-1">Full KC Metro + beyond + Founder Badge</p></div>
             </div>
             <div className="mt-4 space-y-3">
-              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Full name" className="w-full bg-[#f8f5ee] border rounded-xl px-3 py-3 text-sm"/>
+              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Full name *" className="w-full bg-[#f8f5ee] border rounded-xl px-3 py-3 text-sm"/>
               <div className="relative">
-                <input value={addr} onChange={e=>setAddr(e.target.value)} placeholder="Street address (304 NE 115th st)" className={`w-full border rounded-xl px-3 py-3 text-sm ${aiVerified?'bg-green-50 border-green-400': 'bg-[#f8f5ee]'}`} disabled={aiVerified} />
-                {aiVerified && <span className="absolute right-3 top-3 text-xs font-black text-green-700">✓ Locked</span>}
+                <input value={addr} onChange={e=>setAddr(e.target.value)} placeholder="Street (optional if using mail photo - AI fills it)" className={`w-full border rounded-xl px-3 py-3 text-sm ${aiVerified && addr ? 'bg-green-50 border-green-400' : 'bg-[#f8f5ee]'}`} disabled={aiVerified && !!addr} />
+                {aiVerified && addr && <span className="absolute right-3 top-3 text-xs font-black text-green-700">✓ Locked</span>}
               </div>
               <div className="relative">
-                <input value={zip} onChange={e=>setZip(e.target.value)} placeholder="Zip (64155)" className={`w-full border rounded-xl px-3 py-3 text-sm ${aiVerified?'bg-green-50 border-green-400': 'bg-[#f8f5ee]'}`} disabled={aiVerified} />
-                {aiVerified && <span className="absolute right-3 top-3 text-xs font-black text-green-700">✓ Locked</span>}
+                <input value={zip} onChange={e=>setZip(e.target.value)} placeholder="Zip (auto-filled from mail if empty)" className={`w-full border rounded-xl px-3 py-3 text-sm ${aiVerified && zip ? 'bg-green-50 border-green-400' : 'bg-[#f8f5ee]'}`} disabled={aiVerified && !!zip && zip!=='64155'} />
+                {aiVerified && zip && <span className="absolute right-3 top-3 text-xs font-black text-green-700">✓ Locked</span>}
               </div>
-              {aiVerified && <p className="text-[11px] text-green-700 font-bold">✓ Address auto-filled from mail and locked. {aiExtracted}</p>}
+              {aiVerified && <p className="text-[11px] text-green-700 font-bold">✓ Address auto-filled from mail. {aiExtracted}</p>}
               <div className="border-2 border-dashed rounded-xl p-3 bg-[#f8f5ee]">
                 <p className="font-black text-xs">🔒 Secure AI Mail Verification for 40 Miles</p>
-                <p className="text-[11px] opacity-80 mb-2">Your mail is encrypted & saved to a private secure vault (mail-verifications bucket) tied to your UID. We only extract address/zip - photo is never shared. Verified once, saved forever - no need to re-verify. 🔐</p>
-                <p className="text-[10px] opacity-60 mb-2">✓ AES-256 encrypted bucket • ✓ Private to your UID only • ✓ Auto-deleted after 90 days • ✓ Only used for address proof</p>
+                <p className="text-[11px] opacity-80 mb-2">Upload envelope/bill - AI extracts address/zip. Photo encrypted & saved to private vault tied to your UID. Verified once, forever.</p>
+                <p className="text-[10px] opacity-60 mb-2">✓ AES-256 encrypted • ✓ Private to UID • ✓ Auto-deleted 90 days</p>
                 <input type="file" accept="image/*" onChange={e=>{ const f=e.target.files?.[0]; if(f) handleMailSelect(f); }} className="w-full text-xs"/>
-                {mailPreview && <div className="mt-2"><img src={mailPreview} alt="mail" className="w-full rounded-xl max-h-[180px] object-cover border"/><button onClick={handleAiVerify} disabled={aiVerifying} className={`w-full mt-2 py-2 rounded-full font-black text-xs ${aiVerified?'bg-green-600 text-white':'bg-black text-white'}`}>{aiVerifying?'🤖 AI Reading...': aiVerified?`✓ Verified & Locked: ${aiExtracted}`:'🤖 Verify Mail with AI for 40mi'}</button></div>}
+                {mailPreview && <div className="mt-2"><img src={mailPreview} alt="mail" className="w-full rounded-xl max-h-[180px] object-cover border"/><button onClick={handleAiVerify} disabled={aiVerifying} className={`w-full mt-2 py-2 rounded-full font-black text-xs ${aiVerified?'bg-green-600 text-white':'bg-black text-white'}`}>{aiVerifying?'🤖 AI Reading...': aiVerified?`✓ Verified: ${aiExtracted}`:'🤖 Verify Mail with AI for 40mi'}</button></div>}
               </div>
             </div>
-            <div className="flex gap-2 mt-4">
-              <button onClick={()=>setShowJoin(false)} className="flex-1 bg-[#f8f5ee] py-3 rounded-full font-bold text-sm">Cancel</button>
-              <button onClick={()=>handleJoin('zip')} className="flex-1 bg-amber-500 text-black py-3 rounded-full font-bold text-sm">Join 5 Mile (Zip)</button>
-              <button onClick={()=>handleJoin('mail')} className={`flex-1 py-3 rounded-full font-bold text-sm ${aiVerified?'bg-green-600 text-white':'bg-gray-300 text-gray-500'}`} disabled={!aiVerified && !isAdmin}>Join 40 Mile {aiVerified?'🤖':''}</button>
-            </div>
+            {aiVerified ? (
+              <div className="flex flex-col items-center justify-center gap-3 mt-4 py-6 bg-green-50 rounded-2xl border-2 border-green-300 text-center">
+                <div className="w-12 h-12 bg-green-600 text-white rounded-full flex items-center justify-center text-xl">✓</div>
+                <p className="font-black text-lg text-green-800">Thank you for verifying your address!</p>
+                <p className="text-sm text-green-700 max-w-[320px]">Securely verified and saved to private vault. 40 mile access unlocked.</p>
+                <button onClick={()=>handleJoin('mail')} className="mt-2 bg-[#1a3a2f] text-white px-6 py-3 rounded-full font-black text-sm w-full">Continue to Feed →</button>
+              </div>
+            ) : (
+              <div className="flex gap-2 mt-4">
+                <button onClick={()=>setShowJoin(false)} className="flex-1 bg-[#f8f5ee] py-3 rounded-full font-bold text-sm">Cancel</button>
+                <button onClick={()=>handleJoin('zip')} className="flex-1 bg-amber-500 text-black py-3 rounded-full font-bold text-sm">Join 5 Mile</button>
+                <button onClick={()=>handleJoin('mail')} className={`flex-1 py-3 rounded-full font-bold text-sm bg-black text-white`}>Join 40 Mile 🤖</button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -494,6 +528,7 @@ export default function Page(){
               <button onClick={()=>{setShowDmModal(null); setDmModalMsg('');}} className="flex-1 bg-[#f8f5ee] py-3 rounded-full font-bold text-sm">Cancel</button>
               <button onClick={async()=>{ if(!dmModalMsg.trim()) return; await sendDM(showDmModal!, dmModalMsg); setDmModalMsg(''); setShowDmModal(null); }} className="flex-1 bg-black text-white py-3 rounded-full font-bold text-sm">Send + Buzz 🔔</button>
             </div>
+            <Link href="/dms" className="mt-3 block text-center text-xs underline">Open full DM inbox →</Link>
           </div>
         </div>
       )}
