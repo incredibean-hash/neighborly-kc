@@ -59,27 +59,15 @@ function getBannedWord(text:string): string | null {
   return null;
 }
 async function moderateImage(file:File): Promise<{safe:boolean, reason?:string}>{
-  // Reuses SAME AI as mail verification (/api/verify-mail) - no new service
-  // Local checks first
   if(file.size > 8*1024*1024) return {safe:false, reason:'File too large (max 8MB)'};
   const allowedTypes = ['image/jpeg','image/png','image/webp','image/gif','image/jpg'];
   if(!allowedTypes.includes(file.type)) return {safe:false, reason:'Only JPG, PNG, WEBP, GIF allowed'};
-  // Check filename with bad word DB
-  if(containsBannedWords(file.name)) return {safe:false, reason:`Filename contains inappropriate content`};
-
+  if(containsBannedWords(file.name)) return {safe:false, reason:'Filename contains inappropriate content'};
   try{
-    // Calls /api/moderate-image which uses SAME OpenAI model as mail verification (gpt-4o-mini)
-    const form=new FormData();
-    form.append('file', file);
+    const form=new FormData(); form.append('file', file);
     const res=await fetch('/api/moderate-image',{method:'POST', body:form});
-    if(res.ok){
-      const j=await res.json();
-      if(j.safe===false) return {safe:false, reason:j.reason||'Image flagged as inappropriate for neighborhood'};
-      return {safe:true};
-    }
-  }catch(e){
-    console.log('AI moderation check failed, allowing - will be reviewed via Report button', e);
-  }
+    if(res.ok){ const j=await res.json(); if(j.safe===false) return {safe:false, reason:j.reason||'Image flagged as inappropriate for neighborhood'}; return {safe:true}; }
+  }catch{}
   return {safe:true};
 }
 
@@ -143,11 +131,11 @@ export default function Page(){
   const [aiVerified,setAiVerified]=useState(false);
   const [aiExtracted,setAiExtracted]=useState('');
   const [aiParsedAddress,setAiParsedAddress]=useState<{street?:string, zip?:string, city?:string}>({});
-  const [deferredPrompt,setDeferredPrompt]=useState<any>(null);
+    const [deferredPrompt,setDeferredPrompt]=useState<any>(null);
   const [showInstall,setShowInstall]=useState(false);
-  const [showInstallBanner,setShowInstallBanner]=useState(true);
   const [dmUnseen,setDmUnseen]=useState(0);
-  const markDMsAsRead = ()=>{ if(profile?.full_name){ localStorage.setItem('nkc_dms_last_seen_'+profile.full_name, new Date().toISOString()); setDmUnseen(0); } };
+const markDMsAsRead = ()=>{ if(profile?.full_name){ localStorage.setItem('nkc_dms_last_seen_'+profile.full_name, new Date().toISOString()); setDmUnseen(0); } };
+
 
   useEffect(()=>{
     if(typeof document!=='undefined'){
@@ -169,23 +157,18 @@ export default function Page(){
     return()=>{ window.removeEventListener('beforeinstallprompt', handler); clearTimeout(t); };
   },[]);
 
-  const [showIosInstallGuide,setShowIosInstallGuide]=useState(false);
-
   const handleInstall=async()=>{
     try{
-      // Android / Desktop - use native prompt
       if(deferredPrompt){
         deferredPrompt.prompt();
         const {outcome}=await deferredPrompt.userChoice;
         if(outcome==='accepted'){ setShowInstall(false); setShowInstallBanner(false); setDeferredPrompt(null); }
         return;
       }
-      // iPhone - can't auto-install, show visual guide that goes straight to instructions
       if(/iPad|iPhone|iPod/.test(navigator.userAgent)){
         setShowIosInstallGuide(true);
         return;
       }
-      // Fallback
       setShowIosInstallGuide(true);
     }catch{}
   };
@@ -465,7 +448,6 @@ export default function Page(){
     }
   };
 
-  const [showInstallBanner,setShowInstallBanner]=useState(true);
 
   return (
     <div className="min-h-screen bg-[#f8f5ee] overflow-x-hidden">
@@ -483,24 +465,24 @@ export default function Page(){
         </div>
       )}
       <header className="bg-white border-b sticky top-0 z-30 w-full">
-        <div className="w-full px-3 sm:px-6 py-2.5 flex justify-between items-center gap-2 max-w-[1600px] mx-auto">
-          <h1 className="font-black text-[17px] sm:text-xl leading-none flex-shrink min-w-0 truncate">
+        <div className="w-full px-3 sm:px-6 py-3 flex justify-between items-center gap-2 max-w-[1600px] mx-auto">
+          <h1 className="font-black text-[18px] sm:text-xl leading-tight flex-shrink">
             Neighborly KC <span className="font-bold text-[#0f2b1f] whitespace-nowrap">- Meadowbrook</span>
-            <span className="font-normal text-gray-500 text-[10px] sm:text-sm ml-2 hidden lg:inline">{maxRadius} Mile • {isMailVerified?'AI Verified 🤖':'Zip Verified'} • {profile?.zip||'64155'} ✓ {profile?.is_founder && '👑'}</span>
+            <span className="font-normal text-gray-500 text-[11px] sm:text-sm ml-2 hidden sm:inline">{maxRadius} Mile • {isMailVerified?'AI Verified 🤖':'Zip Verified'} • {profile?.zip||'64155'} ✓ {profile?.is_founder && '👑'}</span>
           </h1>
-          <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
-            <Link href="/dms" onClick={()=>markDMsAsRead()} className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center bg-[#f8f5ee] border hover:bg-black hover:text-white transition-all text-[14px] sm:text-base">
-              <span className="translate-y-[-1px]">💬</span>
-              {dmUnseen>0 && <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[9px] min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center font-black animate-pulse leading-none">{dmUnseen>9?'9+':dmUnseen}</span>}
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+            <Link href="/dms" onClick={()=>markDMsAsRead()} className="relative w-9 h-9 sm:w-auto sm:px-3 sm:py-2 rounded-full text-base flex items-center justify-center border-2 bg-white hover:bg-black hover:text-white transition-colors font-bold text-xs">
+              💬 DMs
+              {dmUnseen>0 && <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black animate-pulse">{dmUnseen>9?'9+':dmUnseen}</span>}
             </Link>
-            <button onClick={enablePush} className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center border transition-all text-[14px] sm:text-base ${notifOn?'bg-green-100 border-green-300':'bg-[#f8f5ee] border-black/10 hover:bg-black hover:text-white'}`}>🔔</button>
+            <button onClick={enablePush} className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full text-base flex items-center justify-center border-2 ${notifOn?'bg-green-200':'bg-white'}`}>🔔</button>
             {profile ? <button onClick={()=>{ localStorage.clear(); setProfile(null); }} className="px-3 sm:px-4 py-2 rounded-full bg-white border-2 font-black text-[11px] sm:text-xs">Logout</button> : <button onClick={()=>setShowJoin(true)} className="px-3 sm:px-4 py-2 rounded-full bg-black text-white font-black text-[11px] sm:text-xs">Join</button>}
           </div>
         </div>
         <div className="sm:hidden px-3 pb-2 text-[11px] text-gray-500 -mt-1">{maxRadius} Mile • {isMailVerified?'AI Verified 🤖':'Zip Verified'} • {profile?.zip||'64155'} ✓ {profile?.is_founder && '👑 Founder'}</div>
       </header>
 
-      <div className="w-full max-w-[1600px] mx-auto px-3 sm:px-6 py-3 sm:py-8 grid grid-cols-1 lg:grid-cols-[200px_minmax(0,1fr)_280px] gap-3 sm:gap-6 overflow-x-hidden">
+      <div className="w-full max-w-[1600px] mx-auto px-3 sm:px-6 py-4 sm:py-8 grid grid-cols-1 lg:grid-cols-[220px_1fr_300px] gap-4 sm:gap-6">
         <aside className="hidden lg:block bg-white rounded-2xl p-3 h-fit border">
           <p className="text-xs font-bold opacity-40 px-3 py-2">FILTER</p>
           {CATS.map(c=><button key={c} onClick={()=>setCat(c)} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm ${cat===c?'bg-[#1a3a2f] text-white':'hover:bg-black/5'}`}>{c}</button>)}
@@ -558,7 +540,7 @@ export default function Page(){
             const isOwner=profile && (p.profiles?.full_name===profile.full_name || p.author_name===profile.full_name || p.user_name===profile.full_name); const canDelete=isOwner || isAdmin;
             const authorName=p.profiles?.full_name||p.author_name||p.user_name||'Neighbor';
             return (
-            <div key={p.id} className="bg-white rounded-2xl p-3 sm:p-4 border min-w-0 max-w-full overflow-hidden">
+            <div key={p.id} className="bg-white rounded-2xl p-3 sm:p-4 border min-w-0">
               <div className="flex justify-between items-start gap-2">
                 <button onClick={()=>{ if(!profile) return setShowJoin(true); if(authorName===profile.full_name) return; setShowDmModal(authorName); }} className="text-xs font-bold opacity-80 hover:underline text-left min-w-0 flex-1 truncate">
                   {authorName} {p.is_founder && <span className="ml-1 text-[10px] bg-amber-400 text-black px-2 py-0.5 rounded-full font-black">👑 FOUNDER {p.founder_number? `#${p.founder_number}`:''}</span>} ✓ <span className="text-[10px] bg-black text-white px-2 py-0.5 rounded-full ml-1">DM</span> • {p.location_label || p.zip_code || '64155'} • {p.category||'General'}
@@ -664,8 +646,8 @@ export default function Page(){
       )}
 
       {showDmModal && (
-        <div className="fixed inset-0 bg-black/50 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-white rounded-t-[20px] sm:rounded-[20px] w-full max-w-[420px] p-5 sm:p-6 border-2 shadow-2xl mx-auto max-h-[85vh] sm:max-h-none overflow-hidden flex flex-col">
+        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[20px] w-full max-w-[420px] p-5 sm:p-6 border-2 shadow-2xl mx-auto">
             <div className="flex justify-between items-center mb-4"><h3 className="font-black text-lg sm:text-xl truncate">DM {showDmModal} 🔔</h3><button onClick={()=>{setShowDmModal(null); setDmModalMsg('');}} className="w-8 h-8 rounded-full bg-black/5 font-black flex-shrink-0">✕</button></div>
             <textarea value={dmModalMsg} onChange={e=>setDmModalMsg(e.target.value)} placeholder={`Hey ${showDmModal}, ...`} className="w-full border-2 p-4 rounded-2xl text-sm min-h-[120px] resize-none outline-none"/>
             <div className="flex gap-2 mt-4">
@@ -677,54 +659,8 @@ export default function Page(){
         </div>
       )}
       {dmSentToast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-black text-white px-5 py-2.5 rounded-full text-sm font-bold z-[200] shadow-xl max-w-[90vw] text-center">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-black text-white px-5 py-2.5 rounded-full text-sm font-bold z-[200] shadow-xl">
           {dmSentToast}
-        </div>
-      )}
-
-      {showIosInstallGuide && (
-        <div className="fixed inset-0 bg-black/60 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={()=>setShowIosInstallGuide(false)}>
-          <div className="bg-white rounded-t-[24px] sm:rounded-[24px] w-full max-w-[380px] p-6 pb-8 sm:pb-6 shadow-2xl" onClick={e=>e.stopPropagation()}>
-            <div className="w-10 h-1 bg-black/20 rounded-full mx-auto mb-4 sm:hidden"></div>
-            <h3 className="font-black text-lg text-center">Add to Home Screen</h3>
-            <p className="text-xs text-center opacity-60 mt-1">Installs as <b>Neighborly KC</b> — no App Store needed</p>
-            
-            <div className="mt-6 space-y-4">
-              <div className="flex items-center gap-3 bg-[#f8f5ee] rounded-xl p-3">
-                <div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center font-black text-sm flex-shrink-0">1</div>
-                <div className="flex-1">
-                  <p className="font-bold text-sm">Tap the Share button</p>
-                  <p className="text-[11px] opacity-60">Bottom of Safari — square with arrow up <span className="text-base">⎙</span></p>
-                </div>
-                <div className="text-2xl">⬆️</div>
-              </div>
-              
-              <div className="flex items-center gap-3 bg-[#f8f5ee] rounded-xl p-3">
-                <div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center font-black text-sm flex-shrink-0">2</div>
-                <div className="flex-1">
-                  <p className="font-bold text-sm">Tap "Add to Home Screen"</p>
-                  <p className="text-[11px] opacity-60">Scroll down in share menu if needed</p>
-                </div>
-                <div className="text-xl">➕</div>
-              </div>
-              
-              <div className="flex items-center gap-3 bg-[#1a3a2f] text-white rounded-xl p-3">
-                <div className="w-8 h-8 bg-white text-[#1a3a2f] rounded-full flex items-center justify-center font-black text-sm flex-shrink-0">3</div>
-                <div className="flex-1">
-                  <p className="font-bold text-sm">Tap Add → Done!</p>
-                  <p className="text-[11px] opacity-70">Saves as Neighborly KC on your home screen</p>
-                </div>
-                <div className="text-xl">✓</div>
-              </div>
-            </div>
-
-            <div className="mt-6 flex gap-2">
-              <button onClick={()=>setShowIosInstallGuide(false)} className="flex-1 bg-[#f8f5ee] py-3 rounded-full font-bold text-sm">Got it</button>
-              <button onClick={()=>{ setShowIosInstallGuide(false); setShowInstallBanner(false); localStorage.setItem('nkc_install_dismissed', Date.now().toString()); }} className="flex-1 bg-black text-white py-3 rounded-full font-bold text-sm">Don't show again</button>
-            </div>
-            
-            <p className="text-[10px] opacity-40 text-center mt-3">Apple requires this step — we can't auto-install on iPhone, but this is 3 taps</p>
-          </div>
         </div>
       )}
     </div>
