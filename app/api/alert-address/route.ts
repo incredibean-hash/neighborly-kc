@@ -17,13 +17,8 @@ export async function POST(req: NextRequest){
       await supabase.from('dms').insert({
         from_user: 'Neighborly KC Security',
         to_user: existingOwner,
-        message: `⚠️ SECURITY ALERT: ${requester} tried to verify "${full||street+' '+zip}". Blocked and owner alerted.`,
+        message: `⚠️ SECURITY ALERT: ${requester} tried to verify "${full||street+' '+zip}". Blocked.`,
         body: `Security alert`
-      } as any);
-    }catch{}
-    try{
-      await supabase.from('address_attempts').insert({
-        street, zip, full_address: full, existing_owner: existingOwner, requester, attempted_at: new Date().toISOString(), blocked: true
       } as any);
     }catch{}
     return NextResponse.json({ success:true, alerted:true });
