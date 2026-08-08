@@ -31,7 +31,5 @@ export async function POST(req: NextRequest){
       }
     }
     return NextResponse.json({ alreadyVerified:false });
-  }catch{
-    return NextResponse.json({ alreadyVerified:false });
-  }
+  }catch{ return NextResponse.json({ alreadyVerified:false }); }
 }
