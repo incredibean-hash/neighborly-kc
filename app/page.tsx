@@ -123,27 +123,15 @@ export default function Page(){
     const {data:p}=await supabase.from('posts').select('*,profiles(full_name)').order('created_at',{ascending:false}).limit(80);
     if(p){ setPosts(p); loadAll(p.map((x:any)=>x.id)); }
     const s=typeof window!=='undefined'? localStorage.getItem('nkc_profile_tiered_40') || localStorage.getItem('nkc_profile_tiered') || localStorage.getItem('nkc_profile') : null;
-    let loadedProfile:any=null;
-    if(s){ try{ const pr=JSON.parse(s); loadedProfile=pr; setProfile(pr); setRadius(pr.max_radius===40?'40':pr.max_radius===25?'25':'5'); if(pr.street_address) setAddr(pr.street_address); if(pr.zip) setZip(pr.zip); }catch{} }
+    if(s){ try{ const pr=JSON.parse(s); setProfile(pr); setRadius(pr.max_radius===40?'40':pr.max_radius===25?'25':'5'); if(pr.street_address) setAddr(pr.street_address); if(pr.zip) setZip(pr.zip); }catch{} }
     if(typeof window!=='undefined' && 'Notification' in window && Notification.permission==='granted') setNotifOn(true);
-    // AUTO-UPGRADE: if user has verification vault but profile is still 5mi, upgrade them to 40mi automatically
+    // Check secure vault - if user verified before, auto-mark verified
     try{
       const vaultRaw=localStorage.getItem('nkc_verification_vault');
       if(vaultRaw){
         const vault=JSON.parse(vaultRaw);
         const keys=Object.keys(vault);
-        if(keys.length>0){ 
-          setAiVerified(true); 
-          // If profile exists and is not yet 40mi, auto-upgrade
-          if(loadedProfile && (loadedProfile.max_radius||5) < 40){
-            const upgraded={...loadedProfile, max_radius:40, verification_method:'ai_mail_photo', ai_verified:true };
-            localStorage.setItem('nkc_profile_tiered_40', JSON.stringify(upgraded));
-            localStorage.setItem('nkc_profile', JSON.stringify(upgraded));
-            setProfile(upgraded);
-            setRadius('40');
-            console.log('Auto-upgraded to 40mi from vault');
-          }
-        }
+        if(keys.length>0){ setAiVerified(true); }
       }
     }catch{}
   })() },[]);
@@ -211,6 +199,8 @@ export default function Page(){
         vault[name||profile?.full_name||'user']= { verified:true, street: addr, zip, file:safeName, at:new Date().toISOString() };
         localStorage.setItem('nkc_verification_vault', JSON.stringify(vault));
       }catch{}
+      // AUTO-GO TO FEED: remove bottom 3 buttons, join immediately
+      setTimeout(()=>{ if(name.trim() && addr.trim()) handleJoin('mail'); }, 600);
     }finally{ setAiVerifying(false); }
   };
 
@@ -383,22 +373,16 @@ export default function Page(){
                 <select value={cat} onChange={e=>setCat(e.target.value)} className="border-2 rounded-full px-3 py-2 text-xs font-bold max-w-[130px]">
                   {['General','For Sale & Free','Safety Alert','Recommendation','Events','Lost & Found'].map(c=><option key={c}>{c}</option>)}
                 </select>
-                {isMailVerified ? (
-                  <div className="border-2 border-green-300 bg-green-50 rounded-full px-3 py-2 text-xs font-black flex items-center gap-1">
-                    ✓ {maxRadius} Mile • KC Metro Unlocked 🤖 <span className="text-[10px] opacity-60">• {profile?.zip} • Auto-40mi</span>
-                  </div>
-                ) : (
-                  <select value={radius} onChange={e=>{
-                    const sel=ALL_RADIUS.find(o=>o.id===e.target.value);
-                    if(sel && sel.miles>maxRadius && !isAdmin){ alert(`Need mail verification to post ${sel.miles} miles!`); setShowJoin(true); return; }
-                    setRadius(e.target.value);
-                  }} className="border-2 border-green-600 bg-green-50 rounded-full px-3 py-2 text-xs font-black max-w-[160px]">
-                    {ALL_RADIUS.map(r=>{
-                      const locked=r.miles>maxRadius && !isAdmin;
-                      return <option key={r.id} value={r.id} disabled={locked}>{r.label} {locked?'🔒':''}</option>
-                    })}
-                  </select>
-                )}
+                <select value={radius} onChange={e=>{
+                  const sel=ALL_RADIUS.find(o=>o.id===e.target.value);
+                  if(sel && sel.miles>maxRadius && !isAdmin){ alert(`Need mail verification to post ${sel.miles} miles!`); setShowJoin(true); return; }
+                  setRadius(e.target.value);
+                }} className="border-2 border-green-600 bg-green-50 rounded-full px-3 py-2 text-xs font-black max-w-[160px]">
+                  {ALL_RADIUS.map(r=>{
+                    const locked=r.miles>maxRadius && !isAdmin;
+                    return <option key={r.id} value={r.id} disabled={locked}>{r.label} {locked?'🔒':''}</option>
+                  })}
+                </select>
               </div>
               <button disabled={uploading} onClick={handlePost} className="bg-[#1a3a2f] text-white px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold disabled:opacity-50 w-full sm:w-auto mt-2 sm:mt-0">{uploading?'Posting...':`Post • ${profile?.zip||'Local'}`}</button>
             </div>
@@ -493,11 +477,19 @@ export default function Page(){
                 {mailPreview && <div className="mt-2"><img src={mailPreview} alt="mail" className="w-full rounded-xl max-h-[180px] object-cover border"/><button onClick={handleAiVerify} disabled={aiVerifying} className={`w-full mt-2 py-2 rounded-full font-black text-xs ${aiVerified?'bg-green-600 text-white':'bg-black text-white'}`}>{aiVerifying?'🤖 AI Reading...': aiVerified?`✓ Verified & Locked: ${aiExtracted}`:'🤖 Verify Mail with AI for 40mi'}</button></div>}
               </div>
             </div>
-            <div className="flex gap-2 mt-4">
-              <button onClick={()=>setShowJoin(false)} className="flex-1 bg-[#f8f5ee] py-3 rounded-full font-bold text-sm">Cancel</button>
-              <button onClick={()=>handleJoin('zip')} className="flex-1 bg-amber-500 text-black py-3 rounded-full font-bold text-sm">Join 5 Mile (Zip)</button>
-              <button onClick={()=>handleJoin('mail')} className={`flex-1 py-3 rounded-full font-bold text-sm ${aiVerified?'bg-green-600 text-white':'bg-gray-300 text-gray-500'}`} disabled={!aiVerified && !isAdmin}>Join 40 Mile {aiVerified?'🤖':''}</button>
-            </div>
+            {aiVerified ? (
+              <div className="flex flex-col items-center justify-center gap-2 mt-4 py-4 bg-green-50 rounded-2xl border-2 border-green-300">
+                <div className="animate-spin w-6 h-6 border-2 border-green-600 border-t-transparent rounded-full"></div>
+                <p className="font-black text-sm text-green-700">✓ Verified! Going straight to feed...</p>
+                <p className="text-[11px] opacity-60">Saved to secure vault • No re-verify needed • Founder badge applied</p>
+              </div>
+            ) : (
+              <div className="flex gap-2 mt-4">
+                <button onClick={()=>setShowJoin(false)} className="flex-1 bg-[#f8f5ee] py-3 rounded-full font-bold text-sm">Cancel</button>
+                <button onClick={()=>handleJoin('zip')} className="flex-1 bg-amber-500 text-black py-3 rounded-full font-bold text-sm">Join 5 Mile (Zip)</button>
+                <button onClick={()=>handleJoin('mail')} className={`flex-1 py-3 rounded-full font-bold text-sm ${aiVerified?'bg-green-600 text-white':'bg-gray-300 text-gray-500'}`} disabled={!aiVerified && !isAdmin}>Join 40 Mile {aiVerified?'🤖':''}</button>
+              </div>
+            )}
           </div>
         </div>
       )}
