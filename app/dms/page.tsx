@@ -31,10 +31,20 @@ export default function DMsPage(){
   const [selected,setSelected]=useState<string|null>(null);
   const [reply,setReply]=useState('');
   const [search,setSearch]=useState('');
+  const [touchStart,setTouchStart]=useState<number|null>(null);
+  const [touchEnd,setTouchEnd]=useState<number|null>(null);
+  const [swipedId,setSwipedId]=useState<string|null>(null);
 
   useEffect(()=>{
     const s=typeof window!=='undefined'? localStorage.getItem('nkc_profile_tiered_40') || localStorage.getItem('nkc_profile') : null;
     if(s){ try{ setProfile(JSON.parse(s)); }catch{} }
+    // Mark as read when entering DMs page
+    if(s){
+      try{
+        const pr=JSON.parse(s);
+        localStorage.setItem('nkc_dms_last_seen_'+pr.full_name, new Date().toISOString());
+      }catch{}
+    }
   },[]);
 
   const loadDMs = async ()=>{
@@ -45,6 +55,37 @@ export default function DMsPage(){
 
   useEffect(()=>{ if(profile) loadDMs(); const int=setInterval(loadDMs,3000); return()=>clearInterval(int); },[profile]);
 
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = (other: string) => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    if (distance > minSwipeDistance) {
+      setSwipedId(other);
+    } else if (distance < -minSwipeDistance && swipedId === other) {
+      setSwipedId(null);
+    }
+  };
+
+  const handleDeleteConvo = async (other: string) => {
+    if (!confirm(`Delete all messages with ${other}? This can't be undone.`)) return;
+    try {
+      const { error } = await supabase.from('dms').delete().or(`and(from_user.eq.${profile.full_name},to_user.eq.${other}),and(from_user.eq.${other},to_user.eq.${profile.full_name})`);
+      setSwipedId(null);
+      loadDMs();
+      if (selected === other) setSelected(null);
+    } catch(e:any){ alert('Delete failed: '+e.message); }
+  };
+
   // Group by conversation partner
   const convos: Record<string, any[]> = {};
   dms.forEach((m:any)=>{
@@ -52,7 +93,6 @@ export default function DMsPage(){
     if(!convos[other]) convos[other]=[];
     convos[other].push(m);
   });
-  // Sort convos by latest message
   const sortedConvoKeys = Object.keys(convos).sort((a,b)=>{
     const latestA = convos[a][0]?.created_at || '';
     const latestB = convos[b][0]?.created_at || '';
@@ -72,82 +112,94 @@ export default function DMsPage(){
     }catch(e:any){ alert('Failed: '+e.message); }
   };
 
-  if(!profile) return <div className="min-h-screen bg-[#f8f5ee] p-6"><Link href="/" className="text-sm font-bold">← Back to Feed</Link><p className="mt-6">Please join first.</p></div>;
+  if(!profile) return <div className="min-h-screen bg-[#f8f5ee] p-6 max-w-full overflow-x-hidden"><Link href="/" className="text-sm font-bold">← Back to Feed</Link><p className="mt-6">Please join first.</p></div>;
 
   return (
-    <div className="min-h-screen bg-[#f8f5ee] flex flex-col">
-      <header className="bg-white border-b sticky top-0 z-20 px-4 py-3 flex justify-between items-center">
-        <Link href="/" className="font-black">← Meadowbrook • DMs</Link>
-        <div className="flex items-center gap-2">
-          <span className="text-xs opacity-60">{profile.full_name} {profile.is_founder && '👑'}</span>
-          <span className="text-xs bg-black text-white px-2 py-1 rounded-full">{dms.length} msgs</span>
+    <div className="min-h-screen bg-[#f8f5ee] flex flex-col max-w-full overflow-x-hidden">
+      <header className="bg-white border-b sticky top-0 z-20 px-3 sm:px-4 py-2.5 flex justify-between items-center">
+        <Link href="/" className="font-black text-sm sm:text-base truncate">← Meadowbrook • DMs</Link>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="text-[11px] opacity-60 truncate max-w-[120px] hidden sm:block">{profile.full_name} {profile.is_founder && '👑'}</span>
+          <span className="text-[11px] bg-black text-white px-2 py-1 rounded-full">{dms.length} msgs</span>
         </div>
       </header>
 
-      <div className="flex-1 max-w-6xl w-full mx-auto grid grid-cols-1 md:grid-cols-[320px_1fr] gap-0 md:gap-4 p-0 md:p-4">
-        {/* Conversations list */}
-        <div className="bg-white md:rounded-2xl border-b md:border md:h-[calc(100vh-100px)] flex flex-col overflow-hidden">
+      <div className="flex-1 max-w-6xl w-full mx-auto grid grid-cols-1 md:grid-cols-[320px_1fr] gap-0 md:gap-4 p-0 md:p-4 overflow-hidden">
+        {/* Conversations list - constrained for mobile */}
+        <div className={`bg-white md:rounded-2xl border-b md:border flex flex-col overflow-hidden ${selected ? 'hidden md:flex' : 'flex'} md:h-[calc(100vh-100px)] h-[calc(100vh-50px)]`}>
           <div className="p-3 border-b">
-            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search people..." className="w-full bg-[#f8f5ee] rounded-full px-4 py-2 text-sm outline-none" />
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search people..." className="w-full bg-[#f8f5ee] rounded-full px-4 py-2.5 text-sm outline-none max-w-full" />
+            <p className="text-[10px] opacity-40 mt-2 hidden sm:block">← Swipe left on mobile to delete conversation</p>
           </div>
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden">
             {sortedConvoKeys.length===0 && <p className="p-6 text-sm opacity-50">No DMs yet. Tap DM on any post to start.</p>}
             {sortedConvoKeys.map(other=>{
               const msgs=convos[other];
               const last=msgs[0];
               const unread=msgs.filter((m:any)=>m.to_user===profile.full_name).length;
+              const isSwiped = swipedId === other;
               return (
-                <button key={other} onClick={()=>setSelected(other)} className={`w-full text-left p-4 border-b hover:bg-black/5 flex justify-between items-start ${selected===other?'bg-[#f8f5ee]':''}`}>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-bold text-sm truncate">{other} {last?.from_user===other && unread>0 && <span className="ml-2 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{unread}</span>}</p>
-                    <p className="text-xs opacity-60 truncate mt-1">{last.from_user===profile.full_name?'You: ':''}{last.message||last.body}</p>
-                    <p className="text-[10px] opacity-40 mt-1">{formatRelativeLocal(last.created_at)}</p>
+                <div key={other} className="relative overflow-hidden border-b">
+                  <div className="absolute inset-y-0 right-0 w-24 bg-red-500 flex items-center justify-center">
+                    <button onClick={()=>handleDeleteConvo(other)} className="text-white font-bold text-xs px-3 py-2">🗑️ Delete</button>
                   </div>
-                  <span className="text-[10px] bg-black/5 px-2 py-1 rounded-full ml-2">{msgs.length}</span>
-                </button>
+                  <button 
+                    onTouchStart={onTouchStart}
+                    onTouchMove={onTouchMove}
+                    onTouchEnd={()=>onTouchEnd(other)}
+                    onClick={()=> isSwiped ? setSwipedId(null) : setSelected(other)} 
+                    className={`w-full text-left p-3 sm:p-4 hover:bg-black/5 flex justify-between items-start relative bg-white transition-transform duration-200 ${selected===other?'bg-[#f8f5ee]':''} ${isSwiped ? '-translate-x-24' : 'translate-x-0'}`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-sm truncate flex items-center gap-1">{other} {last?.from_user===other && unread>0 && <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{unread}</span>}</p>
+                      <p className="text-xs opacity-60 truncate mt-1 max-w-[200px] sm:max-w-[220px]">{last.from_user===profile.full_name?'You: ':''}{last.message||last.body}</p>
+                      <p className="text-[10px] opacity-40 mt-1">{formatRelativeLocal(last.created_at)}</p>
+                    </div>
+                    <span className="text-[10px] bg-black/5 px-2 py-1 rounded-full ml-2 flex-shrink-0">{msgs.length}</span>
+                  </button>
+                </div>
               );
             })}
           </div>
         </div>
 
-        {/* Messages */}
-        <div className="bg-white md:rounded-2xl border md:h-[calc(100vh-100px)] flex flex-col">
+        {/* Messages - constrained for mobile */}
+        <div className={`bg-white md:rounded-2xl md:border flex flex-col overflow-hidden max-w-full ${selected ? 'flex' : 'hidden md:flex'} md:h-[calc(100vh-100px)] h-[calc(100vh-50px)]`}>
           {!selected ? (
-            <div className="flex-1 flex items-center justify-center p-12 text-center opacity-50">
-              <div><p className="text-4xl mb-2">💬</p><p className="font-bold">Select a conversation</p><p className="text-xs mt-1">Your DMs are private and tied to your UID. Only you and the other person see them.</p></div>
+            <div className="flex-1 flex items-center justify-center p-6 sm:p-12 text-center opacity-50">
+              <div className="max-w-[300px]"><p className="text-4xl mb-2">💬</p><p className="font-bold">Select a conversation</p><p className="text-xs mt-1">Your DMs are private. Swipe left to delete. Messages constrained to screen width.</p></div>
             </div>
           ) : (
             <>
-              <div className="p-4 border-b flex justify-between items-center bg-[#f8f5ee] md:rounded-t-2xl">
-                <div><p className="font-black">{selected}</p><p className="text-[11px] opacity-60">{convos[selected]?.length} messages • {formatRelativeLocal(convos[selected]?.[0]?.created_at||new Date().toISOString())}</p></div>
-                <button onClick={()=>setSelected(null)} className="md:hidden bg-white border px-3 py-1 rounded-full text-xs">Back</button>
+              <div className="p-3 border-b flex justify-between items-center bg-[#f8f5ee] md:rounded-t-2xl flex-shrink-0">
+                <div className="min-w-0"><p className="font-black text-sm truncate">{selected}</p><p className="text-[11px] opacity-60 truncate">{convos[selected]?.length} messages</p></div>
+                <button onClick={()=>setSelected(null)} className="md:hidden bg-white border px-3 py-1.5 rounded-full text-xs flex-shrink-0">Back</button>
               </div>
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#f8f5ee]">
+              <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-3 bg-[#f8f5ee]">
                 {activeMessages.map((m:any)=>{
                   const isMe=m.from_user===profile.full_name;
                   return (
-                    <div key={m.id} className={`flex ${isMe?'justify-end':'justify-start'}`}>
-                      <div className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${isMe?'bg-[#1a3a2f] text-white rounded-br-sm':'bg-white border rounded-bl-sm'}`}>
-                        <p className="whitespace-pre-wrap break-words">{m.message||m.body}</p>
+                    <div key={m.id} className={`flex ${isMe?'justify-end':'justify-start'} max-w-full`}>
+                      <div className={`max-w-[78%] sm:max-w-[75%] rounded-2xl px-3 sm:px-4 py-2 text-sm break-words overflow-hidden ${isMe?'bg-[#1a3a2f] text-white rounded-br-sm':'bg-white border rounded-bl-sm'}`}>
+                        <p className="whitespace-pre-wrap break-words break-all">{m.message||m.body}</p>
                         <p className={`text-[10px] mt-1 ${isMe?'text-white/60':'opacity-40'}`}>{formatRelativeLocal(m.created_at)}</p>
                       </div>
                     </div>
                   );
                 })}
               </div>
-              <div className="p-3 border-t flex gap-2 bg-white md:rounded-b-2xl">
-                <input value={reply} onChange={e=>setReply(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter') sendReply(); }} placeholder={`Reply to ${selected}...`} className="flex-1 bg-[#f8f5ee] border rounded-full px-4 py-3 text-sm outline-none" />
-                <button onClick={sendReply} className="bg-black text-white px-5 py-3 rounded-full text-sm font-black">Send 🔔</button>
+              <div className="p-2 sm:p-3 border-t flex gap-2 bg-white md:rounded-b-2xl flex-shrink-0">
+                <input value={reply} onChange={e=>setReply(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter') sendReply(); }} placeholder={`Reply...`} className="flex-1 min-w-0 bg-[#f8f5ee] border rounded-full px-3 sm:px-4 py-2.5 text-sm outline-none" />
+                <button onClick={sendReply} className="bg-black text-white px-4 sm:px-5 py-2.5 rounded-full text-sm font-black flex-shrink-0">Send</button>
               </div>
             </>
           )}
         </div>
       </div>
 
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t p-3 flex justify-around text-xs">
-        <Link href="/" className="font-bold opacity-60">Feed</Link>
-        <span className="font-black">DMs • {dms.length}</span>
-        <Link href="/" className="font-bold opacity-60">Post</Link>
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t p-2.5 flex justify-around text-xs z-10">
+        <Link href="/" className="font-bold opacity-60 px-3 py-1">Feed</Link>
+        <span className="font-black px-3 py-1 bg-black text-white rounded-full">DMs • {dms.length}</span>
       </div>
     </div>
   );
