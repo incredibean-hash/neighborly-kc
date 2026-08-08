@@ -131,10 +131,12 @@ export default function Page(){
   const [aiVerified,setAiVerified]=useState(false);
   const [aiExtracted,setAiExtracted]=useState('');
   const [aiParsedAddress,setAiParsedAddress]=useState<{street?:string, zip?:string, city?:string}>({});
-    const [deferredPrompt,setDeferredPrompt]=useState<any>(null);
+  const [deferredPrompt,setDeferredPrompt]=useState<any>(null);
   const [showInstall,setShowInstall]=useState(false);
+  const [showInstallBanner,setShowInstallBanner]=useState(true);
+  const [showIosInstallGuide,setShowIosInstallGuide]=useState(false);
   const [dmUnseen,setDmUnseen]=useState(0);
-const markDMsAsRead = ()=>{ if(profile?.full_name){ localStorage.setItem('nkc_dms_last_seen_'+profile.full_name, new Date().toISOString()); setDmUnseen(0); } };
+  const markDMsAsRead = ()=>{ if(profile?.full_name){ localStorage.setItem('nkc_dms_last_seen_'+profile.full_name, new Date().toISOString()); setDmUnseen(0); } };
 
 
   useEffect(()=>{
