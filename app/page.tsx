@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!;
 
-const CATS = ['All','General','For Sale & Free','Safety Alert','Recommendation','Event','Lost & Found'];
+const CATS = ['All','General','For Sale & Free','Safety Alert','Recommendation','Events','Lost & Found'];
 
 const ALL_RADIUS = [
   {id:'hood', label:'My Neighborhood Only', miles:1, need:'zip'},
