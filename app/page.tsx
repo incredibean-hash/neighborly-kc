@@ -81,16 +81,45 @@ export default function Page(){
   const [showInstall,setShowInstall]=useState(false);
 
   useEffect(()=>{
+    // Set bookmark/install label to "Neighborly KC" not "Parkwood Hills"
+    if(typeof document!=='undefined'){
+      document.title='Neighborly KC';
+      let meta=document.querySelector('meta[name="apple-mobile-web-app-title"]');
+      if(!meta){ meta=document.createElement('meta'); (meta as any).name='apple-mobile-web-app-title'; document.head.appendChild(meta); }
+      (meta as any).content='Neighborly KC';
+      let meta2=document.querySelector('meta[name="application-name"]');
+      if(!meta2){ meta2=document.createElement('meta'); (meta2 as any).name='application-name'; document.head.appendChild(meta2); }
+      (meta2 as any).content='Neighborly KC';
+    }
     const isStandalone= (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || (window.navigator as any).standalone;
     if(isStandalone) return;
     const handler=(e:any)=>{ e.preventDefault(); setDeferredPrompt(e); setShowInstall(true); };
     window.addEventListener('beforeinstallprompt', handler);
-    if(/iPad|iPhone|iPod/.test(navigator.userAgent)) setShowInstall(true);
-    return()=>window.removeEventListener('beforeinstallprompt', handler);
+    // Always show install button after 1s for all devices (even if no prompt yet)
+    const t=setTimeout(()=>setShowInstall(true), 1000);
+    return()=>{ window.removeEventListener('beforeinstallprompt', handler); clearTimeout(t); };
   },[]);
   const handleInstall=async()=>{
-    if(deferredPrompt){ deferredPrompt.prompt(); const {outcome}=await deferredPrompt.userChoice; if(outcome==='accepted') setShowInstall(false); setDeferredPrompt(null); }
-    else { alert('iPhone: Tap Share button → Add to Home Screen. Android: Menu → Install App'); }
+    // One-tap auto-install to device
+    try{
+      if(deferredPrompt){
+        deferredPrompt.prompt();
+        const {outcome}=await deferredPrompt.userChoice;
+        if(outcome==='accepted'){ setShowInstall(false); setDeferredPrompt(null); }
+        return;
+      }
+      // iOS fallback - try to trigger Add to Home Screen automatically via share API if available
+      if((navigator as any).share && /iPad|iPhone|iPod/.test(navigator.userAgent)){
+        try{ await (navigator as any).share({title:'Neighborly KC', url: window.location.href}); }catch{}
+      }
+      // Show clean install instructions without Parkwood Hills
+      const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);
+      if(isIOS){
+        alert('To install: Tap Share button (square with arrow) → Add to Home Screen → Add. App will be named "Neighborly KC"');
+      }else{
+        alert('To install: Tap menu ⋮ → Install app or Add to Home Screen. App will be named "Neighborly KC"');
+      }
+    }catch{}
   };
 
   const loadAll = async (ids:string[])=>{
@@ -352,7 +381,7 @@ export default function Page(){
             <span className="font-normal text-gray-500 text-[11px] sm:text-sm ml-2 hidden sm:inline">{maxRadius} Mile • {isMailVerified?'AI Verified 🤖':'Zip Verified'} • {profile?.zip||'64155'} ✓ {profile?.is_founder && '👑'}</span>
           </h1>
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-            {showInstall && <button onClick={handleInstall} className="px-3 py-2 rounded-full bg-[#1a3a2f] text-white font-black text-[11px] sm:text-xs">📲 Install App</button>}
+            {showInstall && <button onClick={handleInstall} className="px-3 py-2 rounded-full bg-[#1a3a2f] text-white font-black text-[11px] sm:text-xs animate-pulse">📲 Add to Device</button>}
             <Link href="/dms" className="w-9 h-9 sm:w-auto sm:px-3 sm:py-2 rounded-full text-base flex items-center justify-center border-2 bg-white hover:bg-black hover:text-white transition-colors font-bold text-xs">💬 DMs</Link>
             <button onClick={enablePush} className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full text-base flex items-center justify-center border-2 ${notifOn?'bg-green-200':'bg-white'}`}>🔔</button>
             {profile ? <button onClick={()=>{ localStorage.clear(); setProfile(null); }} className="px-3 sm:px-4 py-2 rounded-full bg-white border-2 font-black text-[11px] sm:text-xs">Logout</button> : <button onClick={()=>setShowJoin(true)} className="px-3 sm:px-4 py-2 rounded-full bg-black text-white font-black text-[11px] sm:text-xs">Join</button>}
