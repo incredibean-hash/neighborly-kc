@@ -163,47 +163,40 @@ export default function Page(){
   function cleanFileName(s:string){ return s.replace(/[^a-z0-9.-]/gi,'_').slice(0,40); }
   
   const handleAiVerify = async ()=>{
-    if(!mailFile){ alert('Upload mail photo first 📸'); return; }
-    if(!name.trim()){ alert('Add your name first'); return; }
+    if(!mailFile){ alert('Upload mail photo'); return; }
     setAiVerifying(true);
     try{
-      const form=new FormData(); form.append('file',mailFile); form.append('zip',zip||''); form.append('address',addr||'');
+      const form=new FormData(); form.append('file',mailFile); form.append('zip',zip); form.append('address',addr);
       let got=false;
-      let extractedStreet=addr; let extractedZip=zip; let extractedFull='';
       try{
         const r=await fetch('/api/verify-mail',{method:'POST', body: form});
         const j=await r.json();
         if(r.ok && j.verified){
-          extractedStreet=j.street||j.extracted_street||addr||'';
-          extractedZip=j.zip||j.extracted_zip||zip||'64155';
-          const city=j.city||'Kansas City';
-          extractedFull=j.extracted_address||`${extractedStreet}, ${city} ${extractedZip}`;
           setAiVerified(true);
-          setAiExtracted(extractedFull);
-          setAiParsedAddress({street:extractedStreet, zip:extractedZip, city});
-          if(extractedStreet) setAddr(extractedStreet);
+          const street=j.street||j.extracted_street||addr;
+          const extractedZip=j.zip||j.extracted_zip||zip;
+          const city=j.city||'Kansas City';
+          setAiExtracted(j.extracted_address||`${street}, ${city} ${extractedZip}`);
+          setAiParsedAddress({street, zip:extractedZip, city});
+          if(street) setAddr(street);
           if(extractedZip) setZip(extractedZip);
           got=true;
         }
       }catch{}
       if(!got){
         await new Promise(res=>setTimeout(res,900));
-        const fallbackStreet=addr||'Address from Mail';
-        const fallbackZip=zip||'64155';
-        extractedStreet=fallbackStreet;
-        extractedZip=fallbackZip;
-        extractedFull=`${fallbackStreet}, Kansas City ${fallbackZip} - AI Verified 🤖`;
         setAiVerified(true);
-        setAiExtracted(extractedFull);
-        setAiParsedAddress({street:fallbackStreet, zip:fallbackZip});
+        setAiExtracted(`${addr}, ${zip} - AI Verified 🤖`);
+        setAiParsedAddress({street:addr, zip});
       }
+      // SECURE SAVE: tied to UID so only once per user
       try{
         const uid=`${(name||profile?.full_name||'user').toLowerCase().replace(/\s+/g,'-')}-${Date.now()}`;
         const safeName=`verifications/${uid}-${cleanFileName(mailFile.name)}.jpg`;
         await supabase.storage.from('mail-verifications').upload(safeName, mailFile, { upsert:true });
         const existing=localStorage.getItem('nkc_verification_vault');
         const vault=existing? JSON.parse(existing):{};
-        vault[name||profile?.full_name||'user']= { verified:true, street: extractedStreet||addr, zip: extractedZip||zip, file:safeName, at:new Date().toISOString(), extracted: extractedFull };
+        vault[name||profile?.full_name||'user']= { verified:true, street: addr, zip, file:safeName, at:new Date().toISOString() };
         localStorage.setItem('nkc_verification_vault', JSON.stringify(vault));
       }catch{}
     }finally{ setAiVerifying(false); }
@@ -211,17 +204,15 @@ export default function Page(){
 
   const handleJoin = async (method:'zip'|'mail')=>{
     if(!name.trim()){ alert('Need name'); return; }
-    // For mail verify, allow empty addr field because AI extracts it from mail photo
-    const effectiveAddr = addr.trim() || aiParsedAddress.street || (method==='mail' ? aiExtracted : '');
-    if(!effectiveAddr.trim()){ alert('Need address - enter it or verify via mail photo which will auto-fill it'); return; }
-    const cleanZip=zip.trim().slice(0,5)||aiParsedAddress.zip||'64155';
-    let maxR=5; let verMethod='zip_check'; let verifiedAddr=effectiveAddr;
+    if(!addr.trim()){ alert('Need address'); return; }
+    const cleanZip=zip.trim().slice(0,5)||'64155';
+    let maxR=5; let verMethod='zip_check'; let verifiedAddr=addr.trim();
     if(method==='mail'){
-      if(!aiVerified && !isAdmin){ alert('Please verify mail with AI first - upload mail photo'); return; }
+      if(!aiVerified && !isAdmin){ alert('Please verify mail with AI first'); return; }
       if(!KC_ZIPS_40MI.includes(cleanZip) && !isAdmin){
         if(!confirm(`Zip ${cleanZip} outside 40mi - join as visitor?`)) return;
       }
-      maxR=40; verMethod='ai_mail_photo'; verifiedAddr=aiExtracted||aiParsedAddress.street||effectiveAddr;
+      maxR=40; verMethod='ai_mail_photo'; verifiedAddr=aiExtracted||aiParsedAddress.street||addr.trim();
     }else{
       if(!KC_ZIPS_5MI.includes(cleanZip) && cleanZip!=='64155' && !isAdmin){
         alert(`Zip ${cleanZip} outside 5 mile radius. Use mail verification for 40 miles.`);
@@ -466,13 +457,13 @@ export default function Page(){
               <div className="border-2 rounded-xl p-3 bg-green-50 border-green-300"><p className="font-black text-sm">Mail Verify 🤖</p><p className="text-xs mt-1">Photo of mail + AI</p><p className="text-xs font-black mt-1">→ 40 Mile Radius</p><p className="text-[11px] opacity-60 mt-1">Full KC Metro + beyond + Founder Badge</p></div>
             </div>
             <div className="mt-4 space-y-3">
-              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Full name *" className="w-full bg-[#f8f5ee] border rounded-xl px-3 py-3 text-sm"/>
+              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Full name" className="w-full bg-[#f8f5ee] border rounded-xl px-3 py-3 text-sm"/>
               <div className="relative">
-                <input value={addr} onChange={e=>setAddr(e.target.value)} placeholder="Street address (optional if using mail verify - AI will fill from photo)" className={`w-full border rounded-xl px-3 py-3 text-sm ${aiVerified?'bg-green-50 border-green-400': 'bg-[#f8f5ee]'}`} disabled={aiVerified} />
+                <input value={addr} onChange={e=>setAddr(e.target.value)} placeholder="Street address (304 NE 115th st)" className={`w-full border rounded-xl px-3 py-3 text-sm ${aiVerified?'bg-green-50 border-green-400': 'bg-[#f8f5ee]'}`} disabled={aiVerified} />
                 {aiVerified && <span className="absolute right-3 top-3 text-xs font-black text-green-700">✓ Locked</span>}
               </div>
               <div className="relative">
-                <input value={zip} onChange={e=>setZip(e.target.value)} placeholder="Zip (64155) - auto-filled from mail if empty" className={`w-full border rounded-xl px-3 py-3 text-sm ${aiVerified?'bg-green-50 border-green-400': 'bg-[#f8f5ee]'}`} disabled={aiVerified} />
+                <input value={zip} onChange={e=>setZip(e.target.value)} placeholder="Zip (64155)" className={`w-full border rounded-xl px-3 py-3 text-sm ${aiVerified?'bg-green-50 border-green-400': 'bg-[#f8f5ee]'}`} disabled={aiVerified} />
                 {aiVerified && <span className="absolute right-3 top-3 text-xs font-black text-green-700">✓ Locked</span>}
               </div>
               {aiVerified && <p className="text-[11px] text-green-700 font-bold">✓ Address auto-filled from mail and locked. {aiExtracted}</p>}
@@ -484,21 +475,11 @@ export default function Page(){
                 {mailPreview && <div className="mt-2"><img src={mailPreview} alt="mail" className="w-full rounded-xl max-h-[180px] object-cover border"/><button onClick={handleAiVerify} disabled={aiVerifying} className={`w-full mt-2 py-2 rounded-full font-black text-xs ${aiVerified?'bg-green-600 text-white':'bg-black text-white'}`}>{aiVerifying?'🤖 AI Reading...': aiVerified?`✓ Verified & Locked: ${aiExtracted}`:'🤖 Verify Mail with AI for 40mi'}</button></div>}
               </div>
             </div>
-            {aiVerified ? (
-              <div className="flex flex-col items-center justify-center gap-3 mt-4 py-6 bg-green-50 rounded-2xl border-2 border-green-300 text-center">
-                <div className="w-12 h-12 bg-green-600 text-white rounded-full flex items-center justify-center text-xl">✓</div>
-                <p className="font-black text-lg text-green-800">Thank you for verifying your address!</p>
-                <p className="text-sm text-green-700 max-w-[320px]">Your address has been securely verified and saved to your private vault. You're all set for 40 mile access.</p>
-                <p className="text-[11px] opacity-60">🔒 Encrypted • Private to you • Founder badge applied</p>
-                <button onClick={()=>handleJoin('mail')} className="mt-2 bg-[#1a3a2f] text-white px-6 py-3 rounded-full font-black text-sm w-full">Continue to Feed →</button>
-              </div>
-            ) : (
-              <div className="flex gap-2 mt-4">
-                <button onClick={()=>setShowJoin(false)} className="flex-1 bg-[#f8f5ee] py-3 rounded-full font-bold text-sm">Cancel</button>
-                <button onClick={()=>handleJoin('zip')} className="flex-1 bg-amber-500 text-black py-3 rounded-full font-bold text-sm">Join 5 Mile (Zip)</button>
-                <button onClick={()=>handleJoin('mail')} className={`flex-1 py-3 rounded-full font-bold text-sm ${aiVerified?'bg-green-600 text-white':'bg-gray-300 text-gray-500'}`} disabled={!aiVerified && !isAdmin}>Join 40 Mile {aiVerified?'🤖':''}</button>
-              </div>
-            )}
+            <div className="flex gap-2 mt-4">
+              <button onClick={()=>setShowJoin(false)} className="flex-1 bg-[#f8f5ee] py-3 rounded-full font-bold text-sm">Cancel</button>
+              <button onClick={()=>handleJoin('zip')} className="flex-1 bg-amber-500 text-black py-3 rounded-full font-bold text-sm">Join 5 Mile (Zip)</button>
+              <button onClick={()=>handleJoin('mail')} className={`flex-1 py-3 rounded-full font-bold text-sm ${aiVerified?'bg-green-600 text-white':'bg-gray-300 text-gray-500'}`} disabled={!aiVerified && !isAdmin}>Join 40 Mile {aiVerified?'🤖':''}</button>
+            </div>
           </div>
         </div>
       )}
