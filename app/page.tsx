@@ -549,7 +549,7 @@ return (
           </Link>
         </aside>
 
-        <main className="space-y-0 sm:space-y-3 max-w-[100vw] overflow-hidden pb-20 lg:pb-0">
+        <main className="space-y-0 sm:space-y-3 max-w-[100vw] overflow-hidden pb-0">
           {/* Composer - fits mobile */}
           <div className="bg-white sm:rounded-2xl p-3 sm:p-4 border-b sm:border max-w-full overflow-hidden">
             <textarea value={body} onChange={e=>setBody(e.target.value)} placeholder={profile?`What's up in ${cur?.name}?`:'Join Parkwood Hills to post...'} className="w-full bg-[#f8f5ee] rounded-xl p-3 min-h-[80px] text-[16px] sm:text-sm outline-none max-w-full resize-none break-words" rows={3} />
@@ -618,16 +618,6 @@ return (
           <Link href="/dms" onClick={()=>markDMsAsRead()} className="mt-3 w-full bg-black text-white py-2.5 rounded-full text-xs font-black text-center block relative active:scale-95">💬 Open DM Inbox {dmUnseen>0 && <span className="ml-2 bg-red-600 px-2 py-0.5 rounded-full text-[10px]">{dmUnseen} new</span>}</Link>
         </aside>
       </div>
-
-      {/* Mobile bottom nav - hides when keyboard open to stay in UI */}
-      <div className={`lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t z-20 safe-area-pb transition-transform duration-200 ${isKeyboardOpen ? 'translate-y-full' : 'translate-y-0'}`}>
-        <div className="flex justify-around items-center px-2 py-2 max-w-full">
-          <button onClick={()=>window.scrollTo({top:0, behavior:'smooth'})} className="flex flex-col items-center gap-1 px-4 py-1.5 rounded-xl active:bg-black/5"><span className="text-[18px]">🏠</span><span className="text-[10px] font-bold">Feed</span></button>
-          <Link href="/dms" onClick={()=>markDMsAsRead()} className="flex flex-col items-center gap-1 px-4 py-1.5 rounded-xl relative active:bg-black/5"><span className="text-[18px]">💬</span><span className="text-[10px] font-bold">DMs</span>{dmUnseen>0 && <span className="absolute top-0 right-1 bg-red-600 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-black">{dmUnseen>9?'9+':dmUnseen}</span>}</Link>
-          <button onClick={()=>setShowJoin(true)} className="flex flex-col items-center gap-1 px-4 py-1.5 rounded-xl bg-black text-white active:scale-95"><span className="text-[18px]">＋</span><span className="text-[10px] font-bold">Join</span></button>
-        </div>
-      </div>
-
       {showJoin && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-3 md:p-4 overflow-y-auto">
           <div className="bg-white rounded-t-[24px] sm:rounded-[24px] w-full max-w-[560px] p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] my-0 sm:my-8 border-2 max-h-[92vh] sm:max-h-[95vh] overflow-y-auto overscroll-contain">
