@@ -17,11 +17,7 @@ export async function POST(req: NextRequest){
     await supabase.from('bluetooth_approvals').insert({ token, owner, requester, address: address||`${street} ${zip}`, street, zip, status: 'pending', created_at: new Date().toISOString() } as any);
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://neighborly-kc.vercel.app');
     const link = `${baseUrl}/bluetooth?token=${token}`;
-    try{
-      await supabase.from('dms').insert({ from_user: 'Neighborly KC Security', to_user: owner, message: `📲 BLUETOOTH TAP: ${requester} wants "${address}". Approve: ${link}`, body: `Bluetooth approval` } as any);
-    }catch{}
+    try{ await supabase.from('dms').insert({ from_user: 'Neighborly KC Security', to_user: owner, message: `📲 BLUETOOTH TAP: ${requester} wants "${address}". Approve: ${link}`, body: `Bluetooth approval` } as any); }catch{}
     return NextResponse.json({ success:true, token, link });
-  }catch(e:any){
-    return NextResponse.json({ success:false, error:e.message }, {status:500});
-  }
+  }catch(e:any){ return NextResponse.json({ success:false, error:e.message }, {status:500}); }
 }
