@@ -138,6 +138,7 @@ export default function Page(){
   const [showInstallBanner,setShowInstallBanner]=useState(true);
   const [showIosInstallGuide,setShowIosInstallGuide]=useState(false);
   const [isIOS, setIsIOS] = useState(false);
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const [dmUnseen,setDmUnseen]=useState(0);
   const markDMsAsRead = ()=>{ if(profile?.full_name){ localStorage.setItem('nkc_dms_last_seen_'+profile.full_name, new Date().toISOString()); setDmUnseen(0); } };
 
@@ -159,7 +160,27 @@ export default function Page(){
     const handler=(e:any)=>{ e.preventDefault(); setDeferredPrompt(e); setShowInstall(true); setShowInstallBanner(true); };
     window.addEventListener('beforeinstallprompt', handler);
     const t=setTimeout(()=>setShowInstall(true), 1200);
-    return()=>{ window.removeEventListener('beforeinstallprompt', handler); clearTimeout(t); };
+
+    // Keyboard detection - constrain UI when keyboard open
+    const vv = window.visualViewport;
+    const onVvResize = () => {
+      if(!vv) return;
+      const isOpen = vv.height < window.innerHeight * 0.85;
+      setIsKeyboardOpen(isOpen);
+    };
+    const onFocusIn = () => setIsKeyboardOpen(true);
+    const onFocusOut = () => setTimeout(()=>setIsKeyboardOpen(false), 100);
+    if(vv) vv.addEventListener('resize', onVvResize);
+    window.addEventListener('focusin', onFocusIn);
+    window.addEventListener('focusout', onFocusOut);
+
+    return()=>{ 
+      window.removeEventListener('beforeinstallprompt', handler); 
+      clearTimeout(t);
+      if(vv) vv.removeEventListener('resize', onVvResize);
+      window.removeEventListener('focusin', onFocusIn);
+      window.removeEventListener('focusout', onFocusOut);
+    };
   },[]);
 
   const handleInstall=async()=>{
@@ -453,13 +474,24 @@ export default function Page(){
   
   
 return (
-    <div className="min-h-screen bg-[#f8f5ee] overflow-x-hidden max-w-[100vw]">
+    <div className="min-h-[100dvh] bg-[#f8f5ee] overflow-x-hidden max-w-[100vw]">
       <style>{`
         * { -webkit-tap-highlight-color: transparent; }
-        html { overflow-x: hidden; }
-        body { overflow-x: hidden; max-width: 100vw; }
+        html { overflow-x: hidden; height: 100%; }
+        body { overflow-x: hidden; max-width: 100vw; height: 100%; overscroll-behavior-y: contain; }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        @supports (-webkit-touch-callout: none) {
+          .min-h-\[100dvh\] { min-height: -webkit-fill-available; }
+        }
+        input, textarea, select { font-size: 16px; }
+        @media (min-width: 640px) {
+          input, textarea, select { font-size: 14px; }
+        }
+        /* Prevent keyboard from pushing fixed elements */
+        @media (max-width: 1024px) {
+          .fixed-bottom-keyboard { position: fixed; bottom: 0; left: 0; right: 0; }
+        }
       `}</style>
 
       {showInstall && showInstallBanner && (
@@ -520,7 +552,7 @@ return (
         <main className="space-y-0 sm:space-y-3 max-w-[100vw] overflow-hidden pb-20 lg:pb-0">
           {/* Composer - fits mobile */}
           <div className="bg-white sm:rounded-2xl p-3 sm:p-4 border-b sm:border max-w-full overflow-hidden">
-            <textarea value={body} onChange={e=>setBody(e.target.value)} placeholder={profile?`What's up in ${cur?.name}?`:'Join Parkwood Hills to post...'} className="w-full bg-[#f8f5ee] rounded-xl p-3 min-h-[80px] text-sm outline-none max-w-full resize-none break-words" rows={3} />
+            <textarea value={body} onChange={e=>setBody(e.target.value)} placeholder={profile?`What's up in ${cur?.name}?`:'Join Parkwood Hills to post...'} className="w-full bg-[#f8f5ee] rounded-xl p-3 min-h-[80px] text-[16px] sm:text-sm outline-none max-w-full resize-none break-words" rows={3} />
             <div className="flex items-center gap-2 mt-3 max-w-full overflow-hidden"><input id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="text-xs max-w-[60%] truncate" />{file && <span className="text-[11px] opacity-60 truncate flex-1">{(file.size/1024).toFixed(0)}KB → ~400KB</span>}</div>
             <div className="flex justify-between items-center mt-3 gap-2">
               <span className="text-[11px] opacity-50 hidden sm:block">{filtered.length} posts • {cur?.name}</span>
@@ -573,7 +605,7 @@ return (
                     );
                   })}
                   {cList.length===0 && <p className="text-xs opacity-50">Be first to comment — newest on top</p>}
-                  <div className="flex gap-2 pt-2 max-w-full"><input value={commentText[p.id]||''} onChange={e=>setCommentText((prev)=>({...prev,[p.id]:e.target.value}))} placeholder={profile?'Add comment...':'Join to comment'} className="flex-1 min-w-0 bg-white border rounded-full px-3 py-2.5 text-sm outline-none" /><button onClick={()=>addComment(p.id)} className="bg-[#1a3a2f] text-white px-4 py-2.5 rounded-full text-xs font-bold flex-shrink-0 active:scale-95">Reply</button></div>
+                  <div className="flex gap-2 pt-2 max-w-full"><input value={commentText[p.id]||''} onChange={e=>setCommentText((prev)=>({...prev,[p.id]:e.target.value}))} placeholder={profile?'Add comment...':'Join to comment'} className="flex-1 min-w-0 bg-white border rounded-full px-3 py-2.5 text-[16px] sm:text-sm outline-none" /><button onClick={()=>addComment(p.id)} className="bg-[#1a3a2f] text-white px-4 py-2.5 rounded-full text-xs font-bold flex-shrink-0 active:scale-95">Reply</button></div>
                 </div>
               )}
             </div>
@@ -587,8 +619,8 @@ return (
         </aside>
       </div>
 
-      {/* Mobile bottom nav - smooth */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t z-20 safe-area-pb">
+      {/* Mobile bottom nav - hides when keyboard open to stay in UI */}
+      <div className={`lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t z-20 safe-area-pb transition-transform duration-200 ${isKeyboardOpen ? 'translate-y-full' : 'translate-y-0'}`}>
         <div className="flex justify-around items-center px-2 py-2 max-w-full">
           <button onClick={()=>window.scrollTo({top:0, behavior:'smooth'})} className="flex flex-col items-center gap-1 px-4 py-1.5 rounded-xl active:bg-black/5"><span className="text-[18px]">🏠</span><span className="text-[10px] font-bold">Feed</span></button>
           <Link href="/dms" onClick={()=>markDMsAsRead()} className="flex flex-col items-center gap-1 px-4 py-1.5 rounded-xl relative active:bg-black/5"><span className="text-[18px]">💬</span><span className="text-[10px] font-bold">DMs</span>{dmUnseen>0 && <span className="absolute top-0 right-1 bg-red-600 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-black">{dmUnseen>9?'9+':dmUnseen}</span>}</Link>
@@ -606,9 +638,9 @@ return (
               <div className="border-2 rounded-xl p-2.5 sm:p-3 bg-green-50 border-green-300"><p className="font-black text-[12px] sm:text-sm">Mail Verify 🤖</p><p className="text-[11px] mt-1">Photo of mail + AI</p><p className="text-[11px] font-black mt-1">→ 40 Mile</p><p className="text-[10px] opacity-60 mt-1 hidden sm:block">Full KC Metro + beyond</p></div>
             </div>
             <div className="mt-3 sm:mt-4 space-y-2.5 sm:space-y-3">
-              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Full name *" className="w-full bg-[#f8f5ee] border rounded-xl px-3 py-3 text-sm max-w-full"/>
-              <div className="relative max-w-full"><input value={addr} onChange={e=>setAddr(e.target.value)} placeholder="Street (optional if mail)" className={`w-full border rounded-xl px-3 py-3 text-sm max-w-full ${aiVerified && addr ? 'bg-green-50 border-green-400' : 'bg-[#f8f5ee]'}`} disabled={aiVerified && !!addr} />{aiVerified && addr && <span className="absolute right-3 top-3 text-xs font-black text-green-700">✓</span>}</div>
-              <div className="relative max-w-full"><input value={zip} onChange={e=>setZip(e.target.value)} placeholder="Zip (auto from mail)" className={`w-full border rounded-xl px-3 py-3 text-sm max-w-full ${aiVerified && zip ? 'bg-green-50 border-green-400' : 'bg-[#f8f5ee]'}`} disabled={aiVerified && !!zip && zip!=='64155'} />{aiVerified && zip && <span className="absolute right-3 top-3 text-xs font-black text-green-700">✓</span>}</div>
+              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Full name *" className="w-full bg-[#f8f5ee] border rounded-xl px-3 py-3 text-[16px] sm:text-sm max-w-full"/>
+              <div className="relative max-w-full"><input value={addr} onChange={e=>setAddr(e.target.value)} placeholder="Street (optional if mail)" className={`w-full border rounded-xl px-3 py-3 text-[16px] sm:text-sm max-w-full ${aiVerified && addr ? 'bg-green-50 border-green-400' : 'bg-[#f8f5ee]'}`} disabled={aiVerified && !!addr} />{aiVerified && addr && <span className="absolute right-3 top-3 text-xs font-black text-green-700">✓</span>}</div>
+              <div className="relative max-w-full"><input value={zip} onChange={e=>setZip(e.target.value)} placeholder="Zip (auto from mail)" className={`w-full border rounded-xl px-3 py-3 text-[16px] sm:text-sm max-w-full ${aiVerified && zip ? 'bg-green-50 border-green-400' : 'bg-[#f8f5ee]'}`} disabled={aiVerified && !!zip && zip!=='64155'} />{aiVerified && zip && <span className="absolute right-3 top-3 text-xs font-black text-green-700">✓</span>}</div>
               {aiVerified && <p className="text-[11px] text-green-700 font-bold break-words">✓ {aiExtracted}</p>}
               <div className="border-2 border-dashed rounded-xl p-2.5 sm:p-3 bg-[#f8f5ee] max-w-full">
                 <p className="font-black text-[11px] sm:text-xs">🔒 Secure AI Mail Verification</p>
@@ -640,7 +672,7 @@ return (
           <div className="bg-white rounded-t-[24px] sm:rounded-[20px] w-full max-w-[420px] p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] border-2 shadow-2xl mx-auto max-h-[90vh] overflow-y-auto">
             <div className="w-10 h-1 bg-black/20 rounded-full mx-auto mb-3 sm:hidden"></div>
             <div className="flex justify-between items-center mb-4"><h3 className="font-black text-lg truncate min-w-0">DM {showDmModal} 🔔</h3><button onClick={()=>{setShowDmModal(null); setDmModalMsg('');}} className="w-8 h-8 rounded-full bg-black/5 font-black flex-shrink-0 ml-2">✕</button></div>
-            <textarea value={dmModalMsg} onChange={e=>setDmModalMsg(e.target.value)} placeholder={`Hey ${showDmModal}, ...`} className="w-full border-2 p-4 rounded-2xl text-sm min-h-[100px] resize-none outline-none max-w-full"/>
+            <textarea value={dmModalMsg} onChange={e=>setDmModalMsg(e.target.value)} placeholder={`Hey ${showDmModal}, ...`} className="w-full border-2 p-4 rounded-2xl text-[16px] sm:text-sm min-h-[100px] resize-none outline-none max-w-full"/>
             <div className="flex gap-2 mt-4">
               <button onClick={()=>{setShowDmModal(null); setDmModalMsg('');}} className="flex-1 bg-[#f8f5ee] py-3 rounded-full font-bold text-sm active:scale-95">Cancel</button>
               <button onClick={async()=>{ if(!dmModalMsg.trim()) return; await sendDM(showDmModal!, dmModalMsg); setDmModalMsg(''); setShowDmModal(null); }} className="flex-1 bg-black text-white py-3 rounded-full font-bold text-sm active:scale-95">Send</button>
