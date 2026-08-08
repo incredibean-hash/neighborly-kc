@@ -1,9 +1,9 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
-export default function BluetoothPage(){
+function BluetoothContent(){
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
   const [status,setStatus]=useState<'idle'|'scanning'|'found'|'approved'|'error'>('idle');
@@ -21,32 +21,26 @@ export default function BluetoothPage(){
     if(!(navigator as any).bluetooth){
       setStatus('error');
       setMsg('Bluetooth not supported on this browser. Try Chrome on Android. For now, approving via proximity check.');
-      // Fallback - still allow approve if owner confirms they're together
       setTimeout(()=>{ setStatus('found'); setMsg('Nearby verification - tap approve to confirm you are together'); }, 1000);
       return;
     }
     try{
       setStatus('scanning');
       setMsg('Scanning for nearby Neighborly KC device via Bluetooth... Make sure other phone has Bluetooth on');
-      
-      // Request any device nearby - this triggers system Bluetooth picker showing nearby devices
-      // This proves proximity (device must be within ~30ft to appear)
       const device = await (navigator as any).bluetooth.requestDevice({
         acceptAllDevices: true,
         optionalServices: ['battery_service']
       });
-      
       setDeviceName(device.name||'Nearby device');
       setStatus('found');
       setMsg(`Found ${device.name||'device'} nearby via Bluetooth! Tap approve to confirm you're together.`);
-      
     }catch(e:any){
       if(e.name==='NotFoundError'){
         setStatus('error');
         setMsg('No device found. Make sure other person has Bluetooth ON and is within 30ft. Try again.');
       } else {
         setStatus('error');
-        setMsg('Bluetooth scan failed: '+e.message+'. On iPhone, Bluetooth tap requires manual confirm - tap approve if you are together.');
+        setMsg('Bluetooth scan failed: '+e.message+'. On iPhone, tap approve if you are together.');
       }
     }
   };
@@ -76,7 +70,6 @@ export default function BluetoothPage(){
           <h1 className="font-black text-xl">Bluetooth Tap Approval</h1>
           <p className="text-xs opacity-60 mt-1">Verify you're together via Bluetooth</p>
         </div>
-
         {approval && (
           <div className="mt-6 bg-[#f8f5ee] rounded-xl p-3 border">
             <p className="text-[11px] font-black opacity-60">REQUEST</p>
@@ -84,30 +77,26 @@ export default function BluetoothPage(){
             <p className="text-[11px] opacity-60 mt-1">Owner: {approval.owner} • Status: {approval.status}</p>
           </div>
         )}
-
         <div className="mt-6 space-y-3">
           {status==='idle' && (
             <>
               <p className="text-sm">To approve via Bluetooth tap:</p>
               <ol className="text-xs space-y-2 list-decimal ml-4 opacity-80">
-                <li>Make sure both phones have Bluetooth ON</li>
-                <li>Stand within 30ft of each other</li>
-                <li>Tap "Scan for nearby device" below</li>
-                <li>Select nearby device in picker (proves proximity)</li>
+                <li>Both phones Bluetooth ON</li>
+                <li>Stand within 30ft</li>
+                <li>Tap Scan below</li>
+                <li>Select device in picker (proves proximity)</li>
                 <li>Tap Approve</li>
               </ol>
               <button onClick={scanBluetooth} className="w-full mt-4 bg-black text-white py-3 rounded-full font-black text-sm">📡 Scan for nearby device via Bluetooth</button>
-              <p className="text-[10px] opacity-50 text-center">Works on Chrome Android, Edge. iPhone shows manual confirm.</p>
             </>
           )}
-
           {status==='scanning' && (
             <div className="text-center py-6">
               <div className="animate-spin w-8 h-8 border-2 border-black border-t-transparent rounded-full mx-auto"></div>
               <p className="text-sm font-bold mt-3">{msg}</p>
             </div>
           )}
-
           {status==='found' && (
             <>
               <div className="bg-green-50 border border-green-300 rounded-xl p-3 text-center">
@@ -119,7 +108,6 @@ export default function BluetoothPage(){
               <button onClick={()=>setStatus('idle')} className="w-full mt-2 bg-[#f8f5ee] py-2.5 rounded-full font-bold text-sm">Scan again</button>
             </>
           )}
-
           {status==='approved' && (
             <div className="bg-green-50 border-2 border-green-500 rounded-2xl p-6 text-center mt-4">
               <div className="w-12 h-12 bg-green-600 text-white rounded-full flex items-center justify-center mx-auto text-xl">✓</div>
@@ -128,7 +116,6 @@ export default function BluetoothPage(){
               <Link href="/" className="mt-4 inline-block bg-black text-white px-6 py-2.5 rounded-full font-black text-sm">Back to Feed</Link>
             </div>
           )}
-
           {status==='error' && (
             <>
               <div className="bg-red-50 border border-red-300 rounded-xl p-3">
@@ -136,14 +123,20 @@ export default function BluetoothPage(){
               </div>
               <div className="flex gap-2 mt-3">
                 <button onClick={()=>setStatus('idle')} className="flex-1 bg-[#f8f5ee] py-2.5 rounded-full font-bold text-sm">Try again</button>
-                <button onClick={approve} className="flex-1 bg-black text-white py-2.5 rounded-full font-bold text-sm">Approve anyway (together)</button>
+                <button onClick={approve} className="flex-1 bg-black text-white py-2.5 rounded-full font-bold text-sm">Approve anyway</button>
               </div>
             </>
           )}
         </div>
-
-        <p className="text-[10px] opacity-40 text-center mt-4">Bluetooth proves you're physically together - prevents remote fraud</p>
       </div>
     </div>
+  );
+}
+
+export default function BluetoothPage(){
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#f8f5ee] p-6 text-center">Loading Bluetooth...</div>}>
+      <BluetoothContent />
+    </Suspense>
   );
 }
