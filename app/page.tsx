@@ -336,6 +336,7 @@ export default function Page(){
           </h1>
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
             {showInstall && <button onClick={handleInstall} className="px-3 py-2 rounded-full bg-[#1a3a2f] text-white font-black text-[11px] sm:text-xs">📲 Install App</button>}
+            <a href="/dms" className="w-9 h-9 sm:w-10 sm:h-10 rounded-full text-base flex items-center justify-center border-2 bg-white hover:bg-black hover:text-white transition-colors">💬</a>
             <button onClick={enablePush} className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full text-base flex items-center justify-center border-2 ${notifOn?'bg-green-200':'bg-white'}`}>🔔</button>
             {profile ? <button onClick={()=>{ localStorage.clear(); setProfile(null); }} className="px-3 sm:px-4 py-2 rounded-full bg-white border-2 font-black text-[11px] sm:text-xs">Logout</button> : <button onClick={()=>setShowJoin(true)} className="px-3 sm:px-4 py-2 rounded-full bg-black text-white font-black text-[11px] sm:text-xs">Join</button>}
           </div>
