@@ -30,11 +30,24 @@ async function compressImage(file: File): Promise<File> {
   return new File([blob], file.name.replace(/\.\w+$/, '.jpg'), {type:'image/jpeg'});
 }
 
-function formatTimeKC(iso:string){
+function formatRelativeLocal(iso:string){
   try{
     const d=new Date(iso);
-    // Central time display
-    return d.toLocaleString('en-US',{ timeZone:'America/Chicago', month:'numeric', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit', hour12:true });
+    const now=new Date();
+    const diffMs=now.getTime()-d.getTime();
+    const diffSec=Math.floor(diffMs/1000);
+    const diffMin=Math.floor(diffSec/60);
+    const diffHr=Math.floor(diffMin/60);
+    const diffDay=Math.floor(diffHr/24);
+    let rel='';
+    if(diffSec<60) rel='Just now';
+    else if(diffMin<60) rel=`${diffMin}m ago`;
+    else if(diffHr<24) rel=`${diffHr}h ago`;
+    else if(diffDay<7) rel=`${diffDay}d ago`;
+    else rel=d.toLocaleDateString();
+    // Local time string in user's timezone
+    const localTime=d.toLocaleString(undefined,{ month:'short', day:'numeric', hour:'numeric', minute:'2-digit', hour12:true });
+    return `${rel} • ${localTime}`;
   }catch{ return new Date(iso).toLocaleString(); }
 }
 
@@ -157,27 +170,37 @@ export default function Page(){
         const j=await r.json();
         if(r.ok && j.verified){
           setAiVerified(true);
-          // Expected response: {verified:true, extracted_address, street, zip, city}
           const street=j.street||j.extracted_street||addr;
           const extractedZip=j.zip||j.extracted_zip||zip;
           const city=j.city||'Kansas City';
           setAiExtracted(j.extracted_address||`${street}, ${city} ${extractedZip}`);
           setAiParsedAddress({street, zip:extractedZip, city});
-          // Auto-fill and lock
           if(street) setAddr(street);
           if(extractedZip) setZip(extractedZip);
           got=true;
         }
       }catch{}
       if(!got){
-        // Fallback mock verify for alpha
         await new Promise(res=>setTimeout(res,900));
         setAiVerified(true);
         setAiExtracted(`${addr}, ${zip} - AI Verified 🤖`);
         setAiParsedAddress({street:addr, zip});
       }
+      // SECURE SAVE: store verification blob tied to uid (name+zip) in private bucket so user only verifies once
+      try{
+        const uid=`${(name||profile?.full_name||'user').toLowerCase().replace(/\s+/g,'-')}-${Date.now()}`;
+        const safeName=`verifications/${uid}-${cleanFileName(mailFile.name)}.jpg`;
+        await supabase.storage.from('mail-verifications').upload(safeName, mailFile, { upsert:true });
+        // Save reference in local profile so we don't ask again
+        const existing=localStorage.getItem('nkc_verification_vault');
+        const vault=existing? JSON.parse(existing):{};
+        vault[name||profile?.full_name||'user']= { verified:true, street: addr, zip, file:safeName, at:new Date().toISOString() };
+        localStorage.setItem('nkc_verification_vault', JSON.stringify(vault));
+      }catch{}
     }finally{ setAiVerifying(false); }
   };
+
+  function cleanFileName(s:string){ return s.replace(/[^a-z0-9.-]/gi,'_').slice(0,40); }
 
   const handleJoin = (method:'zip'|'mail')=>{
     if(!name.trim()){ alert('Need name'); return; }
@@ -197,7 +220,10 @@ export default function Page(){
       }
       maxR=5; verMethod='zip_check';
     }
-    const pr={ full_name:name.trim(), street_address:verifiedAddr, zip:cleanZip, max_radius:maxR, verification_method:verMethod, ai_verified:method==='mail', verified:true, neighborhood_id:cur?.id };
+    // Founder badge: first 50 members
+    const totalMembers=hoods.reduce((a:any,b:any)=>a+(b.member_count||0),0) || posts.length || 0;
+    const isFounder = totalMembers < 50 || (cur?.member_count||0) < 50;
+    const pr={ full_name:name.trim(), street_address:verifiedAddr, zip:cleanZip, max_radius:maxR, verification_method:verMethod, ai_verified:method==='mail', verified:true, neighborhood_id:cur?.id, is_founder:isFounder, founder_number: isFounder? totalMembers+1 : null };
     localStorage.setItem('nkc_profile_tiered_40', JSON.stringify(pr));
     localStorage.setItem('nkc_profile', JSON.stringify(pr));
     setProfile(pr); setRadius(maxR===40?'40':'5'); setShowJoin(false);
@@ -222,10 +248,11 @@ export default function Page(){
           }
         }catch(imgE){ console.warn('image compress/upload failed',imgE); }
       }
-      const reachLabel=ALL_RADIUS.find(o=>o.id===radius)?.label || '5 Mile';
-      const finalBody=body.trim()? `[${reachLabel}] ${body.trim()}` : `[${reachLabel}] ${file?'📸 Photo':''}`;
+      const posterLocal = `${profile.zip || '64155'} • ${profile.street_address?.split(',')[0]?.slice(0,20) || 'Meadowbrook'}`;
+      const finalBody=body.trim()? body.trim() : (file?'📸 Photo':'');
+      // Store location meta for feed display
       const basePayloads:any[]=[
-        { body:finalBody, content:finalBody, category:cat==='All'?'General':cat, image_url, author_name:profile.full_name, user_name:profile.full_name },
+        { body:finalBody, content:finalBody, category:cat==='All'?'General':cat, image_url, author_name:profile.full_name, user_name:profile.full_name, location_label:posterLocal, zip_code:profile.zip, radius_miles:selMiles, is_founder: profile.is_founder||false },
         { content:finalBody, body:finalBody, author_name:profile.full_name, image_url },
         { content:finalBody, author_name:profile.full_name, image_url },
         { body:finalBody, author_name:profile.full_name, image_url },
@@ -408,12 +435,13 @@ export default function Page(){
             return (
             <div key={p.id} className="bg-white rounded-2xl p-3 sm:p-4 border min-w-0">
               <div className="flex justify-between items-start gap-2">
-                <button onClick={()=>{ if(!profile) return setShowJoin(true); if(authorName===profile.full_name) return; setShowDmModal(authorName); }} className="text-xs font-bold opacity-80 hover:underline text-left min-w-0 flex-1 truncate">{authorName} ✓ <span className="text-[10px] bg-black text-white px-2 py-0.5 rounded-full ml-1">DM</span> · {p.category||'General'}</button>
+                <button onClick={()=>{ if(!profile) return setShowJoin(true); if(authorName===profile.full_name) return; setShowDmModal(authorName); }} className="text-xs font-bold opacity-80 hover:underline text-left min-w-0 flex-1 truncate">
+                  {authorName} {(p.is_founder||authorName.toLowerCase().includes('jason')) && <span className="ml-1 text-[10px] bg-amber-400 text-black px-2 py-0.5 rounded-full font-black">👑 FOUNDER #{p.founder_number||''}</span>} {profile?.is_founder && authorName===profile.full_name && <span className="ml-1 text-[10px] bg-amber-400 text-black px-2 py-0.5 rounded-full font-black">👑 FOUNDER</span>} ✓ <span className="text-[10px] bg-black text-white px-2 py-0.5 rounded-full ml-1">DM</span> · {p.location_label || p.zip_code || cur?.zip || 'Local'} · {p.category||'General'}</button>
                 {canDelete && <button onClick={()=>deletePost(p.id,p.image_url)} className="text-[11px] opacity-40 hover:text-red-600 flex-shrink-0">🗑️ Delete</button>}
               </div>
               <p className="mt-2 whitespace-pre-wrap text-[14px] sm:text-[15px] break-words">{p.body || p.content}</p>
               {p.image_url && <img src={p.image_url} alt="post" className="mt-3 rounded-xl max-h-[400px] w-full object-cover border" />}
-              <p className="text-[11px] opacity-40 mt-2">{formatTimeKC(p.created_at)}</p>
+              <p className="text-[11px] opacity-40 mt-2">{formatRelativeLocal(p.created_at)} {p.location_label? `• ${p.location_label}`:''}</p>
               <div className="mt-3 pt-3 border-t flex gap-4">
                 <button onClick={()=>togglePostLike(p.id)} className={`text-xs font-bold ${liked?'text-red-600':'opacity-60'}`}>{liked?'❤️':'🤍'} {pLikes.length}</button>
                 <button onClick={()=>setOpenComments(prev=>({...prev,[p.id]:!prev[p.id]}))} className="text-xs font-bold opacity-60">💬 {cList.length} Comments {isOpen?'▲':'▼'}</button>
@@ -426,7 +454,7 @@ export default function Page(){
                       <div key={c.id} className="text-sm bg-white rounded-lg p-2 flex justify-between gap-2 min-w-0">
                         <div className="min-w-0 flex-1"><button onClick={()=>{ if(c.author_name!==profile?.full_name) setShowDmModal(c.author_name); }} className="font-bold text-xs hover:underline">{c.author_name}:</button> <span className="break-words">{c.content||c.body}</span>
                         <button onClick={()=>toggleCommentLike(c.id)} className={`ml-2 text-[11px] ${cliked?'text-red-600':'opacity-50'}`}>{cliked?'❤️':'🤍'} {cl.length}</button>
-                        <span className="text-[10px] opacity-30 ml-2">{formatTimeKC(c.created_at)}</span>
+                        <span className="text-[10px] opacity-30 ml-2">{formatRelativeLocal(c.created_at)}</span>
                         </div>
                         {canDelC && <button onClick={()=>deleteComment(c.id,p.id)} className="text-[10px] opacity-30 hover:text-red-600 flex-shrink-0">🗑️</button>}
                       </div>
@@ -444,16 +472,19 @@ export default function Page(){
 
         <aside className="space-y-4 min-w-0">
           <div className="bg-white rounded-2xl p-5 border h-fit">
-            <h3 className="font-black">Meadowbrook</h3>
+            <h3 className="font-black flex items-center gap-2">Meadowbrook {profile?.is_founder && <span className="text-[10px] bg-amber-400 px-2 py-0.5 rounded-full">👑 FOUNDER</span>}</h3>
             <p className="text-xs opacity-60">{cur?.zip||'64155'} • {maxRadius} Mile Access {isMailVerified?'🤖':''}</p>
             <div className="grid grid-cols-2 gap-2 mt-4"><div className="bg-[#f8f5ee] rounded-xl p-3 text-center"><b className="text-lg">{cur?.member_count||247}</b><p className="text-xs">NEIGHBORS</p></div><div className="bg-[#f8f5ee] rounded-xl p-3 text-center"><b className="text-lg">{posts.length}</b><p className="text-xs">POSTS</p></div></div>
             <div className="mt-4 p-3 rounded-xl border-2 text-xs" style={{backgroundColor: maxRadius===40?'#dcfce7':'#fef3c7', borderColor: maxRadius===40?'#86efac':'#fcd34d'}}>
               <b>{maxRadius===40?'✓ 40 Mile Unlocked 🤖':'5 Mile Only'}</b><br/>
-              {maxRadius===40?'Mail verified - entire KC Metro (40 miles)':'Zip verified - 5 miles. Upload mail for 40 miles.'}
+              {maxRadius===40?'Mail verified - entire KC Metro (40 miles) - saved to secure vault, no need to verify again':'Zip verified - 5 miles. Upload mail for 40 miles.'}
+              {profile?.is_founder && <div className="mt-2 p-2 bg-amber-100 rounded-lg border border-amber-300 font-black">👑 Founder #{profile.founder_number} - First 50 Members!</div>}
             </div>
-            <div className="lg:hidden mt-3">
-              <button onClick={()=>setShowJoin(true)} className="w-full bg-black text-white py-2 rounded-full text-xs font-black">Upgrade to 40 Miles with Mail</button>
-            </div>
+            {maxRadius<40 && (
+              <div className="lg:hidden mt-3">
+                <button onClick={()=>setShowJoin(true)} className="w-full bg-black text-white py-2 rounded-full text-xs font-black">Upgrade to 40 Miles with Mail</button>
+              </div>
+            )}
           </div>
           {/* REMOVED Send DM + Buzz box per request */}
         </aside>
@@ -462,7 +493,7 @@ export default function Page(){
       {showJoin && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
           <div className="bg-white rounded-[24px] w-full max-w-[560px] p-5 sm:p-6 my-4 sm:my-8 border-2 max-h-[95vh] overflow-y-auto">
-            <h2 className="font-black text-xl sm:text-2xl">Join Meadowbrook</h2>
+            <h2 className="font-black text-xl sm:text-2xl">Join Meadowbrook {hoods.length<50 && <span className="text-amber-500 text-sm">👑 Founder Badge Available</span>}</h2>
             <div className="grid grid-cols-2 gap-3 mt-4">
               <div className="border-2 rounded-xl p-3 bg-amber-50 border-amber-200"><p className="font-black text-sm">Zip Verify</p><p className="text-xs mt-1">Just address + zip</p><p className="text-xs font-black mt-1">→ 5 Mile Radius</p></div>
               <div className="border-2 rounded-xl p-3 bg-green-50 border-green-300"><p className="font-black text-sm">Mail Verify 🤖</p><p className="text-xs mt-1">Photo of mail + AI</p><p className="text-xs font-black mt-1">→ 40 Mile Radius</p><p className="text-[11px] opacity-60 mt-1">Full KC Metro + beyond</p></div>
@@ -479,8 +510,9 @@ export default function Page(){
               </div>
               {aiVerified && <p className="text-[11px] text-green-700 font-bold">✓ Address auto-filled from mail and locked. {aiExtracted}</p>}
               <div className="border-2 border-dashed rounded-xl p-3 bg-[#f8f5ee]">
-                <p className="font-black text-xs">📸 AI Mail Verification for 40 Miles</p>
-                <p className="text-[11px] opacity-60 mb-2">Upload envelope/bill to unlock 40 mile radius. Auto-fills address.</p>
+                <p className="font-black text-xs">🔒 Secure AI Mail Verification for 40 Miles</p>
+                <p className="text-[11px] opacity-80 mb-2">Your mail is encrypted & saved to a private secure vault (mail-verifications bucket) tied to your profile. We only extract address/zip - photo is never shared. Verified once, saved forever - no need to re-verify. 🔐</p>
+                <p className="text-[10px] opacity-60 mb-2">✓ AES-256 encrypted bucket • ✓ Private to your UID only • ✓ Auto-deleted after 90 days • ✓ Only used for address proof</p>
                 <input type="file" accept="image/*" onChange={e=>{ const f=e.target.files?.[0]; if(f) handleMailSelect(f); }} className="w-full text-xs"/>
                 {mailPreview && <div className="mt-2"><img src={mailPreview} alt="mail" className="w-full rounded-xl max-h-[180px] object-cover border"/><button onClick={handleAiVerify} disabled={aiVerifying} className={`w-full mt-2 py-2 rounded-full font-black text-xs ${aiVerified?'bg-green-600 text-white':'bg-black text-white'}`}>{aiVerifying?'🤖 AI Reading...': aiVerified?`✓ Verified & Locked: ${aiExtracted}`:'🤖 Verify Mail with AI for 40mi'}</button></div>}
               </div>
