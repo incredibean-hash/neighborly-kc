@@ -55,6 +55,8 @@ export default function Page(){
   const [notifOn, setNotifOn] = useState(false);
   const [dmTo, setDmTo] = useState('');
   const [dmMsg, setDmMsg] = useState('');
+  const [showDmModal, setShowDmModal] = useState<string|null>(null);
+  const [dmModalMsg, setDmModalMsg] = useState('');
   const [name, setName] = useState('');
   const [addr, setAddr] = useState('');
   const [zip, setZip] = useState('64155');
@@ -426,7 +428,20 @@ export default function Page(){
                 return (
                 <div key={p.id} className="bg-white rounded-[24px] p-6 shadow-sm border-2 border-black/5">
                   <div className="flex justify-between items-center">
-                    <span className="font-black text-lg">{p.profiles?.full_name||p.author_name||p.user_name} ✓</span>
+                    <button 
+                      onClick={()=>{
+                        const n = p.profiles?.full_name||p.author_name||p.user_name;
+                        if(n===profile.full_name){ alert("That's you!"); return; }
+                        setDmTo(n);
+                        setShowDmModal(n);
+                        // scroll to DM box on mobile
+                        document.getElementById('dm-box')?.scrollIntoView({behavior:'smooth'});
+                      }}
+                      className="font-black text-lg hover:underline hover:text-[#1a3d2e] text-left flex items-center gap-1"
+                      title="Click to DM this neighbor"
+                    >
+                      {p.profiles?.full_name||p.author_name||p.user_name} ✓ <span className="text-[10px] bg-black text-white px-2 py-0.5 rounded-full ml-1">DM</span>
+                    </button>
                     <div className="flex gap-2 items-center">
                       <span className="text-xs bg-black/5 px-3 py-1 rounded-full font-black">{p.category||'General'}</span>
                       {canDelete && <button onClick={()=>deletePost(p.id,p.image_url)} className="text-xs opacity-40 hover:text-red-600">🗑️</button>}
@@ -447,7 +462,7 @@ export default function Page(){
                         const canDelC = (profile && c.author_name===profile.full_name) || isAdmin;
                         return (
                           <div key={c.id} className="text-sm bg-white rounded-lg p-2 flex justify-between gap-2">
-                            <div><b className="text-xs">{c.author_name}:</b> {c.content||c.body} <span className="text-[10px] opacity-40 ml-2">{new Date(c.created_at).toLocaleTimeString()}</span>
+                            <div><button onClick={()=>{ if(c.author_name!==profile.full_name){ setDmTo(c.author_name); setShowDmModal(c.author_name); } }} className="font-black text-xs hover:underline">{c.author_name}:</button> {c.content||c.body} <span className="text-[10px] opacity-40 ml-2">{new Date(c.created_at).toLocaleTimeString()}</span>
                             <button onClick={()=>toggleCommentLike(c.id)} className={`ml-3 text-xs ${cliked?'text-red-600':'opacity-50'}`}>{cliked?'❤️':'🤍'} {cl.length}</button>
                             </div>
                             {canDelC && <button onClick={()=>deleteComment(c.id,p.id)} className="text-[10px] opacity-30 hover:text-red-600">🗑️</button>}
@@ -471,7 +486,7 @@ export default function Page(){
                 <p className="font-black text-2xl">25 Miles</p>
                 <p className="text-xs mt-1">≈ 1,963 sq miles - Entire KC Metro</p>
               </div>
-              <div className="border-t-2 pt-5">
+              <div id="dm-box" className="border-t-2 pt-5">
                 <h4 className="font-black text-lg mb-3">Send DM + Buzz 🔔</h4>
                 <input value={dmTo} onChange={e=>setDmTo(e.target.value)} placeholder="To (e.g. Sophie Bean)" className="w-full border-2 border-black/10 p-3.5 rounded-xl mb-3 text-sm font-black"/>
                 <input value={dmMsg} onChange={e=>setDmMsg(e.target.value)} placeholder="Message - 25 mi reach" className="w-full border-2 border-black/10 p-3.5 rounded-xl mb-3 text-sm"/>
@@ -485,6 +500,32 @@ export default function Page(){
             </div>
           </div>
         </div>
+
+      {showDmModal && (
+        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[20px] w-full max-w-sm p-6 border-2 shadow-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-black text-xl">DM {showDmModal} 🔔</h3>
+              <button onClick={()=>{setShowDmModal(null); setDmModalMsg('');}} className="w-8 h-8 rounded-full bg-black/5 font-black">✕</button>
+            </div>
+            <p className="text-xs opacity-60 mb-3">This will send a DM + phone buzz, even if their app is closed.</p>
+            <textarea value={dmModalMsg} onChange={e=>setDmModalMsg(e.target.value)} placeholder={`Hey ${showDmModal}, ...`} className="w-full border-2 border-black/10 p-4 rounded-2xl text-base min-h-[100px] resize-none focus:outline-none"/>
+            <div className="flex gap-2 mt-4">
+              <button onClick={()=>{setShowDmModal(null); setDmModalMsg('');}} className="flex-1 bg-[#f8f5ee] py-3 rounded-full font-black text-sm">Cancel</button>
+              <button onClick={async()=>{
+                if(!dmModalMsg.trim()) return;
+                await supabase.from('dms').insert({ from_user: profile.full_name, to_user: showDmModal, message: dmModalMsg });
+                try{ await fetch('/api/push/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:showDmModal,from:profile.full_name,message:dmModalMsg})}); }catch{}
+                setDmModalMsg(''); 
+                const nameToAlert = showDmModal;
+                setShowDmModal(null);
+                alert('Sent + buzzed '+nameToAlert+'! 🔔');
+              }} className="flex-1 bg-black text-white py-3 rounded-full font-black text-sm">Send + Buzz 🔔</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       </div>
     </div>
   );
