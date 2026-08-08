@@ -1,4 +1,4 @@
-'use client';
+"use client";
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
@@ -79,28 +79,27 @@ export default function Page(){
   const [aiParsedAddress,setAiParsedAddress]=useState<{street?:string, zip?:string, city?:string}>({});
   const [deferredPrompt,setDeferredPrompt]=useState<any>(null);
   const [showInstall,setShowInstall]=useState(false);
+  const [dmUnseen,setDmUnseen]=useState(0);
 
   useEffect(()=>{
-    // Set bookmark/install label to "Neighborly KC" not "Parkwood Hills"
     if(typeof document!=='undefined'){
       document.title='Neighborly KC';
-      let meta=document.querySelector('meta[name="apple-mobile-web-app-title"]');
-      if(!meta){ meta=document.createElement('meta'); (meta as any).name='apple-mobile-web-app-title'; document.head.appendChild(meta); }
-      (meta as any).content='Neighborly KC';
-      let meta2=document.querySelector('meta[name="application-name"]');
-      if(!meta2){ meta2=document.createElement('meta'); (meta2 as any).name='application-name'; document.head.appendChild(meta2); }
-      (meta2 as any).content='Neighborly KC';
+      let m=document.querySelector('meta[name="apple-mobile-web-app-title"]');
+      if(!m){ m=document.createElement('meta'); (m as any).name='apple-mobile-web-app-title'; document.head.appendChild(m); }
+      (m as any).content='Neighborly KC';
+      let m2=document.querySelector('meta[name="application-name"]');
+      if(!m2){ m2=document.createElement('meta'); (m2 as any).name='application-name'; document.head.appendChild(m2); }
+      (m2 as any).content='Neighborly KC';
     }
     const isStandalone= (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || (window.navigator as any).standalone;
     if(isStandalone) return;
     const handler=(e:any)=>{ e.preventDefault(); setDeferredPrompt(e); setShowInstall(true); };
     window.addEventListener('beforeinstallprompt', handler);
-    // Always show install button after 1s for all devices (even if no prompt yet)
-    const t=setTimeout(()=>setShowInstall(true), 1000);
+    const t=setTimeout(()=>setShowInstall(true), 800);
     return()=>{ window.removeEventListener('beforeinstallprompt', handler); clearTimeout(t); };
   },[]);
+
   const handleInstall=async()=>{
-    // One-tap auto-install to device
     try{
       if(deferredPrompt){
         deferredPrompt.prompt();
@@ -108,19 +107,32 @@ export default function Page(){
         if(outcome==='accepted'){ setShowInstall(false); setDeferredPrompt(null); }
         return;
       }
-      // iOS fallback - try to trigger Add to Home Screen automatically via share API if available
-      if((navigator as any).share && /iPad|iPhone|iPod/.test(navigator.userAgent)){
-        try{ await (navigator as any).share({title:'Neighborly KC', url: window.location.href}); }catch{}
-      }
-      // Show clean install instructions without Parkwood Hills
-      const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);
-      if(isIOS){
-        alert('To install: Tap Share button (square with arrow) → Add to Home Screen → Add. App will be named "Neighborly KC"');
+      if(/iPad|iPhone|iPod/.test(navigator.userAgent)){
+        alert('Tap Share button → Add to Home Screen → Add. Saves as Neighborly KC');
       }else{
-        alert('To install: Tap menu ⋮ → Install app or Add to Home Screen. App will be named "Neighborly KC"');
+        alert('Tap menu ⋮ → Install app. Saves as Neighborly KC');
       }
     }catch{}
   };
+
+  // DM badge - unseen count
+  useEffect(()=>{
+    const loadBadge=async()=>{
+      const s=localStorage.getItem('nkc_profile_tiered_40') || localStorage.getItem('nkc_profile');
+      if(!s) return;
+      try{
+        const pr=JSON.parse(s);
+        const {data}=await supabase.from('dms').select('id,created_at,to_user').eq('to_user', pr.full_name).order('created_at',{ascending:false}).limit(50);
+        if(!data) return;
+        const lastSeen=localStorage.getItem('nkc_dms_last_seen_'+pr.full_name) || '1970-01-01';
+        const unseen=data.filter((d:any)=> new Date(d.created_at) > new Date(lastSeen)).length;
+        setDmUnseen(unseen);
+      }catch{}
+    };
+    loadBadge();
+    const iv=setInterval(loadBadge, 8000);
+    return()=>clearInterval(iv);
+  },[profile]);
 
   const loadAll = async (ids:string[])=>{
     if(!ids.length) return;
@@ -160,8 +172,7 @@ export default function Page(){
       const vaultRaw=localStorage.getItem('nkc_verification_vault');
       if(vaultRaw){
         const vault=JSON.parse(vaultRaw);
-        const keys=Object.keys(vault);
-        if(keys.length>0){ 
+        if(Object.keys(vault).length>0){ 
           setAiVerified(true); 
           if(loadedProfile && (loadedProfile.max_radius||5) < 40){
             const upgraded={...loadedProfile, max_radius:40, verification_method:'ai_mail_photo', ai_verified:true };
@@ -362,14 +373,21 @@ export default function Page(){
   };
   const deleteComment = async (cId:string, pId:string)=>{ await supabase.from('comments').delete().eq('id', cId); setComments(prev=>{ const n={...prev}; n[pId]=prev[pId].filter((x:any)=>x.id!==cId); return n; }); };
   
+  const [dmSentToast,setDmSentToast]=useState<string|null>(null);
   const sendDM = async (toName:string, msg:string)=>{
     if(!toName.trim()||!msg.trim()) return;
     if(!profile){ setShowJoin(true); return; }
     try{
       try{ await supabase.from('dms').insert({ from_user:profile.full_name, to_user:toName, message:msg, body:msg } as any); }catch{}
       try{ await fetch('/api/push/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:toName,from:profile.full_name,message:msg})}); }catch{}
-      alert(`✅ Sent to ${toName} + Buzzed 🔔`);
-    }catch(e:any){ alert('DM failed'); }
+      // No popup - just silent send with tiny toast
+      setDmSentToast(`Sent to ${toName} ✓`);
+      setTimeout(()=>setDmSentToast(null), 2000);
+    }catch(e:any){ 
+      // silent fail, no alert popup
+      setDmSentToast(`Failed to send`);
+      setTimeout(()=>setDmSentToast(null), 2000);
+    }
   };
 
   return (
@@ -382,7 +400,10 @@ export default function Page(){
           </h1>
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
             {showInstall && <button onClick={handleInstall} className="px-3 py-2 rounded-full bg-[#1a3a2f] text-white font-black text-[11px] sm:text-xs animate-pulse">📲 Add to Device</button>}
-            <Link href="/dms" className="w-9 h-9 sm:w-auto sm:px-3 sm:py-2 rounded-full text-base flex items-center justify-center border-2 bg-white hover:bg-black hover:text-white transition-colors font-bold text-xs">💬 DMs</Link>
+            <Link href="/dms" onClick={()=>{ if(profile) localStorage.setItem('nkc_dms_last_seen_'+profile.full_name, new Date().toISOString()); setDmUnseen(0); }} className="relative w-9 h-9 sm:w-auto sm:px-3 sm:py-2 rounded-full text-base flex items-center justify-center border-2 bg-white hover:bg-black hover:text-white transition-colors font-bold text-xs">
+              💬 DMs
+              {dmUnseen>0 && <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black animate-pulse">{dmUnseen>9?'9+':dmUnseen}</span>}
+            </Link>
             <button onClick={enablePush} className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full text-base flex items-center justify-center border-2 ${notifOn?'bg-green-200':'bg-white'}`}>🔔</button>
             {profile ? <button onClick={()=>{ localStorage.clear(); setProfile(null); }} className="px-3 sm:px-4 py-2 rounded-full bg-white border-2 font-black text-[11px] sm:text-xs">Logout</button> : <button onClick={()=>setShowJoin(true)} className="px-3 sm:px-4 py-2 rounded-full bg-black text-white font-black text-[11px] sm:text-xs">Join</button>}
           </div>
@@ -400,7 +421,10 @@ export default function Page(){
             <p className="text-[11px] mt-1">{maxRadius===40?'Mail verified - entire KC Metro - saved, no re-verify needed':'Zip verified - upgrade with mail for 40mi'}</p>
             {maxRadius===5 && <button onClick={()=>setShowJoin(true)} className="mt-2 w-full bg-black text-white py-2 rounded-full text-xs font-black">Upgrade to 40 Miles with Mail</button>}
           </div>
-          <Link href="/dms" className="mt-3 w-full bg-[#f8f5ee] border py-2.5 rounded-full text-xs font-black text-center block">💬 Open DM Inbox →</Link>
+          <Link href="/dms" onClick={()=>{ if(profile) localStorage.setItem('nkc_dms_last_seen_'+profile.full_name, new Date().toISOString()); setDmUnseen(0); }} className="mt-3 w-full bg-[#f8f5ee] border py-2.5 rounded-full text-xs font-black text-center block relative">
+            💬 Open DM Inbox →
+            {dmUnseen>0 && <span className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center">{dmUnseen}</span>}
+          </Link>
         </aside>
 
         <div className="lg:hidden flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
@@ -498,7 +522,9 @@ export default function Page(){
                 <button onClick={()=>setShowJoin(true)} className="w-full bg-black text-white py-2 rounded-full text-xs font-black">Upgrade to 40 Miles with Mail</button>
               </div>
             )}
-            <Link href="/dms" className="mt-3 w-full bg-black text-white py-2.5 rounded-full text-xs font-black text-center block">💬 Open DM Inbox</Link>
+            <Link href="/dms" onClick={()=>{ if(profile) localStorage.setItem('nkc_dms_last_seen_'+profile.full_name, new Date().toISOString()); setDmUnseen(0); }} className="mt-3 w-full bg-black text-white py-2.5 rounded-full text-xs font-black text-center block relative">
+              💬 Open DM Inbox {dmUnseen>0 && <span className="ml-2 bg-red-600 px-2 py-0.5 rounded-full text-[10px]">{dmUnseen} new</span>}
+            </Link>
           </div>
         </aside>
       </div>
@@ -555,10 +581,15 @@ export default function Page(){
             <textarea value={dmModalMsg} onChange={e=>setDmModalMsg(e.target.value)} placeholder={`Hey ${showDmModal}, ...`} className="w-full border-2 p-4 rounded-2xl text-sm min-h-[120px] resize-none outline-none"/>
             <div className="flex gap-2 mt-4">
               <button onClick={()=>{setShowDmModal(null); setDmModalMsg('');}} className="flex-1 bg-[#f8f5ee] py-3 rounded-full font-bold text-sm">Cancel</button>
-              <button onClick={async()=>{ if(!dmModalMsg.trim()) return; await sendDM(showDmModal!, dmModalMsg); setDmModalMsg(''); setShowDmModal(null); }} className="flex-1 bg-black text-white py-3 rounded-full font-bold text-sm">Send + Buzz 🔔</button>
+              <button onClick={async()=>{ if(!dmModalMsg.trim()) return; await sendDM(showDmModal!, dmModalMsg); setDmModalMsg(''); setShowDmModal(null); }} className="flex-1 bg-black text-white py-3 rounded-full font-bold text-sm">Send</button>
             </div>
             <Link href="/dms" className="mt-3 block text-center text-xs underline">Open full DM inbox →</Link>
           </div>
+        </div>
+      )}
+      {dmSentToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-black text-white px-5 py-2.5 rounded-full text-sm font-bold z-[200] shadow-xl">
+          {dmSentToast}
         </div>
       )}
     </div>
