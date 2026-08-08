@@ -137,12 +137,14 @@ export default function Page(){
   const [showInstall,setShowInstall]=useState(false);
   const [showInstallBanner,setShowInstallBanner]=useState(true);
   const [showIosInstallGuide,setShowIosInstallGuide]=useState(false);
+  const [isIOS, setIsIOS] = useState(false);
   const [dmUnseen,setDmUnseen]=useState(0);
   const markDMsAsRead = ()=>{ if(profile?.full_name){ localStorage.setItem('nkc_dms_last_seen_'+profile.full_name, new Date().toISOString()); setDmUnseen(0); } };
 
   useEffect(()=>{
     if(typeof document!=='undefined'){
       document.title='Neighborly KC';
+      setIsIOS(/iPad|iPhone|iPod/.test(navigator.userAgent));
       let m=document.querySelector('meta[name="apple-mobile-web-app-title"]');
       if(!m){ m=document.createElement('meta'); (m as any).name='apple-mobile-web-app-title'; document.head.appendChild(m); }
       (m as any).content='Neighborly KC';
@@ -153,10 +155,10 @@ export default function Page(){
       if(dismissed && Date.now() - parseInt(dismissed) < 24*60*60*1000) setShowInstallBanner(false);
     }
     const isStandalone= (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || (window.navigator as any).standalone;
-    if(isStandalone) return;
-    const handler=(e:any)=>{ e.preventDefault(); setDeferredPrompt(e); setShowInstall(true); };
+    if(isStandalone) { setShowInstall(false); setShowInstallBanner(false); return; }
+    const handler=(e:any)=>{ e.preventDefault(); setDeferredPrompt(e); setShowInstall(true); setShowInstallBanner(true); };
     window.addEventListener('beforeinstallprompt', handler);
-    const t=setTimeout(()=>setShowInstall(true), 800);
+    const t=setTimeout(()=>setShowInstall(true), 1200);
     return()=>{ window.removeEventListener('beforeinstallprompt', handler); clearTimeout(t); };
   },[]);
 
@@ -165,11 +167,12 @@ export default function Page(){
       if(deferredPrompt){
         deferredPrompt.prompt();
         const {outcome}=await deferredPrompt.userChoice;
-        if(outcome==='accepted'){ setShowInstall(false); setShowInstallBanner(false); setDeferredPrompt(null); }
+        if(outcome==='accepted'){ setShowInstall(false); setShowInstallBanner(false); setDeferredPrompt(null); localStorage.setItem('nkc_install_dismissed', Date.now().toString()); }
         return;
       }
+      // No deferred prompt - show platform-specific guide
       setShowIosInstallGuide(true);
-    }catch{}
+    }catch{ setShowIosInstallGuide(true); }
   };
 
   // DM badge - unseen count
@@ -647,7 +650,36 @@ return (
         </div>
       )}
 
-      {showIosInstallGuide && (<div className="fixed inset-0 bg-black/60 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={()=>setShowIosInstallGuide(false)}><div className="bg-white rounded-t-[24px] sm:rounded-[24px] w-full max-w-[380px] p-5 sm:p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl" onClick={e=>e.stopPropagation()}><div className="w-10 h-1 bg-black/20 rounded-full mx-auto mb-4 sm:hidden"></div><h3 className="font-black text-lg text-center">Add to Home Screen</h3><p className="text-xs text-center opacity-60 mt-1">Installs as <b>Neighborly KC</b></p><div className="mt-6 space-y-3"><div className="flex items-center gap-3 bg-[#f8f5ee] rounded-xl p-3"><div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center font-black text-sm">1</div><div className="flex-1"><p className="font-bold text-sm">Tap Share button</p></div></div><div className="flex items-center gap-3 bg-[#f8f5ee] rounded-xl p-3"><div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center font-black text-sm">2</div><div className="flex-1"><p className="font-bold text-sm">Tap Add to Home Screen</p></div></div><div className="flex items-center gap-3 bg-[#1a3a2f] text-white rounded-xl p-3"><div className="w-8 h-8 bg-white text-[#1a3a2f] rounded-full flex items-center justify-center font-black text-sm">3</div><div className="flex-1"><p className="font-bold text-sm">Tap Add → Done!</p></div></div></div><div className="mt-6 flex gap-2"><button onClick={()=>setShowIosInstallGuide(false)} className="flex-1 bg-[#f8f5ee] py-3 rounded-full font-bold text-sm active:scale-95">Got it</button><button onClick={()=>{ setShowIosInstallGuide(false); setShowInstallBanner(false); localStorage.setItem('nkc_install_dismissed', Date.now().toString()); }} className="flex-1 bg-black text-white py-3 rounded-full font-bold text-sm active:scale-95">Don't show again</button></div></div></div>)}
+      {showIosInstallGuide && (
+        <div className="fixed inset-0 bg-black/60 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={()=>setShowIosInstallGuide(false)}>
+          <div className="bg-white rounded-t-[24px] sm:rounded-[24px] w-full max-w-[380px] p-5 sm:p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl max-w-full overflow-hidden" onClick={e=>e.stopPropagation()}>
+            <div className="w-10 h-1 bg-black/20 rounded-full mx-auto mb-4 sm:hidden"></div>
+            <h3 className="font-black text-lg text-center">{isIOS ? 'Add to Home Screen' : 'Install Neighborly KC'}</h3>
+            <p className="text-xs text-center opacity-60 mt-1">Installs as <b>Neighborly KC</b> — no App Store needed</p>
+            
+            {isIOS ? (
+              <div className="mt-6 space-y-3">
+                <div className="flex items-center gap-3 bg-[#f8f5ee] rounded-xl p-3"><div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center font-black text-sm">1</div><div className="flex-1 min-w-0"><p className="font-bold text-sm">Tap Share button</p><p className="text-[11px] opacity-60">Bottom of Safari — square with arrow up</p></div><span className="text-lg">⬆️</span></div>
+                <div className="flex items-center gap-3 bg-[#f8f5ee] rounded-xl p-3"><div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center font-black text-sm">2</div><div className="flex-1"><p className="font-bold text-sm">Tap "Add to Home Screen"</p><p className="text-[11px] opacity-60">Scroll down in share menu</p></div></div>
+                <div className="flex items-center gap-3 bg-[#1a3a2f] text-white rounded-xl p-3"><div className="w-8 h-8 bg-white text-[#1a3a2f] rounded-full flex items-center justify-center font-black text-sm">3</div><div className="flex-1"><p className="font-bold text-sm">Tap Add → Done!</p><p className="text-[11px] opacity-70">Saves to home screen</p></div></div>
+              </div>
+            ) : (
+              <div className="mt-6 space-y-3">
+                <div className="flex items-center gap-3 bg-[#f8f5ee] rounded-xl p-3"><div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center font-black text-sm">1</div><div className="flex-1 min-w-0"><p className="font-bold text-sm">Click Install in popup</p><p className="text-[11px] opacity-60">Or click the install icon in address bar</p></div><span className="text-lg">🖥️</span></div>
+                <div className="flex items-center gap-3 bg-[#f8f5ee] rounded-xl p-3"><div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center font-black text-sm">2</div><div className="flex-1"><p className="font-bold text-sm">Click "Install" to confirm</p><p className="text-[11px] opacity-60">Creates desktop shortcut</p></div></div>
+                <div className="flex items-center gap-3 bg-[#1a3a2f] text-white rounded-xl p-3"><div className="w-8 h-8 bg-white text-[#1a3a2f] rounded-full flex items-center justify-center font-black text-sm">3</div><div className="flex-1"><p className="font-bold text-sm">Opens like an app!</p><p className="text-[11px] opacity-70">Taskbar icon, no browser bar</p></div></div>
+                <p className="text-[10px] opacity-50 text-center pt-2">On Chrome/Edge: Look for Install icon (⊕) in address bar at top right</p>
+              </div>
+            )}
+
+            <div className="mt-6 flex gap-2">
+              <button onClick={()=>setShowIosInstallGuide(false)} className="flex-1 bg-[#f8f5ee] py-3 rounded-full font-bold text-sm active:scale-95">Got it</button>
+              <button onClick={()=>{ setShowIosInstallGuide(false); setShowInstallBanner(false); localStorage.setItem('nkc_install_dismissed', Date.now().toString()); }} className="flex-1 bg-black text-white py-3 rounded-full font-bold text-sm active:scale-95">Don't show again</button>
+            </div>
+            <p className="text-[10px] opacity-40 text-center mt-3">{isIOS ? 'Apple blocks auto-install — this is the Apple method' : 'PWA installs instantly on desktop'}</p>
+          </div>
+        </div>
+      )}
       
       {dmSentToast && (
         <div className="fixed bottom-20 lg:bottom-6 left-1/2 -translate-x-1/2 bg-black text-white px-5 py-2.5 rounded-full text-sm font-bold z-[200] shadow-xl max-w-[90vw] truncate">
