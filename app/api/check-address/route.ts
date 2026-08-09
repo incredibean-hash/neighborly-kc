@@ -24,9 +24,7 @@ export async function POST(req: NextRequest){
       const zipMatch = zip && row.zip && zip===row.zip;
       const streetMatch = normStreet && rowNormStreet && (normStreet===rowNormStreet || normFull.includes(rowNormFull) || rowNormFull.includes(normStreet));
       if((zipMatch && streetMatch) || (normFull && rowNormFull && normFull===rowNormFull)){
-        if(row.owner_name && requester && row.owner_name.toLowerCase() === requester.toLowerCase()){
-          return NextResponse.json({ alreadyVerified:false });
-        }
+        if(row.owner_name && requester && row.owner_name.toLowerCase() === requester.toLowerCase()) return NextResponse.json({ alreadyVerified:false });
         return NextResponse.json({ alreadyVerified:true, owner: row.owner_name, address: row.full_address });
       }
     }
