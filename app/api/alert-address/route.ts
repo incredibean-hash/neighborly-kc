@@ -17,10 +17,10 @@ export async function POST(req: NextRequest){
       await supabase.from('dms').insert({
         from_user: 'Neighborly KC Security',
         to_user: existingOwner,
-        message: `⚠️ SECURITY ALERT: ${requester} tried to verify "${full||street+' '+zip}". Blocked.`,
-        body: `Security alert`
+        message: `⚠️ ${requester} tried "${full||street+' '+zip}" Blocked.`,
+        body: `Alert`
       } as any);
     }catch{}
-    return NextResponse.json({ success:true, alerted:true });
+    return NextResponse.json({ success:true });
   }catch{ return NextResponse.json({ success:true }); }
 }
