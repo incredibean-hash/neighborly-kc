@@ -1,1 +1,35 @@
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+function getSupabase(){
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if(!url || !key) return null;
+  return createClient(url, key);
+}
+
+export async function POST(req: NextRequest){
+  try{
+    const { token, bluetoothVerified } = await req.json();
+    if(!token) return NextResponse.json({ success:false, error:'No token' }, {status:400});
+    const supabase = getSupabase();
+    if(!supabase) return NextResponse.json({ success:false, error:'DB not configured' }, {status:500});
+    const { data: approval, error } = await supabase.from('bluetooth_approvals').select('*').eq('token', token).single();
+    if(error || !approval) return NextResponse.json({ success:false, error:'Invalid token' }, {status:404});
+    const created = new Date((approval as any).created_at).getTime();
+    if(Date.now() - created > 15*60*1000) return NextResponse.json({ success:false, error:'Link expired' }, {status:400});
+    if(!bluetoothVerified) return NextResponse.json({ success:false, error:'Bluetooth required' }, {status:400});
+    await supabase.from('verified_addresses').insert({ street: (approval as any).street, zip: (approval as any).zip, full_address: (approval as any).address, owner_name: (approval as any).requester, verified_at: new Date().toISOString(), approved_by: (approval as any).owner, via_bluetooth: true } as any);
+    await supabase.from('bluetooth_approvals').update({ status: 'approved', approved_at: new Date().toISOString() } as any).eq('token', token);
+    try{
+      await supabase.from('dms').insert([
+        { from_user: 'Neighborly KC Security', to_user: (approval as any).requester, message: `✅ APPROVED via Bluetooth! ${(approval as any).owner} approved "${(approval as any).address}". Re-join with same name.`, body: `Approved` },
+        { from_user: 'Neighborly KC Security', to_user: (approval as any).owner, message: `✅ You approved ${(approval as any).requester} for "${(approval as any).address}".`, body: `Approved` }
+      ] as any);
+    }catch{}
+    return NextResponse.json({ success:true, approved:true, requester: (approval as any).requester, address: (approval as any).address });
+  }catch(e:any){ return NextResponse.json({ success:false, error:e.message }, {status:500}); }
+}
+
 
