@@ -8,6 +8,7 @@ function getSupabase(){
   if(!url || !key) return null;
   return createClient(url, key);
 }
+
 export async function POST(req: NextRequest){
   try{
     const { owner, requester, address, street, zip } = await req.json();
@@ -16,7 +17,7 @@ export async function POST(req: NextRequest){
     if(!supabase) return NextResponse.json({ success:false, error:'DB not configured' }, {status:500});
     await supabase.from('bluetooth_approvals').insert({ token, owner, requester, address: address||`${street} ${zip}`, street, zip, status: 'pending', created_at: new Date().toISOString() } as any);
     const approveLink = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://neighborly-kc.vercel.app'}/bluetooth?token=${token}`;
-    try{ await supabase.from('dms').insert({ from_user: 'Neighborly KC Security', to_user: owner, message: `📲 TAP: ${requester} wants "${address}". ${approveLink}`, body: `Bluetooth` } as any); }catch{}
+    try{ await supabase.from('dms').insert({ from_user: 'Neighborly KC Security', to_user: owner, message: `📲 TAP REQUEST: ${requester} wants "${address}". ${approveLink}`, body: `Bluetooth request` } as any); }catch{}
     return NextResponse.json({ success:true, token, link: approveLink });
   }catch(e:any){ return NextResponse.json({ success:false, error:e.message }, {status:500}); }
 }

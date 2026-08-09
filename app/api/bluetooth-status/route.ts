@@ -8,6 +8,7 @@ function getSupabase(){
   if(!url || !key) return null;
   return createClient(url, key);
 }
+
 export async function GET(req: NextRequest){
   try{
     const token = req.nextUrl.searchParams.get('token');
@@ -18,3 +19,4 @@ export async function GET(req: NextRequest){
     return NextResponse.json({ approval:data||null });
   }catch{ return NextResponse.json({ approval:null }); }
 }
+

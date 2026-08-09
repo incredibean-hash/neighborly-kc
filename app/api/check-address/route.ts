@@ -8,6 +8,7 @@ function getSupabase(){
   if(!url || !key) return null;
   return createClient(url, key);
 }
+
 function normalize(s:string){ return (s||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
 export async function POST(req: NextRequest){
   try{
@@ -16,11 +17,9 @@ export async function POST(req: NextRequest){
     const supabase = getSupabase();
     if(!supabase) return NextResponse.json({ alreadyVerified:false });
     const { data } = await supabase.from('verified_addresses').select('*').limit(100);
-    const normStreet = normalize(street);
-    const normFull = normalize(full);
+    const normStreet = normalize(street); const normFull = normalize(full||'');
     for(const row of (data||[]) as any[]){
-      const rowNormStreet = normalize(row.street);
-      const rowNormFull = normalize(row.full_address);
+      const rowNormStreet = normalize(row.street); const rowNormFull = normalize(row.full_address);
       const zipMatch = zip && row.zip && zip===row.zip;
       const streetMatch = normStreet && rowNormStreet && (normStreet===rowNormStreet || normFull.includes(rowNormFull) || rowNormFull.includes(normStreet));
       if((zipMatch && streetMatch) || (normFull && rowNormFull && normFull===rowNormFull)){
@@ -31,3 +30,4 @@ export async function POST(req: NextRequest){
     return NextResponse.json({ alreadyVerified:false });
   }catch{ return NextResponse.json({ alreadyVerified:false }); }
 }
+

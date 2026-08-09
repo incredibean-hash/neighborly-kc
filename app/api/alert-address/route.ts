@@ -8,19 +8,14 @@ function getSupabase(){
   if(!url || !key) return null;
   return createClient(url, key);
 }
+
 export async function POST(req: NextRequest){
   try{
     const { street, zip, full, existingOwner, requester } = await req.json();
     const supabase = getSupabase();
     if(!supabase) return NextResponse.json({ success:true });
-    try{
-      await supabase.from('dms').insert({
-        from_user: 'Neighborly KC Security',
-        to_user: existingOwner,
-        message: `⚠️ ${requester} tried "${full||street+' '+zip}" Blocked.`,
-        body: `Alert`
-      } as any);
-    }catch{}
+    try{ await supabase.from('dms').insert({ from_user: 'Neighborly KC Security', to_user: existingOwner, message: `⚠️ ${requester} tried "${full||street+' '+zip}"`, body: `Alert` } as any); }catch{}
     return NextResponse.json({ success:true });
   }catch{ return NextResponse.json({ success:true }); }
 }
+
