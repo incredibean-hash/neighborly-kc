@@ -1,7 +1,0 @@
-{
-  "name": "neighborly-kc",
-  "private": true,
-  "scripts": { "dev": "next dev", "build": "next build", "start": "next start" },
-  "dependencies": { "next": "14.2.0", "react": "18.3.1", "react-dom": "18.3.1", "@supabase/supabase-js": "^2.45.0", "web-push": "^3.6.7" },
-  "devDependencies": { "typescript": "^5.0", "@types/node": "^20", "@types/react": "^18", "@types/web-push": "^3.6.3", "tailwindcss": "^3.4", "autoprefixer": "^10.4", "postcss": "^8.4" }
-}
