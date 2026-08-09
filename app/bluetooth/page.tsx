@@ -1,9 +1,9 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
-export default function BluetoothPage(){
+function BluetoothInner(){
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
   const [status, setStatus] = useState<'loading'|'ready'|'scanning'|'verified'|'approved'|'error'>('loading');
@@ -29,9 +29,9 @@ export default function BluetoothPage(){
     setStatus('scanning');
     setError(null);
     try{
-      // @ts-ignore - Web Bluetooth API
+      // @ts-ignore
       if(!navigator.bluetooth){
-        throw new Error('Bluetooth not supported on this device/browser. Use Chrome on Android or desktop.');
+        throw new Error('Bluetooth not supported. Use Chrome on Android/desktop.');
       }
       // @ts-ignore
       const device = await navigator.bluetooth.requestDevice({
@@ -42,7 +42,7 @@ export default function BluetoothPage(){
       setStatus('verified');
     }catch(e:any){
       if(e.name === 'NotFoundError'){
-        setError('No device selected. Make sure both phones have Bluetooth ON and are near each other.');
+        setError('No device selected. Both phones need Bluetooth ON and near each other.');
       } else {
         setError(e.message || 'Bluetooth scan failed');
       }
@@ -71,7 +71,6 @@ export default function BluetoothPage(){
       <div className="bg-white rounded-[24px] w-full max-w-[400px] p-6 border shadow-sm">
         <h1 className="font-black text-xl text-center">📲 Bluetooth Tap</h1>
         <p className="text-xs opacity-60 text-center mt-1">Verify proximity (30ft)</p>
-        
         {approval && (
           <div className="mt-4 bg-[#f8f5ee] rounded-xl p-3 border">
             <p className="text-[11px] opacity-60">Request from:</p>
@@ -80,7 +79,6 @@ export default function BluetoothPage(){
             <p className="font-bold text-xs">{approval.address}</p>
           </div>
         )}
-
         {status === 'ready' && (
           <>
             <div className="mt-5 text-center">
@@ -92,18 +90,16 @@ export default function BluetoothPage(){
             </div>
             {error && <p className="mt-3 bg-red-50 border border-red-200 text-red-700 text-[11px] p-2.5 rounded-xl">{error}</p>}
             <button onClick={handleBluetoothScan} className="mt-5 w-full bg-blue-600 text-white py-3 rounded-full font-black text-sm">🔍 Scan for Nearby Device</button>
-            <p className="text-[10px] opacity-40 text-center mt-2">Uses Web Bluetooth — Chrome Android/Desktop required</p>
+            <p className="text-[10px] opacity-40 text-center mt-2">Uses Web Bluetooth — Chrome Android/Desktop</p>
           </>
         )}
-
         {status === 'scanning' && (
           <div className="mt-6 text-center">
             <div className="animate-pulse w-20 h-20 bg-blue-100 rounded-full mx-auto flex items-center justify-center">📡</div>
             <p className="font-bold mt-3 text-sm">Scanning...</p>
-            <p className="text-[11px] opacity-60">Select your neighbor's device in popup</p>
+            <p className="text-[11px] opacity-60">Select device in popup</p>
           </div>
         )}
-
         {status === 'verified' && (
           <>
             <div className="mt-5 bg-green-50 border-2 border-green-300 rounded-xl p-3 text-center">
@@ -114,7 +110,6 @@ export default function BluetoothPage(){
             <button onClick={()=>setStatus('ready')} className="mt-2 w-full bg-[#f8f5ee] py-2.5 rounded-full font-bold text-xs">Rescan</button>
           </>
         )}
-
         {status === 'approved' && (
           <div className="mt-5 text-center">
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto">✅</div>
@@ -125,6 +120,14 @@ export default function BluetoothPage(){
         )}
       </div>
     </div>
+  );
+}
+
+export default function BluetoothPage(){
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#f8f5ee] flex items-center justify-center"><p className="font-bold">Loading...</p></div>}>
+      <BluetoothInner />
+    </Suspense>
   );
 }
 
