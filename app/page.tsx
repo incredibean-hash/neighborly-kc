@@ -1,6 +1,7 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { useRouter } from 'next/navigation';
 
 function getSupabase(){
   if(typeof window==='undefined') return null;
@@ -23,6 +24,8 @@ async function compressImage(file: File){
 }
 
 export default function Page(){
+  const router=useRouter();
+  const containerRef=useRef<HTMLDivElement>(null);
   const [supabase,setSupabase]=useState<any>(null);
   const [posts,setPosts]=useState<any[]>([]);
   const [body,setBody]=useState('');
@@ -37,6 +40,21 @@ export default function Page(){
   const [mailFile,setMailFile]=useState<File|null>(null);
   const [uploading,setUploading]=useState(false);
   const [mounted,setMounted]=useState(false);
+  const [touchStart,setTouchStart]=useState(0);
+
+  // SWIPE: Posts -> DMs
+  useEffect(()=>{
+    const el=containerRef.current;
+    if(!el) return;
+    const onStart=(e:TouchEvent)=>setTouchStart(e.touches[0].clientX);
+    const onEnd=(e:TouchEvent)=>{
+      const diff=touchStart - e.changedTouches[0].clientX;
+      if(diff>100) router.push('/dms'); // swipe left
+    };
+    el.addEventListener('touchstart', onStart);
+    el.addEventListener('touchend', onEnd);
+    return()=>{ el.removeEventListener('touchstart', onStart); el.removeEventListener('touchend', onEnd); }
+  },[touchStart]);
 
   useEffect(()=>{
     setMounted(true);
@@ -48,13 +66,6 @@ export default function Page(){
         if(!p.user_id) p.user_id=crypto.randomUUID();
         setProfile(p); if(p.street_address) setAddr(p.street_address);
         localStorage.setItem('nkc_profile', JSON.stringify(p));
-        (async()=>{
-          if(!sb) return;
-          try{
-            const {data}=await sb.from('verified_addresses').select('*').eq('user_id', p.user_id).limit(1).maybeSingle();
-            if(data){ const upd={...p, is_verified:true, verified:true}; setProfile(upd); localStorage.setItem('nkc_profile', JSON.stringify(upd)); }
-          }catch{}
-        })();
       }catch{}
     }
   },[]);
@@ -69,28 +80,21 @@ export default function Page(){
   if(!mounted) return <div className="min-h-screen bg-[#0a0a0a] text-white p-8">Loading...</div>;
 
   return(
-    <div className="min-h-screen bg-[#0a0a0a] text-[#e5e5e5] pb-24">
-      <header className="bg-[#111] border-b border-[#2a2a2a] sticky top-0 z-30 px-4 py-3 grid grid-cols-3 items-center">
+    <div ref={containerRef} className="min-h-screen bg-[#0a0a0a] text-[#e5e5e5] pb-24 touch-pan-y">
+      <header className="bg-[#111] border-b border-[#2a2a2a] sticky top-0 z-30 px-4 py-3 grid grid-cols-3 items-center max-w-[600px] mx-auto w-full">
         <div className="w-8 h-8 bg-white text-black rounded-lg flex items-center justify-center font-black text-sm">NK</div>
         <h1 className="font-black text-center">Neighborly KC</h1>
         <div className="flex justify-end text-xs truncate">{profile?<span>{profile.full_name}{isVerified?' ✅':''}</span>:<button onClick={()=>setShowJoin(true)} className="bg-white text-black px-3 py-1.5 rounded-full font-bold">Join</button>}</div>
       </header>
 
-      {!isVerified && profile && (
-        <div className="bg-[#1a1a1a] border-b border-[#2a2a2a] px-4 py-2 flex justify-center">
-          <button onClick={()=>setShowVerify(true)} className="bg-white text-black px-5 py-1.5 rounded-full text-xs font-black">Verify</button>
-        </div>
-      )}
-
-      <div className="max-w-2xl mx-auto p-4 space-y-3">
+      <div className="max-w-[600px] mx-auto p-4 space-y-3">
         <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl p-4">
           <textarea value={body} onChange={e=>setBody(e.target.value)} placeholder="What's up?" className="w-full bg-[#0a0a0a] border border-[#333] rounded-xl p-3 min-h-[80px] text-sm text-white outline-none" />
-          <input id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="text-xs mt-2" />
+          <input id="file-input" type="file" accept="image/*" onChange={e=>setFile(e.target.files?.[0]||null)} className="text-xs mt-2" />
           <div className="flex justify-end mt-2">
             <button disabled={uploading} onClick={async()=>{
               if(!profile){setShowJoin(true); return;}
               if(!supabase) return;
-              if(!body.trim()&&!file) return;
               setUploading(true);
               try{
                 let image_url=null;
@@ -107,28 +111,24 @@ export default function Page(){
                 setPosts([data,...posts]); setBody(''); setFile(null);
                 (document.getElementById('file-input') as any).value='';
               }catch(e:any){alert('Could not save: '+e.message);} finally{setUploading(false);}
-            }} className="bg-white text-black px-5 py-2 rounded-full text-sm font-bold disabled:opacity-50">{uploading?'Uploading...':'Post'}</button>
+            }} className="bg-white text-black px-5 py-2 rounded-full text-sm font-bold">Post</button>
           </div>
         </div>
-
         {posts.map((p:any)=>(
           <div key={p.id} className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl p-4">
-            <p className="text-xs font-bold opacity-70">{p.author_name} {isVerified && p.author_name===profile?.full_name?<span className="ml-1 bg-white text-black text-[9px] px-1.5 py-0.5 rounded-full">✓ VERIFIED</span>:null}</p>
+            <p className="text-xs font-bold opacity-70">{p.author_name} {isVerified && p.author_name===profile?.full_name?' ✓':''}</p>
             <p className="mt-2 text-sm whitespace-pre-wrap">{p.body}</p>
             {p.image_url&&<img src={p.image_url} alt="post" className="mt-3 rounded-xl max-h-[400px] w-full object-cover border border-[#333]" />}
-            <div className="mt-3"><button onClick={()=>setShowDM(p)} className="text-xs bg-[#2a2a2a] px-3 py-1.5 rounded-full">💬 DM {p.author_name?.split(' ')[0]}</button></div>
+            <button onClick={()=>setShowDM(p)} className="mt-3 text-xs bg-[#2a2a2a] px-3 py-1.5 rounded-full">💬 DM {p.author_name?.split(' ')[0]}</button>
           </div>
         ))}
       </div>
 
-      {profile && (
-        <div className="fixed bottom-0 left-0 right-0 bg-[#111] border-t border-[#2a2a2a] p-3 flex gap-2 z-40">
-          <a href="/dms" className="flex-1 bg-[#2a2a2a] text-white py-3 rounded-full font-bold text-sm text-center">DMs</a>
-          <button onClick={()=>window.scrollTo({top:0,behavior:'smooth'})} className="flex-1 bg-white text-black py-3 rounded-full font-bold text-sm">Posts</button>
-        </div>
-      )}
+      <div className="fixed bottom-0 left-0 right-0 bg-[#111]/95 backdrop-blur border-t border-[#2a2a2a] p-3 flex gap-2 z-40 max-w-[600px] mx-auto">
+        <a href="/dms" className="flex-1 bg-[#2a2a2a] text-white py-3 rounded-full font-bold text-sm text-center">DMs</a>
+        <button onClick={()=>window.scrollTo({top:0,behavior:'smooth'})} className="flex-1 bg-white text-black py-3 rounded-full font-bold text-sm">Posts</button>
+      </div>
 
-      {/* REVERSED COLORS DM POPUP - gray box, black text, black/gray buttons */}
       {showDM&&(
         <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
           <div className="bg-[#e5e5e5] border border-[#999] rounded-2xl w-full max-w-sm p-6 text-black">
@@ -139,52 +139,9 @@ export default function Page(){
               <button onClick={async()=>{
                 if(!dmText.trim()||!supabase||!profile) return;
                 await supabase.from('dms').insert({from_user:profile.full_name,to_user:showDM.author_name,message:dmText,body:dmText});
-                setDmText(''); setShowDM(null); alert('DM sent');
+                setDmText(''); setShowDM(null);
               }} className="flex-1 bg-black text-white py-3 rounded-full text-sm font-bold">Send DM</button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {showVerify&&(
-        <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
-          <div className="bg-[#1a1a1a] border border-[#333] rounded-2xl w-full max-w-sm p-6">
-            <h2 className="font-black text-lg mb-3">Verify Address</h2>
-            <input value={addr} onChange={e=>setAddr(e.target.value)} placeholder="Address from first popup" className="w-full bg-[#0a0a0a] border border-[#333] rounded-xl px-3 py-3 text-sm text-white mb-3 outline-none" />
-            <input type="file" accept="image/*" onChange={e=>setMailFile(e.target.files?.[0]||null)} className="text-xs w-full mb-3" />
-            <div className="flex gap-2">
-              <button onClick={()=>setShowVerify(false)} className="flex-1 bg-[#2a2a2a] py-3 rounded-full text-sm">Cancel</button>
-              <button disabled={uploading} onClick={async()=>{
-                if(!addr.trim()) return alert('Address required');
-                if(!mailFile) return alert('Upload mail photo');
-                if(!supabase) return;
-                setUploading(true);
-                try{
-                  const safePath=`mail_${Date.now()}.jpg`;
-                  await supabase.storage.from('mail-verifications').upload(safePath, mailFile, {cacheControl:'3600'});
-                  const {data}=supabase.storage.from('mail-verifications').getPublicUrl(safePath);
-                  await supabase.from('verified_addresses').insert({ user_id: profile.user_id, owner_name: profile.full_name.toLowerCase(), full_address: addr.toLowerCase(), street: addr.toLowerCase(), verified_at: new Date().toISOString(), mail_url: data.publicUrl, via_mail:true });
-                  const upd={...profile, is_verified:true, verified:true, street_address: addr.toLowerCase()};
-                  localStorage.setItem('nkc_profile', JSON.stringify(upd)); setProfile(upd); setShowVerify(false); alert('Verified! ✅');
-                }catch(e:any){alert(e.message);} finally{setUploading(false);}
-              }} className="flex-1 bg-white text-black py-3 rounded-full text-sm font-bold">Verify</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showJoin&&(
-        <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
-          <div className="bg-[#1a1a1a] border border-[#333] rounded-2xl w-full max-w-sm p-6">
-            <h2 className="font-black text-xl">Join Parkwood Hills</h2>
-            <input value={name} onChange={e=>setName(e.target.value)} placeholder="Full name" autoComplete="off" data-lpignore="true" className="w-full bg-[#0a0a0a] border border-[#333] rounded-xl px-3 py-3 mt-4 text-sm text-white outline-none" />
-            <input value={addr} onChange={e=>setAddr(e.target.value)} placeholder="Address" autoComplete="off" data-lpignore="true" className="w-full bg-[#0a0a0a] border border-[#333] rounded-xl px-3 py-3 mt-2 text-sm text-white outline-none" />
-            <div className="flex gap-2 mt-4"><button onClick={()=>setShowJoin(false)} className="flex-1 bg-[#2a2a2a] py-3 rounded-full text-sm">Cancel</button><button onClick={()=>{
-              if(!name.trim()) return alert('Name required');
-              const uid=profile?.user_id||crypto.randomUUID();
-              const pr={user_id:uid, full_name:name.trim(), street_address:addr.toLowerCase().trim(), is_verified:false, zip:'64155'};
-              localStorage.setItem('nkc_profile', JSON.stringify(pr)); setProfile(pr); setShowJoin(false); location.reload();
-            }} className="flex-1 bg-white text-black py-3 rounded-full font-bold text-sm">Join</button></div>
           </div>
         </div>
       )}
