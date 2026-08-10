@@ -1,1 +1,0 @@
-export const metadata = { title: 'Neighborly KC', description: '40 mile' }; export default function RootLayout({ children }: { children: React.ReactNode }) { return (<html lang='en'><body>{children}</body></html>); }
