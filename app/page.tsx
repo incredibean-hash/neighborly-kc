@@ -8,20 +8,11 @@ const CATS = ['All','General','For Sale & Free','Safety Alert','Recommendation',
 async function compressImage(file: File): Promise<File> {
   const img = document.createElement('img');
   const canvas = document.createElement('canvas');
-  const dataUrl = await new Promise<string>((r)=>{
-    const reader = new FileReader();
-    reader.onload=()=>r(reader.result as string);
-    reader.readAsDataURL(file);
-  });
+  const dataUrl = await new Promise<string>((r)=>{ const reader = new FileReader(); reader.onload=()=>r(reader.result as string); reader.readAsDataURL(file); });
   await new Promise<void>((res)=>{ img.onload=()=>res(); img.src=dataUrl; });
-  const max=1200;
-  let {width,height}=img;
-  if(width>max||height>max){
-    if(width>height){ height=height*max/width; width=max; }
-    else { width=width*max/height; height=max; }
-  }
-  canvas.width=width; canvas.height=height;
-  canvas.getContext('2d')!.drawImage(img,0,0,width,height);
+  const max=1200; let {width,height}=img;
+  if(width>max||height>max){ if(width>height){ height=height*max/width; width=max; } else { width=width*max/height; height=max; } }
+  canvas.width=width; canvas.height=height; canvas.getContext('2d')!.drawImage(img,0,0,width,height);
   const blob = await new Promise<Blob>((res)=>canvas.toBlob((b)=>res(b as Blob), 'image/jpeg', 0.7));
   return new File([blob], file.name.replace(/\.\w+$/, '.jpg'), {type:'image/jpeg'});
 }
@@ -62,19 +53,11 @@ export default function Page(){
       const cIds=com.map((c:any)=>c.id);
       if(cIds.length){
         const {data:cl}=await supabase.from('likes').select('*').in('comment_id', cIds);
-        if(cl){
-          const cg: Record<string,any[]> = {};
-          cl.forEach((l:any)=>{ if(!cg[l.comment_id]) cg[l.comment_id]=[]; cg[l.comment_id].push(l); });
-          setCLikes(cg);
-        }
+        if(cl){ const cg: Record<string,any[]> = {}; cl.forEach((l:any)=>{ if(!cg[l.comment_id]) cg[l.comment_id]=[]; cg[l.comment_id].push(l); }); setCLikes(cg); }
       }
     }
     const {data:lk}=await supabase.from('likes').select('*').in('post_id', postIds).is('comment_id', null);
-    if(lk){
-      const lg: Record<string,any[]> = {};
-      lk.forEach((l:any)=>{ if(!lg[l.post_id]) lg[l.post_id]=[]; lg[l.post_id].push(l); });
-      setLikes(lg);
-    }
+    if(lk){ const lg: Record<string,any[]> = {}; lk.forEach((l:any)=>{ if(!lg[l.post_id]) lg[l.post_id]=[]; lg[l.post_id].push(l); }); setLikes(lg); }
   };
 
   useEffect(()=>{ (async()=>{
@@ -204,15 +187,15 @@ export default function Page(){
           <div className="bg-white rounded-t-[24px] sm:rounded-[20px] w-full max-w-[480px] p-5 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between mb-4"><h2 className="font-black text-xl">Join {cur?.name}</h2><button onClick={()=>setShowJoin(false)} className="w-8 h-8 rounded-full bg-black/5">✕</button></div>
             <div className="space-y-3">
-              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Full name (e.g. Jason Bean)" className="w-full bg-[#f8f5ee] border rounded-xl px-3 py-3 text-sm"/>
+              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Full name" className="w-full bg-[#f8f5ee] border rounded-xl px-3 py-3 text-sm"/>
               <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" className="w-full bg-[#f8f5ee] border rounded-xl px-3 py-3 text-sm"/>
-              <div className="bg-[#f8f5ee] rounded-xl p-3 border"><p className="font-black text-sm">Option 1: 5 Mile (ZIP only)</p><div className="flex gap-2 mt-2"><input value={addr} onChange={e=>setAddr(e.target.value)} placeholder="304 NE 115TH ST" className="flex-1 bg-white border rounded-xl px-3 py-2.5 text-sm"/><input value={zip} onChange={e=>setZip(e.target.value)} placeholder="ZIP" className="w-[90px] bg-white border rounded-xl px-3 py-2.5 text-sm"/></div></div>
+              <div className="bg-[#f8f5ee] rounded-xl p-3 border"><p className="font-black text-sm">Option 1: 5 Mile</p><div className="flex gap-2 mt-2"><input value={addr} onChange={e=>setAddr(e.target.value)} placeholder="304 NE 115TH ST" className="flex-1 bg-white border rounded-xl px-3 py-2.5 text-sm"/><input value={zip} onChange={e=>setZip(e.target.value)} placeholder="ZIP" className="w-[90px] bg-white border rounded-xl px-3 py-2.5 text-sm"/></div></div>
               <div className="bg-green-50 border-2 border-green-200 rounded-xl p-3">
                 <p className="font-black text-sm text-green-900">Option 2: 40 Mile - FREE OCR 📬✅</p>
-                <p className="text-[11px] text-green-700 mt-1">Upload envelope (upside-down OK). Reads 304 NE 115TH ST. No OpenAI key needed!</p>
+                <p className="text-[11px] text-green-700 mt-1">Upload envelope (upside-down OK). No OpenAI key!</p>
                 <input type="file" accept="image/*" onChange={e=>setMailFile(e.target.files?.[0]||null)} className="mt-2 text-xs w-full"/>
-                <button disabled={!mailFile||aiVerifying} onClick={handleAiVerify} className="mt-2 w-full bg-green-600 text-white py-2.5 rounded-full font-black text-sm disabled:opacity-30">{aiVerifying?'📖 Reading FREE (upside-down OK)...':'✅ Verify Mail - FREE'}</button>
-                {aiParsedAddress && <div className="mt-2 p-2.5 bg-white border border-green-300 rounded-xl text-[11px]"><p className="font-black text-green-800">✓ FREE Extracted:</p><p className="text-green-700 font-bold">{aiParsedAddress.street} | {aiParsedAddress.zip}</p><p className="text-green-600 text-xs">{aiParsedAddress.full}</p></div>}
+                <button disabled={!mailFile||aiVerifying} onClick={handleAiVerify} className="mt-2 w-full bg-green-600 text-white py-2.5 rounded-full font-black text-sm disabled:opacity-30">{aiVerifying?'📖 Reading FREE...':'✅ Verify Mail - FREE'}</button>
+                {aiParsedAddress && <div className="mt-2 p-2.5 bg-white border border-green-300 rounded-xl text-[11px]"><p className="font-black text-green-800">✓ FREE:</p><p className="text-green-700 font-bold">{aiParsedAddress.street} | {aiParsedAddress.zip}</p><p className="text-green-600 text-xs">{aiParsedAddress.full}</p></div>}
                 {verifyError && <div className="mt-2 p-2.5 rounded-xl text-[11px] font-bold bg-red-50 border border-red-300 text-red-700 whitespace-pre-wrap">{verifyError}</div>}
                 {showBluetoothRequest && <div className="mt-3 p-3 bg-blue-50 border-2 border-blue-300 rounded-xl"><p className="font-black text-[12px]">📲 Bluetooth Tap (30ft)</p><button onClick={async()=>{ try{ await fetch('/api/request-bluetooth-approval',{method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({owner: showBluetoothRequest.owner, requester: name, address: showBluetoothRequest.address, street: aiParsedAddress?.street, zip: aiParsedAddress?.zip})}); alert(`Sent to ${showBluetoothRequest.owner}!`); }catch(e:any){ alert(e.message); } }} className="w-full mt-2 bg-blue-600 text-white py-2.5 rounded-full font-black text-xs">📲 Request Bluetooth Tap</button></div>}
               </div>
