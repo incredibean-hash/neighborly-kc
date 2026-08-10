@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
@@ -11,81 +10,131 @@ function getSupabase(){
   return createClient(url,key);
 }
 
-async function compressImage(file: File): Promise<File> {
-  const img=document.createElement('img');
-  const canvas=document.createElement('canvas');
-  const dataUrl=await new Promise<string>((r)=>{const rd=new FileReader(); rd.onload=()=>r(rd.result as string); rd.readAsDataURL(file);});
-  await new Promise<void>((res)=>{img.onload=()=>res(); img.src=dataUrl;});
-  const max=1200; let {width,height}=img;
-  if(width>max||height>max){ if(width>height){height=height*max/width;width=max;} else{width=width*max/height;height=max;} }
-  canvas.width=width; canvas.height=height;
-  canvas.getContext('2d')!.drawImage(img,0,0,width,height);
-  const blob=await new Promise<Blob>((res)=>canvas.toBlob((b)=>res(b as Blob),'image/jpeg',0.7));
-  return new File([blob], file.name.replace(/\.\w+$/,'.jpg'), {type:'image/jpeg'});
+function isValidKCAddress(addr: string){
+  if(!addr) return false;
+  const a = addr.trim();
+  if(a.length < 10) return false;
+  if(!/\d/.test(a)) return false; // needs house number
+  if(/test|asdf|123|fake/i.test(a)) return false;
+  if(!/(st|street|ave|avenue|dr|drive|ln|lane|blvd|blvd|ct|court|pl|place|rd|road|ter|terrace|pkwy|parkway)\b/i.test(a)) return false;
+  if(a.split(' ').length < 3) return false;
+  return true;
 }
 
 export default function Page(){
   const [supabase,setSupabase]=useState<any>(null);
+  const [hoods,setHoods]=useState<any[]>([]);
   const [posts,setPosts]=useState<any[]>([]);
   const [body,setBody]=useState('');
   const [profile,setProfile]=useState<any>(null);
   const [showJoin,setShowJoin]=useState(false);
   const [name,setName]=useState('');
-  const [file,setFile]=useState<File|null>(null);
-  const [uploading,setUploading]=useState(false);
+  const [addr,setAddr]=useState('');
   const [mounted,setMounted]=useState(false);
+  const [isMobile,setIsMobile]=useState(false);
+  const [installPrompt,setInstallPrompt]=useState<any>(null);
+  const [showInstall,setShowInstall]=useState(false);
+  const [addrError,setAddrError]=useState('');
 
   useEffect(()=>{
     setMounted(true);
     setSupabase(getSupabase());
+    setIsMobile(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth < 768);
     const s=localStorage.getItem('nkc_profile')||localStorage.getItem('nkc_profile_tiered_40');
     if(s){try{setProfile(JSON.parse(s))}catch{}}
+    // PWA install for Windows
+    window.addEventListener('beforeinstallprompt',(e:any)=>{e.preventDefault(); setInstallPrompt(e); setShowInstall(true);});
   },[]);
 
   useEffect(()=>{(async()=>{
     if(!supabase) return;
+    const {data:h}=await supabase.from('neighborhoods').select('*').order('member_count',{ascending:false}).limit(20);
+    if(h) setHoods(h);
     const {data:p}=await supabase.from('posts').select('*').order('created_at',{ascending:false}).limit(50);
     if(p) setPosts(p);
   })()},[supabase]);
 
-  if(!mounted) return <div className="p-8">Loading...</div>;
+  const cur=hoods[0]||{name:'Parkwood Hills',zip:'64155',id:null,slug:'parkwood-hills',member_count:247};
+  const canBeFounder = (cur?.member_count||0) < 50;
+  const isFounder = profile?.is_founder || profile?.founder_number <= 50;
+
+  const handleJoin = async (tier:'founder'|'regular')=>{
+    if(!name.trim()) return alert('Full name required');
+    if(!isValidKCAddress(addr)){ setAddrError('Enter real KC address: 123 Main St - must have number + street name'); return; }
+    if(!isMobile && tier==='founder'){ /* still allow but warn */ }
+    // Check count for founder
+    let founderNum = cur.member_count + 1;
+    const isFirst50 = founderNum <= 50 || canBeFounder;
+    const pr:any={
+      full_name:name.trim(),
+      street_address:addr.trim(),
+      zip:cur.zip,
+      neighborhood_id:cur.id,
+      tier: isFirst50? '40mile' : '5mile',
+      is_founder: isFirst50,
+      founder_number: isFirst50? founderNum : null,
+      is_verified: false,
+      joined_at: new Date().toISOString()
+    };
+    localStorage.setItem('nkc_profile',JSON.stringify(pr));
+    localStorage.setItem('nkc_profile_tiered_40',JSON.stringify(pr));
+    // Clear autofill traces
+    setAddr(''); setName('');
+    setProfile(pr); setShowJoin(false); window.location.reload();
+  };
+
+  if(!mounted) return <div className="min-h-screen bg-[#0a0a0a] text-white p-8">Loading...</div>;
 
   return(
-    <div className="min-h-screen bg-[#f8f5ee]">
-      <header className="bg-white border-b p-4 flex justify-between"><h1 className="font-black">Neighborly KC</h1>{profile?<span className="text-xs">{profile.full_name}</span>:<button onClick={()=>setShowJoin(true)} className="bg-black text-white px-4 py-2 rounded-full text-sm">Join</button>}</header>
-      <div className="max-w-2xl mx-auto p-6 space-y-4">
-        <div className="bg-white rounded-2xl p-4 border">
-          <textarea value={body} onChange={e=>setBody(e.target.value)} placeholder={profile?"What's up?":"Join to post..."} className="w-full bg-[#f8f5ee] rounded-xl p-3 min-h-[80px] text-sm outline-none" />
-          <div className="flex items-center gap-2 mt-3">
-            <input id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="text-xs" />
-            {file&&<span className="text-xs opacity-60">{(file.size/1024).toFixed(0)}KB</span>}
-          </div>
-          <div className="flex justify-end mt-2"><button disabled={uploading} onClick={async()=>{
-            if(!profile) return setShowJoin(true);
-            if(!supabase) return alert('Add env vars');
-            if(!body.trim()&&!file) return;
-            if(file&&file.size>3*1024*1024) return alert('Max 3MB');
-            setUploading(true);
-            try{
-              let image_url=null;
-              if(file){
-                const comp=await compressImage(file);
-                const path=`${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
-                const {error}=await supabase.storage.from('post-images').upload(path,comp);
-                if(error) throw error;
-                const {data}=supabase.storage.from('post-images').getPublicUrl(path);
-                image_url=data.publicUrl;
-              }
-              const {data,error}=await supabase.from('posts').insert({body,author_name:profile.full_name,image_url}).select().single();
-              if(error) throw error;
-              setPosts([data,...posts]); setBody(''); setFile(null);
-              const el=document.getElementById('file-input') as HTMLInputElement; if(el) el.value='';
-            }catch(e:any){alert('Could not save: '+(e.message||e));} finally{setUploading(false);}
-          }} className="bg-[#1a3a2f] text-white px-5 py-2 rounded-full text-sm font-bold disabled:opacity-50">{uploading?'Uploading...':'Post'}</button></div>
+    <div className="min-h-screen bg-[#0a0a0a] text-[#e5e5e5]">
+      <header className="bg-[#111] border-b border-[#2a2a2a] sticky top-0 z-20 px-4 py-3 flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-white text-black rounded-lg flex items-center justify-center font-black text-sm">NK</div>
+          <h1 className="font-black tracking-tight">Neighborly KC {isFounder&&<span className="ml-2 bg-white text-black text-[10px] px-2 py-0.5 rounded-full">👑 FOUNDER #{profile?.founder_number||''}</span>}</h1>
         </div>
-        {posts.map((p:any)=><div key={p.id} className="bg-white p-4 rounded-xl border"><p className="text-xs opacity-60">{p.author_name}</p><p className="mt-1 whitespace-pre-wrap">{p.body}</p>{p.image_url&&<img src={p.image_url} alt="post" className="mt-3 rounded-xl max-h-[400px] w-full object-cover border" />}<p className="text-[10px] opacity-40 mt-2">{new Date(p.created_at).toLocaleString()}</p></div>)}
+        <div className="flex items-center gap-2">
+          {showInstall&&<button onClick={async()=>{installPrompt?.prompt(); const r=await installPrompt?.userChoice; setShowInstall(false);}} className="bg-white text-black px-3 py-1.5 rounded-full text-xs font-bold">Install Windows App</button>}
+          {profile? <span className="text-xs opacity-60">{profile.full_name} {isFounder&&'👑'}</span> : <button onClick={()=>setShowJoin(true)} className="bg-white text-black px-4 py-2 rounded-full text-sm font-bold">Join</button>}
+        </div>
+      </header>
+
+      <div className="max-w-2xl mx-auto p-4 sm:p-6 space-y-4">
+        <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl p-4">
+          <textarea value={body} onChange={e=>setBody(e.target.value)} placeholder={profile?`What's up in ${cur.name}?`:'Join to post...'} className="w-full bg-[#0a0a0a] border border-[#333] rounded-xl p-3 min-h-[80px] text-sm outline-none text-white placeholder:text-[#666]" />
+          <div className="flex justify-end mt-3"><button onClick={async()=>{
+            if(!profile) return setShowJoin(true);
+            if(!supabase) return alert('Add Supabase keys in Vercel');
+            if(!body.trim()) return;
+            const {data,error}=await supabase.from('posts').insert({body,author_name:profile.full_name,category:'General',neighborhood_id:cur.id}).select().single();
+            if(error) return alert(error.message);
+            setPosts([data,...posts]); setBody('');
+          }} className="bg-white text-black px-5 py-2 rounded-full text-sm font-bold">Post</button></div>
+        </div>
+
+        {posts.map((p:any)=><div key={p.id} className="bg-[#1a1a1a] border border-[#2a2a2a] p-4 rounded-2xl"><div className="flex justify-between"><p className="text-xs font-bold opacity-50">{p.author_name} {p.is_founder&&'👑'}</p><p className="text-[10px] opacity-30">{new Date(p.created_at).toLocaleString()}</p></div><p className="mt-2 text-sm whitespace-pre-wrap">{p.body}</p></div>)}
       </div>
-      {showJoin&&<div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"><div className="bg-white p-6 rounded-2xl w-full max-w-sm"><h2 className="font-black text-xl">Join</h2><input value={name} onChange={e=>setName(e.target.value)} placeholder="Full name" className="w-full bg-[#f8f5ee] border rounded-xl px-3 py-3 mt-4"/><div className="flex gap-2 mt-4"><button onClick={()=>setShowJoin(false)} className="flex-1 bg-gray-100 py-3 rounded-full">Cancel</button><button onClick={()=>{if(!name.trim()) return alert('Enter name'); const pr={full_name:name.trim()}; localStorage.setItem('nkc_profile',JSON.stringify(pr)); setProfile(pr); setShowJoin(false); location.reload();}} className="flex-1 bg-black text-white py-3 rounded-full">Join</button></div></div></div>}
+
+      {showJoin&&<div className="fixed inset-0 bg-black/80 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div className="bg-[#1a1a1a] border border-[#333] rounded-t-[24px] sm:rounded-2xl w-full max-w-[480px] p-5 max-h-[90vh] overflow-y-auto">
+          <div className="flex justify-between items-center mb-2"><h2 className="font-black text-xl">Join {cur.name}</h2><button onClick={()=>{setShowJoin(false); setAddrError('');}} className="w-8 h-8 rounded-full bg-[#2a2a2a]">✕</button></div>
+          {!isMobile&&<div className="bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs p-3 rounded-xl mb-3">📱 Verification is mobile-only (Bluetooth). You can join on desktop but verify must be done on phone.</div>}
+          {canBeFounder&&<div className="bg-white text-black text-xs p-3 rounded-xl mb-3 font-bold">🎉 Founder spots left: {50 - (cur.member_count||0)} — first 50 get 👑 FOUNDER badge + 40-mile access</div>}
+          <div className="space-y-3">
+            {/* NO AUTOFILL */}
+            <input value={name} onChange={e=>setName(e.target.value)} placeholder="Full name" autoComplete="off" autoCorrect="off" spellCheck={false} data-lpignore="true" data-form-type="other" className="w-full bg-[#0a0a0a] border border-[#333] rounded-xl px-3 py-3 text-sm text-white outline-none" />
+            <div>
+              <input value={addr} onChange={e=>{setAddr(e.target.value); setAddrError('');}} placeholder="304 NE 115th St, KC MO 64155" autoComplete="off" autoCorrect="off" spellCheck={false} data-lpignore="true" data-1p-ignore="true" name="nkc-addr-no-autofill-xyz" className="w-full bg-[#0a0a0a] border border-[#333] rounded-xl px-3 py-3 text-sm text-white outline-none" />
+              {addrError&&<p className="text-red-400 text-xs mt-1">{addrError}</p>}
+              <p className="text-[11px] opacity-40 mt-1">Must include house number + street. We don't store autofill. <button onClick={()=>{localStorage.removeItem('nkc_profile'); localStorage.removeItem('nkc_profile_tiered_40'); setAddr(''); setProfile(null); alert('Address removed from this device');}} className="underline">Remove my address from this device</button></p>
+            </div>
+          <div className="flex gap-2 mt-5">
+            <button onClick={()=>setShowJoin(false)} className="flex-1 bg-[#2a2a2a] py-3 rounded-full font-bold text-sm">Cancel</button>
+            <button onClick={()=>handleJoin('regular')} className="flex-1 bg-[#333] text-white py-3 rounded-full font-bold text-sm border border-[#444]">Join 5 Mile</button>
+            <button onClick={()=>handleJoin('founder')} disabled={!isMobile&&false} className="flex-1 bg-white text-black py-3 rounded-full font-bold text-sm disabled:opacity-50">{canBeFounder?'👑 Join Founder (40mi)':'Join 40 Mile'}</button>
+          </div>
+          <p className="text-[10px] opacity-30 text-center mt-3">Address never autofilled — autocomplete disabled. Install on Windows: Edge → ⋯ → Apps → Install this site as an app</p>
+        </div>
+      </div>}
     </div>
   );
 }
