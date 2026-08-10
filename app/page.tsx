@@ -10,15 +10,19 @@ function getSupabase(){
   return createClient(url,key);
 }
 
+// CAPS DOES NOT MATTER - lowercased
 function isValidKCAddress(a:string){
   if(!a) return false;
-  if(a.length<8) return false;
-  if(!/\d/.test(a)) return false;
+  const t=a.toLowerCase().trim();
+  if(t.length<8) return false;
+  if(!/\d/.test(t)) return false;
+  if(/test|fake|asdf/.test(t)) return false;
+  if(!/(st|street|ave|avenue|dr|drive|ln|lane|blvd|court|ct|pl|place|rd|road|ter|pkwy)\b/.test(t)) return false;
   return true;
 }
 function containsObscene(t:string){
-  const banned=['porn','xxx','nude','sex video','obscene'];
-  return banned.some(w=>t.toLowerCase().includes(w));
+  const b=['porn','xxx','nude','sex video'];
+  return b.some(w=>t.toLowerCase().includes(w));
 }
 async function compressImage(file: File){
   const img=document.createElement('img');
@@ -40,6 +44,8 @@ export default function Page(){
   const [profile,setProfile]=useState<any>(null);
   const [showJoin,setShowJoin]=useState(false);
   const [showVerify,setShowVerify]=useState(false);
+  const [showDM,setShowDM]=useState<any>(null);
+  const [dmText,setDmText]=useState('');
   const [name,setName]=useState('');
   const [addr,setAddr]=useState('');
   const [file,setFile]=useState<File|null>(null);
@@ -54,7 +60,7 @@ export default function Page(){
     setMounted(true);
     setSupabase(getSupabase());
     const s=localStorage.getItem('nkc_profile')||localStorage.getItem('nkc_profile_tiered_40');
-    if(s){try{setProfile(JSON.parse(s))}catch{}}
+    if(s){try{const p=JSON.parse(s); setProfile(p); if(p.street_address) setAddr(p.street_address);}catch{}}
     document.title='Neighborly KC';
   },[]);
 
@@ -66,62 +72,60 @@ export default function Page(){
     if(p) setPosts(p);
   })()},[supabase]);
 
+  // Populate verify address from first popup
+  useEffect(()=>{
+    if(showVerify && profile?.street_address){
+      setAddr(profile.street_address);
+    }
+  },[showVerify]);
+
   const cur=hoods[0]||{name:'Parkwood Hills',zip:'64155',id:null,member_count:247};
   const isJason=profile?.full_name?.toLowerCase().includes('jason bean');
   const isVerified=profile?.is_verified||profile?.verified||false;
-
-  const handlePost=async()=>{
-    if(!profile){setShowJoin(true); return;}
-    if(!supabase) return;
-    if(!body.trim()&&!file) return;
-    if(containsObscene(body)){alert('No obscene content allowed'); return;}
-    setUploading(true);
-    try{
-      let image_url=null;
-      if(file){
-        const comp=await compressImage(file);
-        const path=`${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
-        const {error}=await supabase.storage.from('post-images').upload(path,comp);
-        if(error) throw error;
-        const {data}=supabase.storage.from('post-images').getPublicUrl(path);
-        image_url=data.publicUrl;
-      }
-      const {data,error}=await supabase.from('posts').insert({body,author_name:profile.full_name,neighborhood_id:cur.id,image_url}).select().single();
-      if(error) throw error;
-      setPosts([data,...posts]); setBody(''); setFile(null);
-    }catch(e:any){alert(e.message);} finally{setUploading(false);}
-  };
 
   if(!mounted) return <div className="min-h-screen bg-[#0a0a0a] text-white p-8">Loading Neighborly KC...</div>;
 
   return(
     <div className="min-h-screen bg-[#0a0a0a] text-[#e5e5e5] pb-20">
-      {/* CENTERED HEADER */}
+      {/* CENTERED HEADER - Apple bookmark logo will show */}
       <header className="bg-[#111] border-b border-[#2a2a2a] sticky top-0 z-30 px-4 py-3 grid grid-cols-3 items-center">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-white text-black rounded-lg flex items-center justify-center font-black text-sm">NK</div>
-          <a href="/dms" className="text-xs opacity-60 hidden sm:block">DMs</a>
-        </div>
-        <h1 className="font-black tracking-tight text-center text-[15px]">Neighborly KC</h1>
-        <div className="flex justify-end">
-          {profile? <span className="text-xs opacity-60 truncate">{profile.full_name}{isJason?' 👑':''}{isVerified?' ✅':''}</span> : <button onClick={()=>setShowJoin(true)} className="bg-white text-black px-4 py-1.5 rounded-full text-xs font-bold">Join</button>}
-        </div>
+        <div className="flex items-center gap-2"><div className="w-8 h-8 bg-white text-black rounded-lg flex items-center justify-center font-black text-sm">NK</div></div>
+        <h1 className="font-black tracking-tight text-center">Neighborly KC</h1>
+        <div className="flex justify-end text-xs truncate">{profile?<span>{profile.full_name}{isVerified?' ✅':''}{profile?.is_founder?' 👑':''}</span>:<button onClick={()=>{setName(''); setShowJoin(true);}} className="bg-white text-black px-3 py-1.5 rounded-full font-bold">Join</button>}</div>
       </header>
 
       {/* VERIFY BUTTON UNDER HEADER - REMOVES WHEN VERIFIED */}
       {!isVerified && profile && (
         <div className="bg-[#1a1a1a] border-b border-[#2a2a2a] px-4 py-2 flex justify-center">
-          <button onClick={()=>setShowVerify(true)} className="bg-white text-black px-5 py-1.5 rounded-full text-xs font-black">Verify — Upload Mail Photo</button>
+          <button onClick={()=>setShowVerify(true)} className="bg-white text-black px-5 py-1.5 rounded-full text-xs font-black">Verify</button>
         </div>
       )}
 
       <div className="max-w-2xl mx-auto p-4 space-y-3">
         <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl p-4">
           <textarea value={body} onChange={e=>setBody(e.target.value)} placeholder={profile?`What's up in ${cur.name}?`:'Join to post...'} className="w-full bg-[#0a0a0a] border border-[#333] rounded-xl p-3 min-h-[80px] text-sm text-white outline-none placeholder:text-[#555]" />
-          <div className="flex items-center gap-2 mt-3">
-            <input id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="text-xs text-[#888]" />
-          </div>
-          <div className="flex justify-end mt-2"><button disabled={uploading} onClick={handlePost} className="bg-white text-black px-5 py-2 rounded-full text-sm font-bold disabled:opacity-50">{uploading?'Uploading...':'Post'}</button></div>
+          <div className="flex items-center gap-2 mt-2"><input id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="text-xs text-[#888]" />{file&&<span className="text-xs opacity-50">{(file.size/1024).toFixed(0)}KB</span>}</div>
+          <div className="flex justify-end mt-2"><button disabled={uploading} onClick={async()=>{
+            if(!profile){setShowJoin(true); return;}
+            if(!supabase) return;
+            if(!body.trim()&&!file) return;
+            if(containsObscene(body)){alert('No obscene content'); return;}
+            setUploading(true);
+            try{
+              let image_url=null;
+              if(file){
+                const comp=await compressImage(file);
+                const path=`${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+                const {error}=await supabase.storage.from('post-images').upload(path,comp);
+                if(error) throw error;
+                const {data}=supabase.storage.from('post-images').getPublicUrl(path);
+                image_url=data.publicUrl;
+              }
+              const {data,error}=await supabase.from('posts').insert({body,author_name:profile.full_name,neighborhood_id:cur.id,image_url,is_verified:isVerified}).select().single();
+              if(error) throw error;
+              setPosts([data,...posts]); setBody(''); setFile(null);
+            }catch(e:any){alert(e.message);} finally{setUploading(false);}
+          }} className="bg-white text-black px-5 py-2 rounded-full text-sm font-bold disabled:opacity-50">{uploading?'Uploading...':'Post'}</button></div>
         </div>
 
         {posts.map((p:any)=>{
@@ -129,20 +133,15 @@ export default function Page(){
           const canDelete=isOwner||isJason;
           return(
             <div key={p.id} className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl p-4">
-              <div className="flex justify-between"><p className="text-xs opacity-50">{p.author_name}{p.author_name?.toLowerCase().includes('jason bean')?' 👑':''}</p><div className="flex gap-2">{isOwner&&<button onClick={()=>{setEditingId(p.id); setEditBody(p.body);}} className="text-xs opacity-40">Edit</button>}{canDelete&&<button onClick={async()=>{if(!confirm('Delete?')) return; if(!supabase) return; await supabase.from('posts').delete().eq('id',p.id); setPosts(posts.filter(x=>x.id!==p.id));}} className="text-xs text-red-400 opacity-60">Delete</button>}</div></div>
+              <div className="flex justify-between">
+                <p className="text-xs font-bold opacity-70">{p.author_name} {p.is_verified||p.author_name?.toLowerCase().includes('jason')?<span className="ml-1 bg-white text-black text-[9px] px-1.5 py-0.5 rounded-full">✓ VERIFIED</span>:null} {p.is_founder?'👑':''}</p>
+                <div className="flex gap-2">{isOwner&&<button onClick={()=>{setEditingId(p.id); setEditBody(p.body);}} className="text-xs opacity-40">Edit</button>}{canDelete&&<button onClick={async()=>{if(!confirm('Delete?')) return; if(!supabase) return; await supabase.from('posts').delete().eq('id',p.id); setPosts(posts.filter(x=>x.id!==p.id));}} className="text-xs text-red-400 opacity-60">Delete</button>}</div>
+              </div>
               {editingId===p.id?(
                 <div className="mt-2"><textarea value={editBody} onChange={e=>setEditBody(e.target.value)} className="w-full bg-black border border-[#333] rounded-xl p-2 text-sm text-white" /><div className="flex gap-2 mt-2"><button onClick={async()=>{if(!supabase) return; await supabase.from('posts').update({body:editBody}).eq('id',p.id); setPosts(posts.map(x=>x.id===p.id?{...x,body:editBody}:x)); setEditingId(null);}} className="bg-white text-black px-3 py-1 rounded-full text-xs">Save</button><button onClick={()=>setEditingId(null)} className="bg-[#2a2a2a] px-3 py-1 rounded-full text-xs">Cancel</button></div></div>
               ):<p className="mt-2 text-sm whitespace-pre-wrap">{p.body}</p>}
               {p.image_url&&<img src={p.image_url} alt="post" className="mt-3 rounded-xl max-h-[400px] w-full object-cover border border-[#333]" />}
-              <div className="mt-3 flex gap-3">
-                <a href={profile?`/dms?to=${encodeURIComponent(p.author_name)}`:'/'} onClick={async(e)=>{
-                  if(!profile){e.preventDefault(); setShowJoin(true); return;}
-                  if(!supabase) return;
-                  const other=p.author_name;
-                  if(other===profile.full_name) return;
-                  try{ await supabase.from('dms').insert({from_user:profile.full_name,to_user:other,message:`Hi ${other} — about your post: "${p.body.slice(0,50)}"`,body:`DM`}); }catch{}
-                }} className="text-xs bg-[#2a2a2a] px-3 py-1 rounded-full">💬 DM {p.author_name?.split(' ')[0]}</a>
-              </div>
+              <div className="mt-3"><button onClick={()=>setShowDM(p)} className="text-xs bg-[#2a2a2a] hover:bg-[#333] px-3 py-1.5 rounded-full">💬 DM {p.author_name?.split(' ')[0]}</button></div>
             </div>
           );
         })}
@@ -156,18 +155,18 @@ export default function Page(){
         </div>
       )}
 
-      {/* MAIL VERIFICATION POPUP */}
+      {/* MAIL VERIFICATION POPUP - ADDRESS POPULATED */}
       {showVerify&&(
         <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
           <div className="bg-[#1a1a1a] border border-[#333] rounded-2xl w-full max-w-sm p-6">
             <div className="flex justify-between items-center mb-3"><h2 className="font-black text-lg">Verify Address</h2><button onClick={()=>setShowVerify(false)} className="w-8 h-8 rounded-full bg-[#2a2a2a]">✕</button></div>
-            <p className="text-xs opacity-60 mb-3">Upload a photo of mail with your address. Works on desktop and mobile. No obscene content.</p>
-            <input value={addr} onChange={e=>setAddr(e.target.value)} placeholder="304 NE 115th St, 64155" autoComplete="off" data-lpignore="true" name="nkc_verify_no_autofill" className="w-full bg-[#0a0a0a] border border-[#333] rounded-xl px-3 py-3 text-sm text-white mb-3 outline-none" />
+            <p className="text-xs opacity-60 mb-3">Capitalization doesn't matter. 304 NE 115th st = 304 ne 115TH ST</p>
+            <input value={addr} onChange={e=>setAddr(e.target.value)} placeholder="Address from first popup" autoComplete="off" data-lpignore="true" className="w-full bg-[#0a0a0a] border border-[#333] rounded-xl px-3 py-3 text-sm text-white mb-3 outline-none" />
             <input type="file" accept="image/*" onChange={e=>setMailFile(e.target.files?.[0]||null)} className="text-xs w-full mb-3" />
             <div className="flex gap-2">
-              <button onClick={()=>setShowVerify(false)} className="flex-1 bg-[#2a2a2a] py-3 rounded-full text-sm font-bold">Cancel</button>
+              <button onClick={()=>setShowVerify(false)} className="flex-1 bg-[#2a2a2a] py-3 rounded-full text-sm">Cancel</button>
               <button disabled={uploading} onClick={async()=>{
-                if(!isValidKCAddress(addr)){alert('Enter valid address'); return;}
+                if(!isValidKCAddress(addr)){alert('Enter valid KC address'); return;}
                 if(!mailFile){alert('Upload mail photo'); return;}
                 if(!supabase) return;
                 setUploading(true);
@@ -176,11 +175,30 @@ export default function Page(){
                   const {error}=await supabase.storage.from('mail-verifications').upload(path,mailFile);
                   if(error) throw error;
                   const {data}=supabase.storage.from('mail-verifications').getPublicUrl(path);
-                  const updated={...profile,is_verified:true,verified_at:new Date().toISOString(),mail_url:data.publicUrl};
+                  const updated={...profile,is_verified:true,verified_at:new Date().toISOString(),street_address:addr.toLowerCase(),mail_url:data.publicUrl};
                   localStorage.setItem('nkc_profile',JSON.stringify(updated));
+                  localStorage.setItem('nkc_profile_tiered_40',JSON.stringify(updated));
                   setProfile(updated); setShowVerify(false); alert('Verified! ✅');
                 }catch(e:any){alert(e.message);} finally{setUploading(false);}
               }} className="flex-1 bg-white text-black py-3 rounded-full text-sm font-bold disabled:opacity-50">{uploading?'Uploading...':'Verify'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DM POPUP BLACK AND GRAY */}
+      {showDM&&(
+        <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
+          <div className="bg-[#1a1a1a] border border-[#333] rounded-2xl w-full max-w-sm p-6">
+            <div className="flex justify-between items-center mb-3"><h2 className="font-black">DM {showDM.author_name}</h2><button onClick={()=>setShowDM(null)} className="w-8 h-8 rounded-full bg-[#2a2a2a]">✕</button></div>
+            <textarea value={dmText} onChange={e=>setDmText(e.target.value)} placeholder={`Message ${showDM.author_name}...`} className="w-full bg-[#0a0a0a] border border-[#333] rounded-xl p-3 min-h-[100px] text-sm text-white outline-none" />
+            <div className="flex gap-2 mt-4">
+              <button onClick={()=>setShowDM(null)} className="flex-1 bg-[#2a2a2a] py-3 rounded-full text-sm">Cancel</button>
+              <button onClick={async()=>{
+                if(!dmText.trim()||!supabase||!profile) return;
+                await supabase.from('dms').insert({from_user:profile.full_name,to_user:showDM.author_name,message:dmText,body:dmText});
+                setDmText(''); setShowDM(null); alert('DM sent');
+              }} className="flex-1 bg-white text-black py-3 rounded-full text-sm font-bold">Send DM</button>
             </div>
           </div>
         </div>
@@ -190,13 +208,17 @@ export default function Page(){
         <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
           <div className="bg-[#1a1a1a] border border-[#333] rounded-2xl w-full max-w-sm p-6">
             <h2 className="font-black text-xl">Join {cur.name}</h2>
-            <input value={name} onChange={e=>setName(e.target.value)} placeholder="Full name" autoComplete="off" data-lpignore="true" name="nkc_join_name_blank" className="w-full bg-[#0a0a0a] border border-[#333] rounded-xl px-3 py-3 mt-4 text-sm text-white outline-none" />
-            <input value={addr} onChange={e=>setAddr(e.target.value)} placeholder="Address" autoComplete="off" data-lpignore="true" name="nkc_join_addr_blank" onFocus={e=>{if(e.target.value){e.target.value=''; setAddr('');}}} className="w-full bg-[#0a0a0a] border border-[#333] rounded-xl px-3 py-3 mt-2 text-sm text-white outline-none" />
+            {cur.member_count<50&&<div className="bg-white text-black text-xs p-2 rounded-xl mt-2 font-bold">First 50 founder — {50-cur.member_count} left</div>}
+            <input value={name} onChange={e=>setName(e.target.value)} placeholder="Full name" autoComplete="off" data-lpignore="true" name="nkc_join_name_blank_xyz" className="w-full bg-[#0a0a0a] border border-[#333] rounded-xl px-3 py-3 mt-4 text-sm text-white outline-none" />
+            <input value={addr} onChange={e=>setAddr(e.target.value)} placeholder="Address" autoComplete="off" data-lpignore="true" name="nkc_join_addr_blank_xyz" onFocus={e=>{if(e.target.value){/* keep */}}} className="w-full bg-[#0a0a0a] border border-[#333] rounded-xl px-3 py-3 mt-2 text-sm text-white outline-none" />
             <div className="flex gap-2 mt-4"><button onClick={()=>setShowJoin(false)} className="flex-1 bg-[#2a2a2a] py-3 rounded-full text-sm">Cancel</button><button onClick={()=>{
               if(!name.trim()) return alert('Name required');
-              if(!isValidKCAddress(addr)) return alert('Valid address required');
-              const pr={full_name:name.trim(),street_address:addr.trim(),is_founder:(cur.member_count||0)<50,founder_number:(cur.member_count||0)<50?(cur.member_count||0)+1:null};
-              localStorage.setItem('nkc_profile',JSON.stringify(pr)); setProfile(pr); setShowJoin(false); location.reload();
+              if(!isValidKCAddress(addr)) return alert('Valid KC address required - caps does not matter');
+              const num=(cur.member_count||0)+1;
+              const pr={full_name:name.trim(),street_address:addr.toLowerCase().trim(),is_founder:num<=50,founder_number:num<=50?num:null,zip:cur.zip};
+              localStorage.setItem('nkc_profile',JSON.stringify(pr));
+              localStorage.setItem('nkc_profile_tiered_40',JSON.stringify(pr));
+              setProfile(pr); setShowJoin(false); location.reload();
             }} className="flex-1 bg-white text-black py-3 rounded-full font-bold text-sm">Join</button></div>
           </div>
         </div>
