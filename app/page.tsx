@@ -1,164 +1,135 @@
 "use client";
-
 import { useState } from "react";
 
-// Compatible with TypeScript ^5.3.3 - no 5.4+ features
-type Feature = {
-  title: string;
-  desc: string;
-  badge?: string;
-  icon: string;
+// TS ^5.3.3 compatible - Restored functional feed
+// Matches your screenshot: Neighborly KC 📍 5mi + Join + No posts in All
+// + your R98DUGA.html artifact (For Sale, Lost & Found, Parkwood Hills)
+
+type Category = "All" | "For Sale" | "Lost & Found" | "Recommendation" | "Safety" | "General";
+
+type Post = {
+  id: string;
+  author: string;
+  neighborhood: string;
+  category: Category;
+  time: string;
+  text: string;
+  likes: number;
+  liked: boolean;
+  comments: number;
 };
 
-const FEATURES: Feature[] = [
-  {
-    title: "FREE OCR Mail Scan",
-    desc: "Every letter scanned with OCR. Searchable text, sender detection, and instant notifications. No extra fees.",
-    badge: "FREE",
-    icon: "✉️",
-  },
-  {
-    title: "Bluetooth 30ft Alerts",
-    desc: "Mailbox sensor with 30ft Bluetooth range. Know the second mail arrives at 304 NE 115th St — even from your kitchen.",
-    badge: "30FT",
-    icon: "📡",
-  },
-  {
-    title: "Neighborly KC Network",
-    desc: "Part of the Neighborly KC community hub at 304 NE 115TH ST. Secure, local, and neighbor-verified pickup.",
-    icon: "🏘️",
-  },
+const INITIAL: Post[] = [
+  { id: "1", author: "Megan S.", neighborhood: "Parkwood Hills", category: "For Sale", time: "2h", text: "Moving sale - patio set $150 OBO. Pickup near 304 NE 115th St. DM me!", likes: 12, liked: true, comments: 3 },
+  { id: "2", author: "David L.", neighborhood: "Parkwood Hills", category: "Lost & Found", time: "4h", text: "Found black lab near Vivion Rd, no collar. Super friendly. Anyone missing him?", likes: 24, liked: false, comments: 8 },
+  { id: "3", author: "Jen R.", neighborhood: "North KC", category: "Recommendation", time: "6h", text: "Need a good plumber for 64155 who does same-day?", likes: 3, liked: false, comments: 5 },
 ];
 
-export default function NeighborlyKCPage() {
-  const [address] = useState("304 NE 115TH ST, Kansas City, MO 64155");
-  const [copied, setCopied] = useState(false);
+const CATS: Category[] = ["All", "For Sale", "Lost & Found", "Recommendation", "Safety", "General"];
 
-  const handleCopy = async (): Promise<void> => {
-    try {
-      await navigator.clipboard.writeText(address);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // fallback
-      setCopied(false);
-    }
+export default function Page() {
+  const [active, setActive] = useState<Category>("All");
+  const [posts, setPosts] = useState<Post[]>(INITIAL);
+  const [draft, setDraft] = useState<string>("");
+  const [showComposer, setShowComposer] = useState<boolean>(false);
+
+  const filtered = active === "All" ? posts : posts.filter(p => p.category === active);
+
+  const toggleLike = (id: string): void => {
+    setPosts(prev => prev.map(p => p.id === id ? { ...p, liked: !p.liked, likes: p.liked ? p.likes - 1 : p.likes + 1 } : p));
+  };
+
+  const createPost = (): void => {
+    if (!draft.trim()) return;
+    const newPost: Post = {
+      id: String(Date.now()),
+      author: "You",
+      neighborhood: "Parkwood Hills",
+      category: active === "All" ? "General" : active,
+      time: "now",
+      text: draft,
+      likes: 0,
+      liked: false,
+      comments: 0,
+    };
+    setPosts([newPost, ...posts]);
+    setDraft("");
+    setShowComposer(false);
   };
 
   return (
-    <main className="min-h-screen bg-[#faf8f5] text-zinc-900 antialiased">
-      {/* Header */}
-      <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-lg bg-zinc-900 text-white grid place-items-center font-bold">N</div>
-            <span className="font-semibold tracking-tight">neighborly-kc / neighborly-kc</span>
-            <span className="ml-2 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">TS ^5.3.3 FIXED</span>
+    <main className="min-h-screen bg-[#fefcf5] text-zinc-900">
+      <header className="sticky top-0 z-30 border-b border-zinc-200 bg-white">
+        <div className="mx-auto flex h-[64px] max-w-[1280px] items-center justify-between px-4">
+          <div className="flex items-center gap-2">
+            <span className="text-[18px] font-extrabold tracking-tight">Neighborly KC</span>
+            <span>📍</span>
+            <span className="font-semibold">5mi</span>
           </div>
-          <a href="#address" className="rounded-full bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-black">Get Address</a>
+          <div className="flex items-center gap-3">
+            <span className="hidden sm:block text-[13px] text-zinc-500">412 neighbors • 304 NE 115TH ST</span>
+            <button className="rounded-full bg-black px-5 py-2 text-[14px] font-semibold text-white">Join</button>
+          </div>
+        </div>
+        <div className="border-t border-zinc-100 bg-white px-2">
+          <div className="mx-auto flex max-w-[1280px] gap-2 overflow-x-auto py-2 no-scrollbar">
+            {CATS.map(c => (
+              <button key={c} onClick={() => setActive(c)} className={`whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[13px] font-medium ${active === c ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300"}`}>{c}</button>
+            ))}
+          </div>
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="mx-auto max-w-6xl px-6 py-16 lg:py-24">
-        <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-green-500" />
-              LIVE at 304 NE 115TH ST • North KC
-            </div>
-            <h1 className="mt-6 text-5xl font-[800] leading-[0.95] tracking-tight">
-              Your KC mailbox,
-              <br />
-              <span className="text-zinc-400">but actually smart.</span>
-            </h1>
-            <p className="mt-5 max-w-[50ch] text-[17px] leading-7 text-zinc-600">
-              Neighborly KC is the local mailbox for 64155. We fixed the stack on TypeScript 5.3.3,
-              added FREE OCR mail scanning, and 30ft Bluetooth alerts so you never miss mail again.
-            </p>
-
-            <div className="mt-8 flex flex-wrap gap-3">
-              <a href="#features" className="rounded-full bg-zinc-900 px-6 py-3 text-sm font-semibold text-white">See How It Works</a>
-              <button onClick={handleCopy} className="rounded-full border border-zinc-300 bg-white px-6 py-3 text-sm font-semibold hover:bg-zinc-50">
-                {copied ? "✓ Copied!" : "Copy Address"}
-              </button>
-            </div>
-
-            <div id="address" className="mt-10 rounded-2xl border border-dashed border-zinc-300 bg-white p-5">
-              <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Pickup Location</p>
-              <p className="mt-2 font-mono text-[15px] font-medium">{address}</p>
-              <p className="mt-1 text-xs text-zinc-500">package.json: typescript ^5.3.3 • Next.js App Router • /mnt/data/page.tsx</p>
-            </div>
-          </div>
-
-          {/* Card */}
-          <div className="relative">
-            <div className="rounded-[32px] border border-zinc-200 bg-white p-3 shadow-[0_20px_60px_-20px_rgba(0,0,0,0.2)]">
-              <div className="rounded-[24px] bg-zinc-900 p-6 text-white">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm opacity-70">Incoming Mail</p>
-                  <span className="rounded-full bg-white/10 px-2 py-1 text-[10px]">OCR • LIVE</span>
-                </div>
-                <div className="mt-6 space-y-3">
-                  <div className="rounded-xl bg-white p-4 text-zinc-900">
-                    <p className="text-xs text-zinc-500">USPS • Scanned 2m ago</p>
-                    <p className="mt-1 font-semibold">IRS Notice • OCR: &quot;Account Update&quot;</p>
-                    <p className="text-xs text-zinc-500">Bluetooth: 18ft • Signal Strong</p>
-                  </div>
-                  <div className="rounded-xl bg-white/10 p-4 backdrop-blur">
-                    <p className="text-xs opacity-70">Amazon • Delivered</p>
-                    <p className="mt-1 font-semibold">Package at 304 NE 115th</p>
-                  </div>
-                </div>
-                <div className="mt-6 flex items-center gap-2 text-xs opacity-60">
-                  <span>● Bluetooth 30ft range</span>
-                  <span>● FREE OCR</span>
-                </div>
+      <div className="mx-auto max-w-[720px] p-4">
+        {/* Composer - functional */}
+        <div className="rounded-[20px] border border-zinc-200 bg-white p-4 shadow-sm">
+          {!showComposer ? (
+            <button onClick={() => setShowComposer(true)} className="flex w-full items-center gap-3 text-left">
+              <div className="h-9 w-9 rounded-full bg-[#e8f5e9] grid place-items-center font-bold text-[#2e7d32]">S</div>
+              <span className="flex-1 rounded-full bg-[#f9faf7] border border-zinc-200 px-4 py-2.5 text-[14px] text-zinc-500">Posting to {active} • What&apos;s happening?</span>
+            </button>
+          ) : (
+            <div>
+              <div className="flex gap-3">
+                <div className="h-9 w-9 rounded-full bg-[#e8f5e9] grid place-items-center font-bold text-[#2e7d32]">S</div>
+                <textarea value={draft} onChange={e => setDraft(e.target.value)} placeholder={`Share something in ${active}...`} className="min-h-[64px] flex-1 resize-none rounded-xl border border-zinc-200 bg-[#f9faf7] p-3 text-[14px] outline-none focus-within:border-zinc-300" />
               </div>
-              <div className="grid grid-cols-3 gap-3 p-3">
-                {[
-                  { k: "Mail/mo", v: "∞" },
-                  { k: "OCR Cost", v: "$0" },
-                  { k: "Range", v: "30ft" },
-                ].map((s) => (
-                  <div key={s.k} className="rounded-2xl bg-zinc-50 py-4 text-center">
-                    <p className="text-xl font-bold">{s.v}</p>
-                    <p className="text-[10px] uppercase tracking-widest text-zinc-500">{s.k}</p>
-                  </div>
-                ))}
+              <div className="mt-3 flex justify-end gap-2">
+                <button onClick={() => setShowComposer(false)} className="rounded-full border border-zinc-200 px-4 py-1.5 text-[13px]">Cancel</button>
+                <button onClick={createPost} disabled={!draft.trim()} className="rounded-full bg-[#1b5e20] px-4 py-1.5 text-[13px] font-semibold text-white disabled:bg-zinc-200 disabled:text-zinc-400 hover:bg-[#2e7d32]">Post to {active}</button>
               </div>
             </div>
-          </div>
+          )}
         </div>
-      </section>
 
-      {/* Features */}
-      <section id="features" className="border-t border-zinc-200 bg-white">
-        <div className="mx-auto max-w-6xl px-6 py-14">
-          <div className="grid gap-6 md:grid-cols-3">
-            {FEATURES.map((f) => (
-              <div key={f.title} className="rounded-3xl border border-zinc-200 p-7">
-                <div className="flex items-center justify-between">
-                  <div className="grid h-10 w-10 place-items-center rounded-full bg-zinc-100 text-lg">{f.icon}</div>
-                  {f.badge && <span className="rounded-full bg-zinc-900 px-2.5 py-1 text-[10px] font-bold text-white">{f.badge}</span>}
+        <div className="mt-4 space-y-3">
+          {filtered.length === 0 ? (
+            <div className="rounded-[20px] border border-dashed border-zinc-200 bg-white p-10 text-center"><p className="text-[14px] text-zinc-400">No posts in {active}</p></div>
+          ) : (
+            filtered.map(post => (
+              <article key={post.id} className="rounded-[20px] border border-zinc-200 bg-white p-4 shadow-sm">
+                <div className="flex justify-between">
+                  <div className="flex gap-3">
+                    <div className="h-9 w-9 rounded-full bg-zinc-100 grid place-items-center text-[12px] font-bold">{post.author[0]}</div>
+                    <div>
+                      <p className="text-[14px] font-semibold">{post.author} <span className="font-normal text-zinc-500 text-[11px]">• {post.time}</span></p>
+                      <p className="text-[11px] text-zinc-500">Posted to {post.neighborhood} • <span className="rounded-full border bg-zinc-50 px-2 py-0.5 text-[10px]">{post.category}</span></p>
+                    </div>
+                  </div>
+                  <button className="text-zinc-400">•••</button>
                 </div>
-                <h3 className="mt-5 text-[17px] font-semibold">{f.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-zinc-600">{f.desc}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-8 rounded-2xl bg-[#f6f3ef] p-4 font-mono text-xs text-zinc-600">
-            <span className="text-zinc-400">// package.json fix applied</span>
-            <br />
-            {`"typescript": "^5.3.3" // pinned, removed ^5.4 breaking types`}
-          </div>
+                <p className="mt-3 text-[14.5px] leading-[1.6]">{post.text}</p>
+                <div className="mt-3 flex items-center gap-3">
+                  <button onClick={() => toggleLike(post.id)} className={`rounded-full border px-3 py-1 text-[13px] ${post.liked ? "border-[#c8e6c9] bg-[#e8f5e9] text-[#2e7d32]" : "border-zinc-200 bg-white text-zinc-600"}`}>♥ {post.likes}</button>
+                  <span className="text-[13px] text-zinc-500">{post.comments} comments</span>
+                </div>
+              </article>
+            ))
+          )}
         </div>
-      </section>
 
-      <footer className="border-t border-zinc-200 py-8 text-center text-xs text-zinc-500">
-        neighborly-kc/neighborly-kc • 304 NE 115TH ST • Kansas City, MO • Built on /mnt/data/page.tsx
-      </footer>
+        <div className="mt-8 text-center text-[11px] text-zinc-400">TS ^5.3.3 • neighborly-kc • 304 NE 115TH ST</div>
+      </div>
     </main>
   );
 }
