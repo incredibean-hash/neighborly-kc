@@ -72,4 +72,66 @@ export default function Page(){
         </div>
         <div className="flex items-center gap-2">
           {showInstall?<button onClick={async()=>{installPrompt?.prompt(); setShowInstall(false);}} className="bg-white text-black px-3 py-1.5 rounded-full text-xs font-bold">Install (Windows)</button>:null}
-          {profile?<span className="text-xs opacity-60">{profile.full_name} {isFounder?'👑':''}</span>:<button onClick={()=>setShowJoin(true)} className="bg-white text-black px
+          {profile?<span className="text-xs opacity-60">{profile.full_name} {isFounder?'👑':''}</span>:<button onClick={()=>setShowJoin(true)} className="bg-white text-black px-4 py-2 rounded-full text-sm font-bold">Join</button>}
+        </div>
+      </header>
+
+      <div className="max-w-2xl mx-auto p-4 space-y-4">
+        <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl p-4">
+          <textarea value={body} onChange={e=>setBody(e.target.value)} placeholder={profile?`What's up in ${cur.name}?`:'Join to post...'} className="w-full bg-[#0a0a0a] border border-[#333] rounded-xl p-3 min-h-[80px] text-sm outline-none text-white placeholder:text-[#666]" />
+          <div className="flex justify-end mt-3">
+            <button onClick={async()=>{
+              if(!profile){setShowJoin(true); return;}
+              if(!supabase){alert('Add Supabase keys'); return;}
+              if(!body.trim()) return;
+              const {data,error}=await supabase.from('posts').insert({body,author_name:profile.full_name,category:'General',neighborhood_id:cur.id}).select().single();
+              if(error){alert(error.message); return;}
+              setPosts([data,...posts]); setBody('');
+            }} className="bg-white text-black px-5 py-2 rounded-full text-sm font-bold">Post</button>
+          </div>
+        </div>
+        {posts.map((p:any)=>(
+          <div key={p.id} className="bg-[#1a1a1a] border border-[#2a2a2a] p-4 rounded-2xl">
+            <p className="text-xs opacity-50">{p.author_name} {p.is_founder?'👑':''}</p>
+            <p className="mt-2 text-sm whitespace-pre-wrap">{p.body}</p>
+          </div>
+        ))}
+      </div>
+
+      {showJoin?(
+        <div className="fixed inset-0 bg-black/80 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-[#1a1a1a] border border-[#333] rounded-t-[24px] sm:rounded-2xl w-full max-w-[480px] p-5">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="font-black text-xl">Join {cur.name}</h2>
+              <button onClick={()=>{setShowJoin(false); setAddrError('');}} className="w-8 h-8 rounded-full bg-[#2a2a2a]">X</button>
+            </div>
+            {!isMobile?<div className="bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs p-3 rounded-xl mb-3">Verification requires phone with Bluetooth. Join allowed, verify later on mobile.</div>:null}
+            {canBeFounder?<div className="bg-white text-black text-xs p-3 rounded-xl mb-3 font-bold">Founder spots left: {50-(cur.member_count||0)} — first 50 get FOUNDER badge</div>:null}
+            <div className="space-y-3">
+              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Full name" autoComplete="off" spellCheck={false} className="w-full bg-[#0a0a0a] border border-[#333] rounded-xl px-3 py-3 text-sm text-white outline-none" />
+              <div>
+                <input value={addr} onChange={e=>{setAddr(e.target.value); setAddrError('');}} placeholder="304 NE 115th St, KC MO 64155" autoComplete="off" autoCorrect="off" spellCheck={false} name="nkc-addr-no-autofill" className="w-full bg-[#0a0a0a] border border-[#333] rounded-xl px-3 py-3 text-sm text-white outline-none" />
+                {addrError?<p className="text-red-400 text-xs mt-1">{addrError}</p>:null}
+                <button onClick={()=>{localStorage.removeItem('nkc_profile'); localStorage.removeItem('nkc_profile_tiered_40'); setAddr(''); alert('Address removed from this device');}} className="text-[11px] opacity-40 underline mt-1">Remove my address from autofill / this device</button>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-5">
+              <button onClick={()=>setShowJoin(false)} className="flex-1 bg-[#2a2a2a] py-3 rounded-full font-bold text-sm">Cancel</button>
+              <button onClick={()=>{
+                if(!name.trim()){alert('Name required'); return;}
+                if(!isValidKCAddress(addr)){setAddrError('Enter real KC address with number + street name'); return;}
+                const founderNum=(cur.member_count||0)+1;
+                const isFirst50=founderNum<=50;
+                const pr={full_name:name.trim(),street_address:addr.trim(),zip:cur.zip,neighborhood_id:cur.id,is_founder:isFirst50,founder_number:isFirst50?founderNum:null,joined_at:new Date().toISOString()};
+                localStorage.setItem('nkc_profile',JSON.stringify(pr));
+                localStorage.setItem('nkc_profile_tiered_40',JSON.stringify(pr));
+                setProfile(pr); setShowJoin(false); window.location.reload();
+              }} className="flex-1 bg-white text-black py-3 rounded-full font-bold text-sm">{canBeFounder?'Join as Founder':'Join'}</button>
+            </div>
+            <p className="text-[10px] opacity-30 text-center mt-3">No autofill — autocomplete off. Windows: Edge -... - Apps - Install this site as an app</p>
+          </div>
+        </div>
+      ):null}
+    </div>
+  );
+}
