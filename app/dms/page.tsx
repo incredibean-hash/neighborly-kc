@@ -2,23 +2,92 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
+
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
-function formatRelativeLocal(iso:string){ try{ const d=new Date(iso); const now=new Date(); const diffMs=now.getTime()-d.getTime(); const diffSec=Math.floor(diffMs/1000); const diffMin=Math.floor(diffSec/60); const diffHr=Math.floor(diffMin/60); const diffDay=Math.floor(diffHr/24); let rel=''; if(diffSec<60) rel='Just now'; else if(diffMin<60) rel=`${diffMin}m ago`; else if(diffHr<24) rel=`${diffHr}h ago`; else if(diffDay<7) rel=`${diffDay}d ago`; else rel=d.toLocaleDateString(); const localTime=d.toLocaleString(undefined,{ month:'short', day:'numeric', hour:'numeric', minute:'2-digit', hour12:true }); return `${rel} • ${localTime}`; }catch{ return new Date(iso).toLocaleString(); } }
+
 export default function DMsPage(){
-  const [profile,setProfile]=useState<any>(null); const [dms,setDms]=useState<any[]>([]); const [selected,setSelected]=useState<string|null>(null); const [reply,setReply]=useState(''); const [search,setSearch]=useState(''); const [touchStart,setTouchStart]=useState<number|null>(null); const [touchEnd,setTouchEnd]=useState<number|null>(null); const [swipedId,setSwipedId]=useState<string|null>(null); const [isKeyboardOpen,setIsKeyboardOpen]=useState(false);
-  useEffect(()=>{ const s=typeof window!=='undefined'? localStorage.getItem('nkc_profile_tiered_40') || localStorage.getItem('nkc_profile') : null; if(s){ try{ setProfile(JSON.parse(s)); }catch{} } if(s){ try{ const pr=JSON.parse(s); localStorage.setItem('nkc_dms_last_seen_'+pr.full_name, new Date().toISOString()); }catch{} } },[]);
-  const loadDMs = async ()=>{ if(!profile?.full_name) return; const {data}=await supabase.from('dms').select('*').or(`from_user.eq.${profile.full_name},to_user.eq.${profile.full_name}`).order('created_at',{ascending:false}).limit(200); if(data) setDms(data); };
-  useEffect(()=>{ if(profile) loadDMs(); const int=setInterval(loadDMs,3000); 
-    const onFocusIn = (e:any)=>{ if(e.target.tagName==='INPUT' || e.target.tagName==='TEXTAREA') setIsKeyboardOpen(true); };
-    const onFocusOut = ()=> setTimeout(()=>setIsKeyboardOpen(false), 150);
-    window.addEventListener('focusin', onFocusIn); window.addEventListener('focusout', onFocusOut);
-    return()=>{ clearInterval(int); window.removeEventListener('focusin', onFocusIn); window.removeEventListener('focusout', onFocusOut); };
-  },[profile]);
-  const minSwipeDistance = 50; const onTouchStart = (e: React.TouchEvent) => { setTouchEnd(null); setTouchStart(e.targetTouches[0].clientX); }; const onTouchMove = (e: React.TouchEvent) => { setTouchEnd(e.targetTouches[0].clientX); }; const onTouchEnd = (other: string) => { if (!touchStart || !touchEnd) return; const distance = touchStart - touchEnd; if (distance > minSwipeDistance) setSwipedId(other); else if (distance < -minSwipeDistance && swipedId === other) setSwipedId(null); };
-  const handleDeleteConvo = async (other: string) => { if (!confirm(`Delete all messages with ${other}? This can't be undone.`)) return; try{ await supabase.from('dms').delete().or(`and(from_user.eq.${profile.full_name},to_user.eq.${other}),and(from_user.eq.${other},to_user.eq.${profile.full_name})`); setSwipedId(null); loadDMs(); if(selected===other) setSelected(null); }catch(e:any){ alert('Delete failed: '+e.message); } };
-  const convos: Record<string, any[]> = {}; dms.forEach((m:any)=>{ const other = m.from_user===profile?.full_name ? m.to_user : m.from_user; if(!convos[other]) convos[other]=[]; convos[other].push(m); });
-  const sortedConvoKeys = Object.keys(convos).sort((a,b)=>{ const latestA = convos[a][0]?.created_at || ''; const latestB = convos[b][0]?.created_at || ''; return new Date(latestB).getTime() - new Date(latestA).getTime(); }).filter(k=> !search || k.toLowerCase().includes(search.toLowerCase()));
-  const activeMessages = selected ? (convos[selected]||[]).slice().reverse() : [];
-  const sendReply = async ()=>{ if(!selected || !reply.trim() || !profile) return; const msg=reply.trim(); setReply(''); try{ await supabase.from('dms').insert({ from_user:profile.full_name, to_user:selected, message:msg, body:msg } as any); try{ await fetch('/api/push/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:selected,from:profile.full_name,message:msg})}); }catch{} loadDMs(); }catch(e:any){ alert('Failed: '+e.message); } };
-  if(!profile) return <div className="min-h-screen bg-[#f8f5ee] p-6 max-w-full overflow-x-hidden"><Link href="/" className="text-sm font-bold">← Back to Feed</Link><p className="mt-6">Please join first.</p></div>;
-  return (<div className="min-h-[100dvh] bg-[#f8f5ee] flex flex-col max-w-full overflow-x-hidden"><style>{`input, textarea { font-size: 16px; } @media(min-width:640px){ input, textarea { font-size: 14px; } } *{-webkit-tap-highlight-color:transparent;}`}</style><header className="bg-white border-b sticky top-0 z-20 px-3 sm:px-4 py-2.5 flex justify-between items-center"><Link href="/" className="font-black text-sm sm:text-base truncate">← Meadowbrook • DMs</Link><div className="flex items-center gap-2 flex-shrink-0"><span className="text-[11px] opacity-60 truncate max-w-[120px] hidden sm:block">{profile.full_name} {profile.is_founder && '👑'}</span><span className="text-[11px] bg-black text-white px-2 py-1 rounded-full">{dms.length} msgs</span></div></header><div className="flex-1 max-w-6xl w-full mx-auto grid grid-cols-1 md:grid-cols-[320px_1fr] gap-0 md:gap-4 p-0 md:p-4 overflow-hidden"><div className={`bg-white md:rounded-2xl border-b md:border flex flex-col overflow-hidden ${selected ? 'hidden md:flex' : 'flex'} md:h-[calc(100vh-100px)] h-[calc(100dvh-50px)]`}><div className="p-3 border-b"><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search people..." className="w-full bg-[#f8f5ee] rounded-full px-4 py-2.5 text-[16px] sm:text-sm outline-none max-w-full" /><p className="text-[10px] opacity-40 mt-2 hidden sm:block">← Swipe left on mobile to delete</p></div><div className="flex-1 overflow-y-auto overflow-x-hidden">{sortedConvoKeys.length===0 && <p className="p-6 text-sm opacity-50">No DMs yet.</p>}{sortedConvoKeys.map(other=>{ const msgs=convos[other]; const last=msgs[0]; const unread=msgs.filter((m:any)=>m.to_user===profile.full_name).length; const isSwiped = swipedId === other; return (<div key={other} className="relative overflow-hidden border-b"><div className="absolute inset-y-0 right-0 w-24 bg-red-500 flex items-center justify-center"><button onClick={()=>handleDeleteConvo(other)} className="text-white font-bold text-xs px-3 py-2">🗑️ Delete</button></div><button onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={()=>onTouchEnd(other)} onClick={()=> isSwiped ? setSwipedId(null) : setSelected(other)} className={`w-full text-left p-3 sm:p-4 hover:bg-black/5 flex justify-between items-start relative bg-white transition-transform duration-200 ${selected===other?'bg-[#f8f5ee]':''} ${isSwiped ? '-translate-x-24' : 'translate-x-0'}`}><div className="min-w-0 flex-1"><p className="font-bold text-sm truncate flex items-center gap-1">{other} {last?.from_user===other && unread>0 && <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{unread}</span>}</p><p className="text-xs opacity-60 truncate mt-1 max-w-[200px] sm:max-w-[220px]">{last.from_user===profile.full_name?'You: ':''}{last.message||last.body}</p><p className="text-[10px] opacity-40 mt-1">{formatRelativeLocal(last.created_at)}</p></div><span className="text-[10px] bg-black/5 px-2 py-1 rounded-full ml-2 flex-shrink-0">{msgs.length}</span></button></div>); })}</div></div><div className={`bg-white md:rounded-2xl md:border flex flex-col overflow-hidden max-w-full ${selected ? 'flex' : 'hidden md:flex'} md:h-[calc(100vh-100px)] h-[calc(100dvh-50px)]`}>{!selected ? (<div className="flex-1 flex items-center justify-center p-6 sm:p-12 text-center opacity-50"><div className="max-w-[300px]"><p className="text-4xl mb-2">💬</p><p className="font-bold">Select a conversation</p><p className="text-xs mt-1">Swipe left to delete</p></div></div>) : (<><div className="p-3 border-b flex justify-between items-center bg-[#f8f5ee] md:rounded-t-2xl flex-shrink-0"><div className="min-w-0"><p className="font-black text-sm truncate">{selected}</p><p className="text-[11px] opacity-60 truncate">{convos[selected]?.length} messages</p></div><button onClick={()=>setSelected(null)} className="md:hidden bg-white border px-3 py-1.5 rounded-full text-xs flex-shrink-0">Back</button></div><div className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-3 bg-[#f8f5ee]">{activeMessages.map((m:any)=>{ const isMe=m.from_user===profile.full_name; return (<div key={m.id} className={`flex ${isMe?'justify-end':'justify-start'} max-w-full`}><div className={`max-w-[78%] sm:max-w-[75%] rounded-2xl px-3 sm:px-4 py-2 text-sm break-words overflow-hidden ${isMe?'bg-[#1a3a2f] text-white rounded-br-sm':'bg-white border rounded-bl-sm'}`}><p className="whitespace-pre-wrap break-words break-all">{m.message||m.body}</p><p className={`text-[10px] mt-1 ${isMe?'text-white/60':'opacity-40'}`}>{formatRelativeLocal(m.created_at)}</p></div></div>); })}</div>{isKeyboardOpen && (<div className="md:hidden bg-[#1a3a2f] px-3 py-2 flex gap-2 border-t"><button onClick={sendReply} disabled={!reply.trim()} className="w-full bg-white text-[#1a3a2f] py-2.5 rounded-full font-black text-[14px] active:scale-[0.98] disabled:opacity-50">Send to {selected} →</button></div>)}<div className="p-2 sm:p-3 border-t flex gap-2 bg-white md:rounded-b-2xl flex-shrink-0 sticky bottom-0 z-10 pb-[max(0.5rem,env(safe-area-inset-bottom))]"><input value={reply} onChange={e=>setReply(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter') sendReply(); }} placeholder={`Reply...`} className="flex-1 min-w-0 bg-[#f8f5ee] border rounded-full px-3 sm:px-4 py-2.5 text-[16px] sm:text-sm outline-none" /><button onClick={sendReply} className="bg-black text-white px-4 sm:px-5 py-2.5 rounded-full text-sm font-black flex-shrink-0">Send</button></div></>)}</div></div></div>); }
+  const [profile,setProfile]=useState<any>(null);
+  const [dms,setDms]=useState<any[]>([]);
+  const [selected,setSelected]=useState<string|null>(null);
+  const [reply,setReply]=useState('');
+
+  useEffect(()=>{
+    const s=localStorage.getItem('nkc_profile')||localStorage.getItem('nkc_profile_tiered_40');
+    if(s){ try{ setProfile(JSON.parse(s)); }catch{} }
+  },[]);
+
+  const loadDMs = async ()=>{
+    if(!profile?.full_name) return;
+    const {data}=await supabase.from('dms').select('*').or(`from_user.eq.${profile.full_name},to_user.eq.${profile.full_name}`).order('created_at',{ascending:false}).limit(200);
+    if(data) setDms(data);
+  };
+  useEffect(()=>{ if(profile) loadDMs(); const i=setInterval(loadDMs,3000); return()=>clearInterval(i); },[profile]);
+
+  const convos: Record<string, any[]> = {};
+  dms.forEach((m:any)=>{
+    const other = m.from_user===profile?.full_name? m.to_user : m.from_user;
+    if(!convos[other]) convos[other]=[];
+    convos[other].push(m);
+  });
+  const sortedKeys = Object.keys(convos).sort((a,b)=> new Date(convos[b][0]?.created_at).getTime() - new Date(convos[a][0]?.created_at).getTime());
+  const activeMessages = selected? (convos[selected]||[]).slice().reverse() : [];
+
+  if(!profile) return <div className="min-h-screen bg-[#0a0a0a] text-white p-6"><Link href="/" className="text-sm font-bold">← Back</Link><p className="mt-6">Please join first.</p></div>;
+
+  return (
+    <div className="min-h-screen bg-[#0a0a0a] text-[#e5e5e5] flex flex-col pb-24">
+      <header className="bg-[#111] border-b border-[#2a2a2a] sticky top-0 z-20 px-4 py-3 flex justify-between items-center">
+        <Link href="/" className="font-black">← KC • DMs</Link>
+        <span className="text-xs bg-white text-black px-2 py-1 rounded-full">{dms.length} msgs</span>
+      </header>
+
+      <div className="flex-1 max-w-6xl w-full mx-auto grid grid-cols-1 md:grid-cols-[320px_1fr] gap-4 p-4">
+        <div className="bg-[#1a1a1a] rounded-2xl border border-[#2a2a2a] h-[60vh] md:h-[calc(100vh-140px)] flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto">
+            {sortedKeys.map(other=>(
+              <button key={other} onClick={()=>setSelected(other)} className={`w-full text-left p-4 border-b border-[#2a2a2a] hover:bg-[#2a2a2a] flex justify-between ${selected===other?'bg-[#2a2a2a]':''}`}>
+                <div><p className="font-bold text-sm truncate">{other}</p><p className="text-xs opacity-60 truncate">{convos[other][0]?.message}</p></div>
+                <span className="text-[10px] bg-[#333] px-2 py-1 rounded-full ml-2">{convos[other].length}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-[#1a1a1a] rounded-2xl border border-[#2a2a2a] h-[60vh] md:h-[calc(100vh-140px)] flex flex-col">
+          {!selected? (
+            <div className="flex-1 flex items-center justify-center opacity-50"><p>Select a conversation</p></div>
+          ) : (
+            <>
+              <div className="p-4 border-b border-[#2a2a2a] bg-[#111] rounded-t-2xl flex justify-between">
+                <p className="font-black">{selected}</p>
+                <button onClick={()=>setSelected(null)} className="md:hidden bg-[#2a2a2a] px-3 py-1 rounded-full text-xs">Back</button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#0a0a0a]">
+                {activeMessages.map((m:any)=>{
+                  const isMe=m.from_user===profile.full_name;
+                  return (
+                    <div key={m.id} className={`flex ${isMe?'justify-end':'justify-start'}`}>
+                      <div className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${isMe?'bg-white text-black rounded-br-sm':'bg-[#2a2a2a] text-white rounded-bl-sm'}`}>
+                        {m.message||m.body}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="p-3 border-t border-[#2a2a2a] flex gap-2 bg-[#111] rounded-b-2xl">
+                <input value={reply} onChange={e=>setReply(e.target.value)} onKeyDown={e=>e.key==='Enter'&&reply.trim()&& (async()=>{await supabase.from('dms').insert({from_user:profile.full_name,to_user:selected,message:reply,body:reply}); setReply(''); loadDMs();})()} placeholder={`Reply to ${selected}...`} className="flex-1 bg-[#0a0a0a] border border-[#333] rounded-full px-4 py-3 text-sm outline-none" />
+                <button onClick={async()=>{ if(!reply.trim()) return; await supabase.from('dms').insert({from_user:profile.full_name,to_user:selected,message:reply,body:reply}); setReply(''); loadDMs(); }} className="bg-white text-black px-5 py-3 rounded-full text-sm font-black">Send</button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* SAME POSTS + DMS BUTTONS AS HOME PAGE - FIXED AT BOTTOM */}
+      <div className="fixed bottom-0 left-0 right-0 bg-[#111] border-t border-[#2a2a2a] p-3 flex gap-2 z-40">
+        <Link href="/dms" className="flex-1 bg-white text-black py-3 rounded-full font-bold text-sm text-center">DMs</Link>
+        <Link href="/" className="flex-1 bg-[#2a2a2a] text-white py-3 rounded-full font-bold text-sm text-center">Posts</Link>
+      </div>
+    </div>
+  );
+}
