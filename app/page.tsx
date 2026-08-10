@@ -10,14 +10,14 @@ function getSupabase(){
   return createClient(url,key);
 }
 
-function isValidKCAddress(addr: string){
+function isValidKCAddress(addr:string){
   if(!addr) return false;
-  const a = addr.trim();
-  if(a.length < 10) return false;
-  if(!/\d/.test(a)) return false; // needs house number
-  if(/test|asdf|123|fake/i.test(a)) return false;
-  if(!/(st|street|ave|avenue|dr|drive|ln|lane|blvd|blvd|ct|court|pl|place|rd|road|ter|terrace|pkwy|parkway)\b/i.test(a)) return false;
-  if(a.split(' ').length < 3) return false;
+  const a=addr.trim();
+  if(a.length<10) return false;
+  if(!/\d/.test(a)) return false;
+  if(/test|asdf|fake|123 main/i.test(a)) return false;
+  if(!/(st|street|ave|avenue|dr|drive|ln|lane|blvd|court|ct|pl|place|rd|road|ter|pkwy)\b/i.test(a)) return false;
+  if(a.split(' ').length<3) return false;
   return true;
 }
 
@@ -39,11 +39,12 @@ export default function Page(){
   useEffect(()=>{
     setMounted(true);
     setSupabase(getSupabase());
-    setIsMobile(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth < 768);
-    const s=localStorage.getItem('nkc_profile')||localStorage.getItem('nkc_profile_tiered_40');
+    setIsMobile(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (typeof window!=='undefined' && window.innerWidth<768));
+    const s=typeof window!=='undefined'?(localStorage.getItem('nkc_profile')||localStorage.getItem('nkc_profile_tiered_40')):null;
     if(s){try{setProfile(JSON.parse(s))}catch{}}
-    // PWA install for Windows
-    window.addEventListener('beforeinstallprompt',(e:any)=>{e.preventDefault(); setInstallPrompt(e); setShowInstall(true);});
+    const handler=(e:any)=>{e.preventDefault(); setInstallPrompt(e); setShowInstall(true);};
+    window.addEventListener('beforeinstallprompt',handler);
+    return()=>window.removeEventListener('beforeinstallprompt',handler);
   },[]);
 
   useEffect(()=>{(async()=>{
@@ -55,86 +56,20 @@ export default function Page(){
   })()},[supabase]);
 
   const cur=hoods[0]||{name:'Parkwood Hills',zip:'64155',id:null,slug:'parkwood-hills',member_count:247};
-  const canBeFounder = (cur?.member_count||0) < 50;
-  const isFounder = profile?.is_founder || profile?.founder_number <= 50;
+  const canBeFounder=(cur.member_count||0)<50;
+  const isFounder=profile?.is_founder|| (profile?.founder_number&&profile.founder_number<=50);
 
-  const handleJoin = async (tier:'founder'|'regular')=>{
-    if(!name.trim()) return alert('Full name required');
-    if(!isValidKCAddress(addr)){ setAddrError('Enter real KC address: 123 Main St - must have number + street name'); return; }
-    if(!isMobile && tier==='founder'){ /* still allow but warn */ }
-    // Check count for founder
-    let founderNum = cur.member_count + 1;
-    const isFirst50 = founderNum <= 50 || canBeFounder;
-    const pr:any={
-      full_name:name.trim(),
-      street_address:addr.trim(),
-      zip:cur.zip,
-      neighborhood_id:cur.id,
-      tier: isFirst50? '40mile' : '5mile',
-      is_founder: isFirst50,
-      founder_number: isFirst50? founderNum : null,
-      is_verified: false,
-      joined_at: new Date().toISOString()
-    };
-    localStorage.setItem('nkc_profile',JSON.stringify(pr));
-    localStorage.setItem('nkc_profile_tiered_40',JSON.stringify(pr));
-    // Clear autofill traces
-    setAddr(''); setName('');
-    setProfile(pr); setShowJoin(false); window.location.reload();
-  };
-
-  if(!mounted) return <div className="min-h-screen bg-[#0a0a0a] text-white p-8">Loading...</div>;
+  if(!mounted){
+    return <div className="min-h-screen bg-[#0a0a0a] text-white p-8">Loading Neighborly KC...</div>;
+  }
 
   return(
     <div className="min-h-screen bg-[#0a0a0a] text-[#e5e5e5]">
       <header className="bg-[#111] border-b border-[#2a2a2a] sticky top-0 z-20 px-4 py-3 flex justify-between items-center">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-white text-black rounded-lg flex items-center justify-center font-black text-sm">NK</div>
-          <h1 className="font-black tracking-tight">Neighborly KC {isFounder&&<span className="ml-2 bg-white text-black text-[10px] px-2 py-0.5 rounded-full">👑 FOUNDER #{profile?.founder_number||''}</span>}</h1>
+          <h1 className="font-black tracking-tight">Neighborly KC {isFounder?<span className="ml-2 bg-white text-black text-[10px] px-2 py-0.5 rounded-full">FOUNDER</span>:null}</h1>
         </div>
         <div className="flex items-center gap-2">
-          {showInstall&&<button onClick={async()=>{installPrompt?.prompt(); const r=await installPrompt?.userChoice; setShowInstall(false);}} className="bg-white text-black px-3 py-1.5 rounded-full text-xs font-bold">Install Windows App</button>}
-          {profile? <span className="text-xs opacity-60">{profile.full_name} {isFounder&&'👑'}</span> : <button onClick={()=>setShowJoin(true)} className="bg-white text-black px-4 py-2 rounded-full text-sm font-bold">Join</button>}
-        </div>
-      </header>
-
-      <div className="max-w-2xl mx-auto p-4 sm:p-6 space-y-4">
-        <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl p-4">
-          <textarea value={body} onChange={e=>setBody(e.target.value)} placeholder={profile?`What's up in ${cur.name}?`:'Join to post...'} className="w-full bg-[#0a0a0a] border border-[#333] rounded-xl p-3 min-h-[80px] text-sm outline-none text-white placeholder:text-[#666]" />
-          <div className="flex justify-end mt-3"><button onClick={async()=>{
-            if(!profile) return setShowJoin(true);
-            if(!supabase) return alert('Add Supabase keys in Vercel');
-            if(!body.trim()) return;
-            const {data,error}=await supabase.from('posts').insert({body,author_name:profile.full_name,category:'General',neighborhood_id:cur.id}).select().single();
-            if(error) return alert(error.message);
-            setPosts([data,...posts]); setBody('');
-          }} className="bg-white text-black px-5 py-2 rounded-full text-sm font-bold">Post</button></div>
-        </div>
-
-        {posts.map((p:any)=><div key={p.id} className="bg-[#1a1a1a] border border-[#2a2a2a] p-4 rounded-2xl"><div className="flex justify-between"><p className="text-xs font-bold opacity-50">{p.author_name} {p.is_founder&&'👑'}</p><p className="text-[10px] opacity-30">{new Date(p.created_at).toLocaleString()}</p></div><p className="mt-2 text-sm whitespace-pre-wrap">{p.body}</p></div>)}
-      </div>
-
-      {showJoin&&<div className="fixed inset-0 bg-black/80 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
-        <div className="bg-[#1a1a1a] border border-[#333] rounded-t-[24px] sm:rounded-2xl w-full max-w-[480px] p-5 max-h-[90vh] overflow-y-auto">
-          <div className="flex justify-between items-center mb-2"><h2 className="font-black text-xl">Join {cur.name}</h2><button onClick={()=>{setShowJoin(false); setAddrError('');}} className="w-8 h-8 rounded-full bg-[#2a2a2a]">✕</button></div>
-          {!isMobile&&<div className="bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs p-3 rounded-xl mb-3">📱 Verification is mobile-only (Bluetooth). You can join on desktop but verify must be done on phone.</div>}
-          {canBeFounder&&<div className="bg-white text-black text-xs p-3 rounded-xl mb-3 font-bold">🎉 Founder spots left: {50 - (cur.member_count||0)} — first 50 get 👑 FOUNDER badge + 40-mile access</div>}
-          <div className="space-y-3">
-            {/* NO AUTOFILL */}
-            <input value={name} onChange={e=>setName(e.target.value)} placeholder="Full name" autoComplete="off" autoCorrect="off" spellCheck={false} data-lpignore="true" data-form-type="other" className="w-full bg-[#0a0a0a] border border-[#333] rounded-xl px-3 py-3 text-sm text-white outline-none" />
-            <div>
-              <input value={addr} onChange={e=>{setAddr(e.target.value); setAddrError('');}} placeholder="304 NE 115th St, KC MO 64155" autoComplete="off" autoCorrect="off" spellCheck={false} data-lpignore="true" data-1p-ignore="true" name="nkc-addr-no-autofill-xyz" className="w-full bg-[#0a0a0a] border border-[#333] rounded-xl px-3 py-3 text-sm text-white outline-none" />
-              {addrError&&<p className="text-red-400 text-xs mt-1">{addrError}</p>}
-              <p className="text-[11px] opacity-40 mt-1">Must include house number + street. We don't store autofill. <button onClick={()=>{localStorage.removeItem('nkc_profile'); localStorage.removeItem('nkc_profile_tiered_40'); setAddr(''); setProfile(null); alert('Address removed from this device');}} className="underline">Remove my address from this device</button></p>
-            </div>
-          <div className="flex gap-2 mt-5">
-            <button onClick={()=>setShowJoin(false)} className="flex-1 bg-[#2a2a2a] py-3 rounded-full font-bold text-sm">Cancel</button>
-            <button onClick={()=>handleJoin('regular')} className="flex-1 bg-[#333] text-white py-3 rounded-full font-bold text-sm border border-[#444]">Join 5 Mile</button>
-            <button onClick={()=>handleJoin('founder')} disabled={!isMobile&&false} className="flex-1 bg-white text-black py-3 rounded-full font-bold text-sm disabled:opacity-50">{canBeFounder?'👑 Join Founder (40mi)':'Join 40 Mile'}</button>
-          </div>
-          <p className="text-[10px] opacity-30 text-center mt-3">Address never autofilled — autocomplete disabled. Install on Windows: Edge → ⋯ → Apps → Install this site as an app</p>
-        </div>
-      </div>}
-    </div>
-  );
-}
+          {showInstall?<button onClick={async()=>{installPrompt?.prompt(); setShowInstall(false);}} className="bg-white text-black px-3 py-1.5 rounded-full text-xs font-bold">Install (Windows)</button>:null}
+          {profile?<span className="text-xs opacity-60">{profile.full_name} {isFounder?'👑':''}</span>:<button onClick={()=>setShowJoin(true)} className="bg-white text-black px
