@@ -1,7 +1,6 @@
 {
   "name": "Neighborly KC",
   "short_name": "Neighborly KC",
-  "description": "Kansas City neighborhood network",
   "background_color": "#0a0a0a",
   "theme_color": "#0a0a0a",
   "display": "standalone",
