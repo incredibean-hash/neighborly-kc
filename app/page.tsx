@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
-const CATS=['All','General','Safety','For Sale','Help','Event'];
+const CATS=['General','Safety','For Sale'];
 const REACH=['ZIP Only','5 miles','10 miles','25 miles','40 miles - All KC'];
 const THEMES={
   midnight:{name:'Midnight', bg:'bg-black', card:'bg-[#1a1a1a]', text:'text-white', sub:'bg-white/10', btn:'bg-white text-black'},
@@ -13,7 +13,7 @@ const THEMES={
 const DEMO_POSTS=[
   {author_name:'Sarah M', area:'Brookside Area', category:'For Sale', body:'Garage sale Sat 8am - 45th & Wornall!', created_at:new Date().toISOString()},
   {author_name:'Mike T', area:'North KC Area', category:'Safety', body:'Coyote spotted near 64th & N Oak', created_at:new Date().toISOString()},
-  {author_name:'KC Parks', area:'Plaza Area', category:'Event', body:'Free concert Mill Creek Park Fri 6pm!', created_at:new Date().toISOString()},
+  {author_name:'KC Parks', area:'Plaza Area', category:'General', body:'Free concert Mill Creek Park Fri 6pm!', created_at:new Date().toISOString()},
 ];
 
 export default function Page(){
@@ -51,8 +51,6 @@ export default function Page(){
 
   return(
     <div className={`min-h-screen ${t.bg} ${t.text} pb-24`}>
-      <style>{`.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}`}</style>
-
       <div className={`sticky top-0 ${t.bg} border-b border-white/10 p-4 z-10`}>
         <div className="flex justify-between items-center max-w-md mx-auto">
           <div className="text-center flex-1">
@@ -62,9 +60,10 @@ export default function Page(){
           <button onClick={()=>setShowSettings(true)} className={`ml-3 w-10 h-10 ${t.sub} rounded-full flex items-center justify-center text-xl`}>⚙️</button>
         </div>
 
-        {/* NO BAR categories - scrollbar hidden */}
-        <div className="flex gap-2 mt-4 overflow-x-auto justify-center no-scrollbar max-w-md mx-auto">
-          {CATS.map(c=><button key={c} onClick={()=>setFilter(c)} className={`px-5 py-2 rounded-full text-sm font-bold whitespace-nowrap ${filter===c? t.btn : t.sub}`}>{c}</button>)}
+        {/* CENTERED 3 CATEGORIES - NO SCROLL - PC WORKS */}
+        <div className="flex gap-3 mt-4 justify-center max-w-md mx-auto">
+          <button onClick={()=>setFilter('All')} className={`px-6 py-2.5 rounded-full text-sm font-black ${filter==='All'? t.btn : t.sub}`}>All</button>
+          {CATS.map(c=><button key={c} onClick={()=>setFilter(c)} className={`px-6 py-2.5 rounded-full text-sm font-black ${filter===c? t.btn : t.sub}`}>{c}</button>)}
         </div>
 
         <div className="flex justify-center mt-3">
@@ -97,41 +96,25 @@ export default function Page(){
         <button onClick={()=>{loadDMs();setShowDM(true);}} className="text-sm font-bold">DM</button>
       </div>
 
-      {/* SETTINGS MENU */}
       {showSettings&&<div className="fixed inset-0 bg-black/80 z-30 flex items-center justify-center p-4">
         <div className={`${t.card} w-full max-w-sm rounded-2xl p-6 border border-white/10 ${t.text}`}>
           <div className="flex justify-between items-center mb-6">
             <h2 className="font-black text-lg">Settings</h2>
             <button onClick={()=>setShowSettings(false)} className={`w-8 h-8 ${t.sub} rounded-full`}>✕</button>
           </div>
-
           <div className="mb-6">
             <div className="text-sm font-bold mb-3">Theme</div>
             <div className="grid grid-cols-2 gap-3">
-              {Object.keys(THEMES).map((k:any)=>
-                <button key={k} onClick={()=>setTheme(k)} className={`p-4 rounded-xl border-2 text-left ${theme===k? 'border-white' : 'border-transparent'} ${THEMES[k as keyof typeof THEMES].card}`}>
-                  <div className={`w-8 h-8 rounded-full mb-2 ${THEMES[k as keyof typeof THEMES].bg} border border-white/20`}></div>
-                  <div className="font-bold text-sm">{THEMES[k as keyof typeof THEMES].name}</div>
-                  {theme===k&&<div className="text-[10px] mt-1 opacity-60">✓ Active</div>}
-                </button>
-              )}
+              {Object.keys(THEMES).map((k:any)=><button key={k} onClick={()=>setTheme(k)} className={`p-4 rounded-xl border-2 text-left ${theme===k? 'border-white' : 'border-transparent'} ${THEMES[k as keyof typeof THEMES].card}`}><div className={`w-8 h-8 rounded-full mb-2 ${THEMES[k as keyof typeof THEMES].bg} border border-white/20`}></div><div className="font-bold text-sm">{THEMES[k as keyof typeof THEMES].name}</div>{theme===k&&<div className="text-[10px] mt-1 opacity-60">✓ Active</div>}</button>)}
             </div>
           </div>
-
-          <div className="mb-6">
-            <div className="text-sm font-bold mb-2">Feed Distance</div>
-            <select value={feedRadius} onChange={e=>setFeedRadius(e.target.value)} className={`w-full ${t.bg} border border-white/10 rounded-full px-5 py-3 text-sm ${t.text}`}>
-              {REACH.map(r=><option key={r}>{r}</option>)}
-            </select>
-          </div>
-
           <button onClick={()=>setShowSettings(false)} className={`w-full ${t.btn} py-3 rounded-full font-black`}>Done</button>
         </div>
       </div>}
 
       {showPost&&<div className="fixed inset-0 bg-black/80 z-20 flex items-center justify-center p-4"><div className={`${t.card} w-full max-w-sm rounded-2xl p-6 border border-white/10 ${t.text}`}>
         <h2 className="font-bold text-lg text-center mb-4">New Post</h2>
-        <div className="flex gap-2 mb-4 overflow-x-auto justify-center no-scrollbar">{CATS.filter(c=>c!=='All').map(c=><button key={c} onClick={()=>setCat(c)} className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap ${cat===c? t.btn : t.sub}`}>{c}</button>)}</div>
+        <div className="flex gap-3 mb-4 justify-center">{CATS.map(c=><button key={c} onClick={()=>setCat(c)} className={`px-5 py-2.5 rounded-full text-sm font-black ${cat===c? t.btn : t.sub}`}>{c}</button>)}</div>
         <div className="mb-4"><div className="text-xs opacity-50 mb-2 text-center">How far should this go?</div><select value={reach} onChange={e=>setReach(e.target.value)} className={`w-full ${t.bg} border border-white/10 rounded-full px-5 py-3 text-sm ${t.text}`}>{REACH.map(r=><option key={r}>{r}</option>)}</select></div>
         <textarea value={text} onChange={e=>setText(e.target.value)} placeholder="Whats happening in KC?" className={`w-full ${t.bg} border border-white/10 rounded-xl p-4 text-base min-h-[100px] ${t.text}`}/>
         <div className="flex items-center gap-3 mt-4">
@@ -149,7 +132,7 @@ export default function Page(){
         <textarea value={dmMsg} onChange={e=>setDmMsg(e.target.value)} placeholder="Message" className={`w-full ${t.bg} border border-white/10 rounded-xl p-4 text-base mb-3 min-h-[80px] ${t.text}`}/>
         <button onClick={sendDM} className={`w-full ${t.btn} py-4 rounded-full font-black text-base mb-6`}>Send DM</button>
         <div className="text-xs opacity-50 mb-2">Recent — tap to reply</div>
-        <div className="space-y-2">{dms.map((m:any)=><div key={m.id} onClick={()=>{setDmTo(m.from_user===profile?.full_name? m.to_user : m.from_user);}} className={`${t.sub} p-3 rounded-xl text-sm cursor-pointer`}> <b>{m.from_user} → {m.to_user}</b><div className="mt-1 opacity-80">{m.message||m.body}</div><div className="text-[10px] opacity-30 mt-1">Tap to reply</div></div>)}</div>
+        <div className="space-y-2">{dms.map((m:any)=><div key={m.id} onClick={()=>{setDmTo(m.from_user===profile?.full_name? m.to_user : m.from_user);}} className={`${t.sub} p-3 rounded-xl text-sm cursor-pointer`}><b>{m.from_user} → {m.to_user}</b><div className="mt-1 opacity-80">{m.message||m.body}</div><div className="text-[10px] opacity-30 mt-1">Tap to reply</div></div>)}</div>
         <button onClick={()=>setShowDM(false)} className={`w-full mt-6 py-3 rounded-full ${t.sub} font-bold`}>Close</button>
       </div></div>}
     </div>
