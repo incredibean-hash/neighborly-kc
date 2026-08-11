@@ -65,4 +65,12 @@ export default function Page(){
       </div></div>}
       {showDM&&<div className="fixed inset-0 bg-black/80 z-20 flex items-center justify-center p-4"><div className="bg-[#1a1a1a] w-full max-w-sm rounded-2xl p-6 border border-white/10 max-h-[80vh] overflow-auto">
         <h2 className="font-bold text-lg text-center mb-4">DM {dmTo}</h2>
-        <input value={dmTo} onChange={e=>setDmTo(e.target.value)} placeholder="To Full Name" className="w-full bg-black border border-white/10 rounded-full px-5 py-3 mb-3 text
+        <input value={dmTo} onChange={e=>setDmTo(e.target.value)} placeholder="To Full Name" className="w-full bg-black border border-white/10 rounded-full px-5 py-3 mb-3 text-base"/>
+        <textarea value={dmMsg} onChange={e=>setDmMsg(e.target.value)} placeholder="Message" className="w-full bg-black border border-white/10 rounded-xl p-4 text-base mb-3 min-h-[80px]"/>
+        <button onClick={sendDM} className="w-full bg-white text-black py-4 rounded-full font-black text-base mb-6">Send DM</button>
+        <div className="space-y-2">{dms.map((m:any)=><div key={m.id} className="bg-black/50 p-3 rounded-xl text-sm"><b>{m.from_user} → {m.to_user}</b><div className="mt-1">{m.message}</div></div>)}</div>
+        <button onClick={()=>setShowDM(false)} className="w-full mt-6 py-3 rounded-full bg-white/10 font-bold">Close</button>
+      </div></div>}
+    </div>
+  );
+}
