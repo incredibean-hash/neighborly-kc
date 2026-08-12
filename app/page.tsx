@@ -1,207 +1,218 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
-const CATS=['Feed','Safety','For Sale'] as const;
-const THEMES:any={
-  midnight:{name:'Midnight 🌙', bg:'bg-black', card:'bg-[#1a1a1a]', text:'text-white', sub:'bg-white/10', btn:'bg-white text-black', dot:'bg-black'},
-  daylight:{name:'Daylight ☀️', bg:'bg-[#f8f5ee]', card:'bg-white', text:'text-black', sub:'bg-black/5', btn:'bg-black text-white', dot:'bg-[#f8f5ee]'},
-  kcblue:{name:'KC Blue 💙', bg:'bg-[#0a1931]', card:'bg-[#123456]', text:'text-white', sub:'bg-white/10', btn:'bg-[#ffcc00] text-black', dot:'bg-[#0a1931]'},
-  sand:{name:'Warm Sand', bg:'bg-[#e8ddd0]', card:'bg-[#fff8ee]', text:'text-[#2b2b2b]', sub:'bg-black/5', btn:'bg-[#1a3a2f] text-white', dot:'bg-[#e8ddd0]'},
-  aim:{name:'AIM 💬', bg:'bg-[#ffffcc]', card:'bg-white', text:'text-black', sub:'bg-[#ffcc00]/30', btn:'bg-[#0055ff] text-white', dot:'bg-[#ffffcc]'},
-  pipboy:{name:'Pip-Boy 3000', bg:'bg-[#0a1a0a]', card:'bg-[#0f2a0f]', text:'text-[#00ff41]', sub:'bg-[#00ff41]/20', btn:'bg-[#00ff41] text-black', dot:'bg-[#0a1a0a]'},
-};
-// FIXED DEMO - all categories now match new Feed/Safety/For Sale
-const DEMO_POSTS=[
-  {id:'demo1', author_name:'Sarah M', area:'Brookside', category:'For Sale', body:'Garage sale Sat 8am - 45th & Wornall, lots of baby stuff + furniture!', created_at:new Date(Date.now()-1000*60*60*2).toISOString()},
-  {id:'demo2', author_name:'Mike T', area:'North KC', category:'Safety', body:'Heads up - coyote spotted near 64th & N Oak last night, keep pets in', created_at:new Date(Date.now()-1000*60*30).toISOString()},
-  {id:'demo3', author_name:'KC Parks', area:'Plaza', category:'Feed', body:'Free concert Mill Creek Park this Friday 6pm! Bring blankets 🎵', created_at:new Date().toISOString()},
-  {id:'demo4', author_name:'You', area:'Your Area', category:'Feed', body:'This is your post - you can see it now!', created_at:new Date(Date.now()-1000*60*5).toISOString(), isMine:true},
-];
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+const CATS = ['All','General','For Sale & Free','Safety Alert','Recommendation','Event','Lost & Found'];
+
+async function compressImage(file: File): Promise<File> {
+  const img = document.createElement('img');
+  const canvas = document.createElement('canvas');
+  const dataUrl = await new Promise<string>((r)=>{
+    const reader = new FileReader();
+    reader.onload=()=>r(reader.result as string);
+    reader.readAsDataURL(file);
+  });
+  await new Promise<void>((res)=>{ img.onload=()=>res(); img.src=dataUrl; });
+  const max=1200;
+  let {width,height}=img;
+  if(width>max||height>max){
+    if(width>height){ height=height*max/width; width=max; }
+    else { width=width*max/height; height=max; }
+  }
+  canvas.width=width; canvas.height=height;
+  canvas.getContext('2d')!.drawImage(img,0,0,width,height);
+  const blob = await new Promise<Blob>((res)=>canvas.toBlob((b)=>res(b as Blob), 'image/jpeg', 0.7));
+  return new File([blob], file.name.replace(/\.\w+$/, '.jpg'), {type:'image/jpeg'});
+}
 
 export default function Page(){
+  const [hoods,setHoods]=useState<any[]>([]);
+  const [posts,setPosts]=useState<any[]>([]);
+  const [comments,setComments]=useState<Record<string,any[]>>({});
+  const [likes,setLikes]=useState<Record<string,any[]>>({});
+  const [cLikes,setCLikes]=useState<Record<string,any[]>>({});
+  const [openComments,setOpenComments]=useState<Record<string,boolean>>({});
+  const [commentText,setCommentText]=useState<Record<string,string>>({});
+  const [hood,setHood]=useState('parkwood-hills');
+  const [cat,setCat]=useState('All');
+  const [body,setBody]=useState('');
   const [profile,setProfile]=useState<any>(null);
-  const [posts,setPosts]=useState<any[]>(DEMO_POSTS);
-  const [filter,setFilter]=useState<typeof CATS[number]>('Feed');
-  const [theme,setTheme]=useState('midnight');
-  const [showPost,setShowPost]=useState(false);
-  const [showSettings,setShowSettings]=useState(false);
-  const [settingsAnim,setSettingsAnim]=useState(false);
-  const [text,setText]=useState('');
-  const [cat,setCat]=useState<typeof CATS[number]>('Feed');
-  const [photo,setPhoto]=useState<string|null>(null);
-  const [dmTo,setDmTo]=useState('');
-  const [showDM,setShowDM]=useState(false);
-  const [dmMsg,setDmMsg]=useState('');
-  const [dms,setDms]=useState<any[]>([]);
-  const [viewedCats,setViewedCats]=useState<Record<string, string>>({});
-  const [viewedDMs,setViewedDMs]=useState<Record<string, boolean>>({});
-  const [newToast,setNewToast]=useState<string|null>(null);
-  const fileRef=useRef<HTMLInputElement>(null);
-  const scrollRef=useRef<HTMLDivElement>(null);
-  const t=THEMES[theme];
+  const [showJoin,setShowJoin]=useState(false);
+  const [name,setName]=useState('');
+  const [email,setEmail]=useState('');
+  const [addr,setAddr]=useState('');
+  const [file,setFile]=useState<File|null>(null);
+  const [uploading,setUploading]=useState(false);
+  const [googleLoading,setGoogleLoading]=useState(false);
 
-  useEffect(()=>{
-    const p=localStorage.getItem('nkc_profile'); if(p) setProfile(JSON.parse(p));
-    const th=localStorage.getItem('nkc_theme'); if(th && THEMES[th]) setTheme(th);
-    const vc=localStorage.getItem('nkc_viewed_cats'); if(vc) setViewedCats(JSON.parse(vc));
-    const vd=localStorage.getItem('nkc_viewed_dms'); if(vd) setViewedDMs(JSON.parse(vd));
-    load(); loadDMs();
-  },[]);
-  useEffect(()=>{localStorage.setItem('nkc_theme',theme);},[theme]);
-  useEffect(()=>{localStorage.setItem('nkc_viewed_cats',JSON.stringify(viewedCats));},[viewedCats]);
-  useEffect(()=>{localStorage.setItem('nkc_viewed_dms',JSON.stringify(viewedDMs));},[viewedDMs]);
-  useEffect(()=>{ if(showSettings){ setTimeout(()=>setSettingsAnim(true),10); } else setSettingsAnim(false); },[showSettings]);
-
-  async function load(){
-    try{
-      const {data}=await supabase.from('posts').select('*').order('created_at',{ascending:false}).limit(100);
-      if(data && data.length>0){
-        // Normalize old General -> Feed so they show up
-        const normalized=data.map((p:any)=>({...p, category: p.category==='General'? 'Feed' : p.category}));
-        const merged=[...normalized,...DEMO_POSTS];
-        // dedupe by id
-        const seen=new Set();
-        const unique=merged.filter((p:any)=>{ if(seen.has(p.id)) return false; seen.add(p.id); return true; });
-        setPosts(unique);
+  const loadAll = async (postIds:string[]) => {
+    if(!postIds.length) return;
+    const {data:com}=await supabase.from('comments').select('*').in('post_id', postIds).order('created_at',{ascending:false});
+    if(com){
+      const g: Record<string,any[]> = {};
+      com.forEach((c:any)=>{ if(!g[c.post_id]) g[c.post_id]=[]; g[c.post_id].push(c); });
+      setComments(g);
+      const cIds=com.map((c:any)=>c.id);
+      if(cIds.length){
+        const {data:cl}=await supabase.from('likes').select('*').in('comment_id', cIds);
+        if(cl){
+          const cg: Record<string,any[]> = {};
+          cl.forEach((l:any)=>{ if(!cg[l.comment_id]) cg[l.comment_id]=[]; cg[l.comment_id].push(l); });
+          setCLikes(cg);
+        }
       }
-    }catch{}
-  }
-  async function loadDMs(){
-    try{
-      const {data}=await supabase.from('dms').select('*').order('created_at',{ascending:false}).limit(50);
-      if(data) setDms(data);
-    }catch{}
-  }
-  function markCatViewed(c:string){
-    const now=new Date().toISOString();
-    setViewedCats(prev=>({...prev, [c]: now}));
-    setFilter(c as any);
-  }
-  function markDMViewed(id:string){ setViewedDMs(prev=>({...prev, [id]: true})); }
-
-  async function doPost(){
-    if(!text &&!photo) return;
-    const newPost:any={
-      id:'my-'+Date.now(),
-      author_name:profile?.full_name||'You',
-      area:profile?.zip? profile.zip+' Area' : 'KC Area',
-      body:text, text:text, category:cat,
-      image_url:photo, photo_url:photo,
-      created_at:new Date().toISOString(),
-      isMine:true
-    };
-    setPosts([newPost,...posts]);
-    setFilter(cat==='Feed'? 'Feed' : cat); // stay where you can see it
-    if(cat!=='Feed') markCatViewed(cat); else markCatViewed('Feed');
-    setText(''); setPhoto(null); setShowPost(false);
-    setNewToast(`Posted to ${cat}! Visible now`);
-    setTimeout(()=>setNewToast(null),2500);
-    try{
-      await supabase.from('posts').insert({
-        author_name:newPost.author_name, area:newPost.area, body:newPost.body, text:newPost.text,
-        category:newPost.category, image_url:newPost.image_url, photo_url:newPost.photo_url
-      });
-    }catch{}
-  }
-  async function sendDM(){ if(!dmTo||!dmMsg) return; await supabase.from('dms').insert({from_user:profile?.full_name||'You', to_user:dmTo, message:dmMsg, body:dmMsg}); setDmMsg(''); loadDMs(); }
-  async function del(id:string){ setPosts(posts.filter((p:any)=>p.id!==id)); try{ if(!String(id).startsWith('demo')&&!String(id).startsWith('my-')) await supabase.from('posts').delete().eq('id',id); }catch{} }
-
-  function newCountForCat(c:string){
-    const last=viewedCats[c];
-    if(c==='Feed'){
-      if(!last) return 0; // Feed badge only for truly new after first visit
-      return posts.filter((p:any)=> new Date(p.created_at).getTime() > new Date(last).getTime()).length;
     }
-    if(!last) return posts.filter((p:any)=>p.category===c).length>0?1:0;
-    return posts.filter((p:any)=>p.category===c && new Date(p.created_at).getTime() > new Date(last).getTime()).length;
-  }
+    const {data:lk}=await supabase.from('likes').select('*').in('post_id', postIds).is('comment_id', null);
+    if(lk){
+      const lg: Record<string,any[]> = {};
+      lk.forEach((l:any)=>{ if(!lg[l.post_id]) lg[l.post_id]=[]; lg[l.post_id].push(l); });
+      setLikes(lg);
+    }
+  };
 
-  // Feed shows ALL posts, others filter
-  const shown=filter==='Feed'? posts : posts.filter((p:any)=>p.category===filter);
+  const signInWithGoogle = async () => {
+    setGoogleLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin }
+    });
+    if(error){ alert('Google login failed: '+error.message); setGoogleLoading(false); }
+  };
 
-  return(
-    <div className={`h-[100dvh] w-screen overflow-hidden ${t.bg} ${t.text} flex flex-col overscroll-none`}>
-      <style>{`html,body{overscroll-behavior:none; overflow:hidden; position:fixed; width:100%; height:100dvh;}`}</style>
-      {newToast&&<div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-white text-black px-5 py-2.5 rounded-full font-bold shadow-2xl text-sm">{newToast}</div>}
+  useEffect(()=>{ (async()=>{
+    const {data:h}=await supabase.from('neighborhoods').select('*').order('member_count',{ascending:false});
+    if(h) setHoods(h);
+    const {data:p}=await supabase.from('posts').select('*,profiles(full_name)').order('created_at',{ascending:false}).limit(50);
+    if(p){ setPosts(p); loadAll(p.map((x:any)=>x.id)); }
+    const { data: { session } } = await supabase.auth.getSession();
+    if(session?.user){
+      const u=session.user;
+      const pr={full_name: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split('@')[0] || 'Neighbor', email: u.email, avatar: u.user_metadata?.avatar_url, google_id: u.id};
+      localStorage.setItem('nkc_profile', JSON.stringify(pr));
+      setProfile(pr);
+    } else {
+      const s=typeof window!=='undefined'? localStorage.getItem('nkc_profile'):null;
+      if(s) setProfile(JSON.parse(s));
+    }
+    supabase.auth.onAuthStateChange((event, sess)=>{
+      if(sess?.user){
+        const u=sess.user;
+        const pr={full_name: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split('@')[0] || 'Neighbor', email: u.email, avatar: u.user_metadata?.avatar_url, google_id: u.id};
+        localStorage.setItem('nkc_profile', JSON.stringify(pr));
+        setProfile(pr);
+        setShowJoin(false);
+      }
+    });
+  })() },[]);
 
-      <div className={`${t.bg} border-b border-white/10 p-3 shrink-0 z-10`}>
-        <div className="flex justify-between items-center max-w-md mx-auto w-full">
-          <div className="text-center flex-1">
-            <div className="text-[17px] font-black tracking-widest">Neighborly KC</div>
-            <div className="text-[10px] opacity-50">Kansas City • 40 Mile Radius</div>
-          </div>
-          <button onClick={()=>setShowSettings(true)} className={`ml-2 w-9 h-9 ${t.sub} rounded-full flex items-center justify-center text-lg shrink-0`}>⚙️</button>
-        </div>
-        <div className="flex gap-2 mt-3 justify-center max-w-md mx-auto">
-          {CATS.map((c)=>{
-            const n=newCountForCat(c);
-            return(
-              <button key={c} onClick={()=>markCatViewed(c)} className={`relative px-5 py-2 rounded-full text-sm font-black ${filter===c? t.btn+' shadow-md' : t.sub}`}>
-                {c}
-                {n>0&&<span className="absolute -top-1.5 -right-1.5 bg-[#ff3b30] text-white text-[10px] font-black min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center border-2 border-black animate-pulse">{n>9?'9+':n}</span>}
-              </button>
-            );
-          })}
-        </div>
+  const cur = hoods.find((x:any)=>x.slug===hood) || hoods[0] || {name:'Parkwood Hills', zip:'64155', id: null, slug:'parkwood-hills', member_count: 247};
+  const filtered = cat==='All'? posts : posts.filter((p:any)=>p.category===cat);
+  const isAdmin = profile?.full_name?.toLowerCase().includes('jason');
+
+  const handlePost = async () => {
+    if(!profile) return setShowJoin(true);
+    if(!body.trim() &&!file) return;
+    if(file && file.size > 3*1024*1024){ alert('Max 3MB!'); return; }
+    setUploading(true);
+    try{
+      let image_url: string | null = null;
+      if(file){
+        const compressed=await compressImage(file);
+        const path=`${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+        const {error: upErr}=await supabase.storage.from('post-images').upload(path, compressed);
+        if(upErr) throw upErr;
+        const {data}=supabase.storage.from('post-images').getPublicUrl(path);
+        image_url=data.publicUrl;
+      }
+      const realId = hoods.find((x:any)=>x.slug===hood)?.id || cur?.id;
+      const { data, error } = await supabase.from('posts').insert({ body, category: cat==='All'? 'General' : cat, neighborhood_id: realId, image_url }).select().single();
+      if(error) throw error;
+      setPosts([{...data, profiles:{full_name:profile.full_name}},...posts]);
+      setBody('');
+      setFile(null);
+      const el = document.getElementById('file-input') as HTMLInputElement;
+      if(el) el.value='';
+    } catch(e:any){ alert('Could not save: '+(e.message||e)); } finally{ setUploading(false); }
+  };
+
+  const addComment = async (postId:string) => {
+    if(!profile) return setShowJoin(true);
+    const text=commentText[postId]?.trim();
+    if(!text) return;
+    const {data, error}=await supabase.from('comments').insert({ post_id: postId, content:text, body:text, author_name:profile.full_name }).select().single();
+    if(error) return alert(error.message);
+    setComments((prev)=> ({...prev, [postId]: [data,...(prev[postId]||[])]}));
+    setCommentText((prev)=>({...prev,[postId]:''}));
+  };
+
+  const togglePostLike = async (postId:string) => {
+    if(!profile) return setShowJoin(true);
+    const list = likes[postId]||[];
+    const myLike = list.find((l:any)=>l.author_name===profile.full_name);
+    if(myLike){
+      await supabase.from('likes').delete().eq('id', myLike.id);
+      setLikes((prev)=>{ const next = {...prev}; next[postId]=prev[postId].filter((x:any)=>x.id!==myLike.id); return next; });
+    } else {
+      const {data}=await supabase.from('likes').insert({post_id:postId, author_name:profile.full_name}).select().single();
+      if(data){ setLikes((prev)=>{ const next = {...prev}; next[postId]=[...(prev[postId]||[]), data]; return next; }); }
+    }
+  };
+  const toggleCommentLike = async (commentId:string) => {
+    if(!profile) return setShowJoin(true);
+    const list = cLikes[commentId]||[];
+    const myLike = list.find((l:any)=>l.author_name===profile.full_name);
+    if(myLike){
+      await supabase.from('likes').delete().eq('id', myLike.id);
+      setCLikes((prev)=>{ const next={...prev}; next[commentId]=prev[commentId].filter((x:any)=>x.id!==myLike.id); return next; });
+    } else {
+      const {data}=await supabase.from('likes').insert({comment_id:commentId, author_name:profile.full_name}).select().single();
+      if(data){ setCLikes((prev)=>{ const next={...prev}; next[commentId]=[...(prev[commentId]||[]), data]; return next; }); }
+    }
+  };
+  const deletePost = async (id:string, image_url:string|null) => {
+    if(!confirm('Delete this post?')) return;
+    if(image_url){ const path = image_url.split('/post-images/')[1]; if(path) await supabase.storage.from('post-images').remove([path]); }
+    await supabase.from('posts').delete().eq('id', id);
+    setPosts(posts.filter((p:any)=>p.id!==id));
+  };
+  const deleteComment = async (id:string, postId:string) => {
+    if(!confirm('Delete comment?')) return;
+    await supabase.from('comments').delete().eq('id', id);
+    setComments((prev)=>({...prev, [postId]: prev[postId].filter((c:any)=>c.id!==id)}));
+  };
+
+  return (
+    <div className="min-h-screen bg-[#f8f5ee] text-[#1a3a2f]">
+      <header className="bg-[#1a3a2f] text-white sticky top-0 z-40"><div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between"><div><h1 className="font-black text-xl tracking-tight">Neighborly KC</h1><p className="text-xs opacity-60 -mt-1">Kansas City • 40 Mile Radius</p></div><div className="flex items-center gap-2">{profile? <><span className="text-xs opacity-80 hidden sm:block">{profile.full_name}</span><button onClick={()=>{localStorage.removeItem('nkc_profile'); supabase.auth.signOut(); setProfile(null);}} className="bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-full text-xs font-bold">Sign out</button></> : <button onClick={()=>setShowJoin(true)} className="bg-white text-[#1a3a2f] px-4 py-2 rounded-full text-sm font-black">Join / Sign in</button>}</div></div></header>
+      <div className="max-w-6xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-[220px_1fr_300px] gap-6">
+        <aside className="bg-white rounded-2xl p-3 h-fit border hidden lg:block"><p className="text-xs font-bold opacity-40 px-3 py-2">FILTER</p>{CATS.map(c=><button key={c} onClick={()=>setCat(c)} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm ${cat===c?'bg-[#1a3a2f] text-white':'hover:bg-black/5'}`}>{c}</button>)}</aside>
+        <main className="space-y-3">
+          <div className="bg-white rounded-2xl p-4 border"><textarea value={body} onChange={e=>setBody(e.target.value)} placeholder={profile?`What's up in ${cur?.name}?`:'Join Parkwood Hills to post...'} className="w-full bg-[#f8f5ee] rounded-xl p-3 min-h-[80px] text-sm outline-none" /><div className="flex items-center gap-2 mt-3"><input id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="text-xs" />{file && <span className="text-xs opacity-60">{(file.size/1024).toFixed(0)}KB → ~400KB</span>}</div><div className="flex justify-end mt-2"><button disabled={uploading} onClick={handlePost} className="bg-[#1a3a2f] text-white px-5 py-2 rounded-full text-sm font-bold disabled:opacity-50">{uploading?'Uploading...':'Post to neighbors'}</button></div></div>
+          {filtered.map((p:any)=>{ const cList=comments[p.id]||[]; const isOpen=openComments[p.id]; const pLikes=likes[p.id]||[]; const liked=pLikes.some((l:any)=>l.author_name===profile?.full_name); const isOwner = profile && (p.profiles?.full_name===profile.full_name || p.author_name===profile.full_name); const canDelete = isOwner || isAdmin; return (<div key={p.id} className="bg-white rounded-2xl p-4 border"><div className="flex justify-between"><p className="text-xs font-bold opacity-60">{p.profiles?.full_name||p.author_name||'Neighbor'} · {p.category}</p>{canDelete && <button onClick={()=>deletePost(p.id,p.image_url)} className="text-xs opacity-40 hover:text-red-600">🗑️ Delete</button>}</div><p className="mt-1 whitespace-pre-wrap">{p.body || p.content}</p>{p.image_url && <img src={p.image_url} alt="post" className="mt-3 rounded-xl max-h-[400px] w-full object-cover border" />}<p className="text-xs opacity-40 mt-2">{new Date(p.created_at).toLocaleString()}</p><div className="mt-3 pt-3 border-t flex gap-4"><button onClick={()=>togglePostLike(p.id)} className={`text-xs font-bold ${liked?'text-red-600':'opacity-60 hover:opacity-100'}`}>{liked?'❤️':'🤍'} {pLikes.length}</button><button onClick={()=>setOpenComments((prev)=>({...prev,[p.id]:!prev[p.id]}))} className="text-xs font-bold hover:underline opacity-60">💬 {cList.length} {isOpen?'▲':'▼'}</button></div>{isOpen && (<div className="mt-3 bg-[#f8f5ee] rounded-xl p-3 space-y-2">{cList.map((c:any)=>{ const cl=cLikes[c.id]||[]; const cliked=cl.some((l:any)=>l.author_name===profile?.full_name); const canDelC = (profile && c.author_name===profile.full_name) || isAdmin; return (<div key={c.id} className="text-sm bg-white rounded-lg p-2 flex justify-between gap-2"><div><b className="text-xs">{c.author_name}:</b> {c.content||c.body} <span className="text-[10px] opacity-40 ml-2">{new Date(c.created_at).toLocaleTimeString()}</span><button onClick={()=>toggleCommentLike(c.id)} className={`ml-3 text-xs ${cliked?'text-red-600':'opacity-50'}`}>{cliked?'❤️':'🤍'} {cl.length}</button></div>{canDelC && <button onClick={()=>deleteComment(c.id,p.id)} className="text-[10px] opacity-30 hover:text-red-600">🗑️</button>}</div>);})}<div className="flex gap-2 pt-2"><input value={commentText[p.id]||''} onChange={e=>setCommentText((prev)=>({...prev,[p.id]:e.target.value}))} placeholder={profile?'Add a comment...':'Join to comment'} className="flex-1 bg-white border rounded-full px-3 py-2 text-sm outline-none" /><button onClick={()=>addComment(p.id)} className="bg-[#1a3a2f] text-white px-4 py-2 rounded-full text-xs font-bold">Reply</button></div></div>)}</div>)})}
+        </main>
+        <aside className="bg-white rounded-2xl p-5 border h-fit"><h3 className="font-black">{cur?.name}</h3><p className="text-xs opacity-60">{cur?.zip} · Kansas City, MO</p><div className="grid grid-cols-2 gap-2 mt-4"><div className="bg-[#f8f5ee] rounded-xl p-3 text-center"><b className="text-lg">{cur?.member_count}</b><p className="text-xs">NEIGHBORS</p></div><div className="bg-[#f8f5ee] rounded-xl p-3 text-center"><b className="text-lg">{posts.length}</b><p className="text-xs">POSTS</p></div></div></aside>
       </div>
-
-      <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain max-w-md mx-auto w-full p-3 space-y-3">
-        <div className="text-[10px] opacity-40 text-center">{shown.length} posts in {filter} • tap category to clear badge</div>
-        {shown.map((p:any)=>(
-          <div key={p.id} className={`${t.card} border ${p.isMine?'border-white/30 ring-1 ring-white/20':''} border-white/10 rounded-2xl p-4 w-full`}>
-            <div className="flex justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <div className="font-bold text-[14px] truncate">{p.author_name} {p.isMine&&<span className="text-[10px] bg-white text-black px-2 py-0.5 rounded-full ml-1">YOU</span>}</div>
-                <div className="text-[11px] opacity-50 truncate">{p.category} • {p.area}</div>
-              </div>
-              <button onClick={()=>del(p.id)} className="text-[11px] bg-white/10 px-3 py-1 rounded-full h-fit">✕</button>
-            </div>
-            <div className="mt-2.5 text-[14px] leading-snug break-words whitespace-pre-wrap">{p.body||p.text}</div>
-            {(p.image_url||p.photo_url)&&<img src={p.image_url||p.photo_url} className="mt-3 rounded-xl w-full" alt=""/>}
-            <button onClick={()=>{setDmTo(p.author_name); setShowDM(true); loadDMs();}} className={`mt-3 w-full ${t.btn} py-2.5 rounded-full font-black text-sm`}>DM {String(p.author_name).split(' ')[0]}</button>
-          </div>
-        ))}
-      </div>
-
-      <div className={`${t.bg} border-t border-white/10 flex justify-around items-center py-2.5 max-w-md mx-auto w-full shrink-0`}>
-        <button onClick={()=>{ const now=new Date().toISOString(); const all:Record<string,string>={}; CATS.forEach(c=>all[c]=now); setViewedCats(all); }} className="text-[11px] font-bold opacity-60 px-4 py-2">Clear badges</button>
-        <button onClick={()=>setShowPost(true)} className={`${t.btn} w-14 h-14 rounded-full font-black text-2xl shadow-xl flex items-center justify-center`}>+</button>
-        <button onClick={()=>{loadDMs(); setShowDM(true);}} className="text-[11px] font-bold relative px-4 py-2">DM {dms.filter((d:any)=>!viewedDMs[d.id]).length>0&&<span className="absolute -top-1 right-0 bg-[#ff3b30] w-2.5 h-2.5 rounded-full animate-pulse"></span>}</button>
-      </div>
-
-      {showSettings&&(
-        <div className={`fixed inset-0 z-30 flex items-end sm:items-center justify-center p-0 sm:p-4 transition-all duration-300 ${settingsAnim?'bg-black/60 backdrop-blur-sm':'bg-black/0'}`} onClick={()=>setShowSettings(false)}>
-          <div onClick={(e)=>e.stopPropagation()} className={`${t.card} w-full max-w-sm rounded-t-[2rem] sm:rounded-2xl p-6 border border-white/10 ${t.text} shadow-2xl transition-all duration-500 ${settingsAnim?'translate-y-0 opacity-100':'translate-y-full opacity-0'}`}>
-            <div className="flex justify-between items-center mb-5"><h2 className="font-black">Settings</h2><button onClick={()=>setShowSettings(false)} className={`w-8 h-8 ${t.sub} rounded-full`}>✕</button></div>
-            <div className="grid grid-cols-2 gap-2">{Object.keys(THEMES).map((k:any)=>{const th=THEMES[k]; return <button key={k} onClick={()=>setTheme(k)} className={`p-3 rounded-2xl border-2 text-left ${theme===k?'border-white':'border-black/10'} ${th.card} ${th.text}`}><div className={`w-6 h-6 rounded-full ${th.dot} mb-1 border`}></div><div className="font-bold text-xs">{th.name}</div></button>;})}</div>
-            <button onClick={()=>setShowSettings(false)} className={`w-full mt-5 ${t.btn} py-3 rounded-full font-black`}>Done</button>
-          </div>
-        </div>
-      )}
-
-      {showPost&&(
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-30 flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className={`${t.card} w-full max-w-sm rounded-t-[2rem] sm:rounded-2xl p-5 border border-white/10 ${t.text} shadow-2xl`}>
-            <h2 className="font-bold text-center mb-3">New Post to {cat}</h2>
-            <div className="flex gap-2 mb-3 justify-center">{CATS.map((c)=><button key={c} onClick={()=>setCat(c)} className={`px-4 py-2 rounded-full text-sm font-black ${cat===c? t.btn : t.sub}`}>{c}</button>)}</div>
-            <textarea value={text} onChange={(e)=>setText(e.target.value)} placeholder={`Post to ${cat}...`} className={`w-full ${t.bg} border border-white/20 rounded-xl p-3 text-[15px] min-h-[110px] ${t.text} w-full`} autoFocus/>
-            <div className="flex items-center gap-2 mt-3"><button onClick={()=>fileRef.current?.click()} className={`w-10 h-10 ${t.sub} rounded-full flex items-center justify-center text-xl`}>+</button><span className="text-[11px] opacity-60">Add photo</span><input ref={fileRef} type="file" accept="image/*" hidden onChange={(e)=>{const f=e.target.files?.[0]; if(!f) return; const r=new FileReader(); r.onload=()=>setPhoto(r.result as string); r.readAsDataURL(f);}}/></div>
-            {photo&&<img src={photo} className="mt-3 rounded-xl w-full" alt=""/>}
-            <div className="flex gap-2 mt-4"><button onClick={()=>setShowPost(false)} className={`flex-1 py-3 rounded-full ${t.sub} font-bold text-sm`}>Cancel</button><button onClick={doPost} className={`flex-1 py-3 rounded-full ${t.btn} font-black`}>Post</button></div>
-          </div>
-        </div>
-      )}
-
-      {showDM&&(
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-30 flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className={`${t.card} w-full max-w-sm rounded-t-[2rem] sm:rounded-2xl p-5 border border-white/10 max-h-[85dvh] overflow-auto ${t.text} shadow-2xl w-full`}>
-            <h2 className="font-bold text-center mb-3">Messages</h2>
-            <input value={dmTo} onChange={(e)=>setDmTo(e.target.value)} placeholder="To: Full Name" className={`w-full ${t.bg} border border-white/10 rounded-full px-4 py-2.5 mb-2 text-sm ${t.text} w-full`}/>
-            <textarea value={dmMsg} onChange={(e)=>setDmMsg(e.target.value)} placeholder="Message" className={`w-full ${t.bg} border border-white/10 rounded-xl p-3 text-sm mb-2 min-h-[70px] ${t.text} w-full`}/>
-            <button onClick={sendDM} className={`w-full ${t.btn} py-3 rounded-full font-black text-sm mb-4`}>Send DM</button>
-            <div className="space-y-2">{dms.map((m:any)=>{const isNew=!viewedDMs[m.id]; return(<div key={m.id} onClick={()=>{setDmTo(m.from_user); markDMViewed(m.id);}} className={`${t.sub} p-3 rounded-xl text-sm cursor-pointer relative ${isNew?'ring-1 ring-[#ff3b30]/50':''}`}>{isNew&&<span className="absolute top-2 right-2 bg-[#ff3b30] text-white text-[9px] font-black px-2 py-0.5 rounded-full">NEW</span>}<b className="text-xs">{m.from_user} → {m.to_user}</b><div className="mt-1 opacity-80 text-xs break-words pr-8">{m.message||m.body}</div></div>);})}</div>
-            <button onClick={()=>setShowDM(false)} className={`w-full mt-4 py-2.5 rounded-full ${t.sub} font-bold text-sm`}>Close</button>
+      {showJoin && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-[24px] w-full max-w-sm p-6 shadow-2xl">
+            <h2 className="font-black text-2xl">Join {cur?.name}</h2>
+            <p className="text-sm opacity-60 mt-1">40 mile radius KC network</p>
+            <button onClick={signInWithGoogle} disabled={googleLoading} className="mt-5 w-full bg-white border-2 border-black text-black py-3.5 rounded-full font-bold text-sm flex items-center justify-center gap-2 hover:bg-black hover:text-white transition">
+              <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
+              {googleLoading? 'Redirecting...' : 'Continue with Google'}
+            </button>
+            <div className="flex items-center gap-3 my-5"><div className="h-px flex-1 bg-black/10"></div><span className="text-xs font-bold opacity-30">OR</span><div className="h-px flex-1 bg-black/10"></div></div>
+            <form onSubmit={e=>{e.preventDefault(); const pr={full_name:name,email,street_address:addr,zip:cur?.zip,neighborhood_id:cur?.id}; localStorage.setItem('nkc_profile',JSON.stringify(pr)); setProfile(pr); setShowJoin(false);}} className="space-y-3">
+              <input required value={name} onChange={e=>setName(e.target.value)} placeholder="Full name" className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-black"/>
+              <input required value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-black"/>
+              <input required value={addr} onChange={e=>setAddr(e.target.value)} placeholder={`Address in ${cur?.zip}`} className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-black"/>
+              <div className="flex gap-2 pt-2"><button type="button" onClick={()=>setShowJoin(false)} className="flex-1 bg-[#f8f5ee] py-3.5 rounded-full font-bold text-sm">Cancel</button><button className="flex-1 bg-[#1a3a2f] text-white py-3.5 rounded-full font-bold text-sm">Join with Email</button></div>
+            </form>
           </div>
         </div>
       )}
