@@ -80,7 +80,7 @@ export default function Page(){
     const saved = localStorage.getItem('nkc_theme'); if(saved && THEMES[saved]) setThemeId(saved);
     (async()=>{
       const {data:h}=await supabase.from('neighborhoods').select('*').order('member_count',{ascending:false}); if(h) setHoods(h);
-      const {data:p}=await supabase.from('posts').select('*').order('created_at',{ascending:false}).limit(50); if(p){ setPosts(p); loadAll(p.map((x:any)=>x.id)); }
+      const {data:p}=await supabase.from('posts').select('*,profiles(full_name)').order('created_at',{ascending:false}).limit(50); if(p){ setPosts(p); loadAll(p.map((x:any)=>x.id)); }
       const { data: { session } } = await supabase.auth.getSession();
       if(session?.user){ const u=session.user; const pr={full_name: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split('@')[0] || 'Neighbor', email: u.email, avatar: u.user_metadata?.avatar_url, google_id: u.id}; localStorage.setItem('nkc_profile', JSON.stringify(pr)); setProfile(pr); }
       else { const s=localStorage.getItem('nkc_profile'); if(s) try{setProfile(JSON.parse(s))}catch{} }
@@ -93,43 +93,44 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
   const filtered = cat==='All'? posts : posts.filter((p:any)=>p.category===cat);
   const isAdmin = profile?.full_name?.toLowerCase().includes('jason');
 
- const handleBePost = async () => {
-  if (!profile) return setShowJoin(true);
-  if (!body.trim() && !file) return;
-  setUploading(true);
-  try {
-    let image_url: string | null = null;
-    if (file) {
-      const compressed = await compressImage(file);
-      const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
-      const { error: upErr } = await supabase.storage.from('post-images').upload(path, compressed);
-      if (upErr) throw upErr;
-      const { data: { publicUrl } } = supabase.storage.from('post-images').getPublicUrl(path);
-      image_url = publicUrl;
-    }
-    const realId = hoods?.find((x: any) => x.slug == hood)?.id || cur?.id || '5fb249cb-1667-475b-ab8c-43e1df245ace';
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      alert('You must be signed in to post');
-      setUploading(false);
-      return;
-    }
-    const { data, error } = await supabase.from('posts').insert({
-      body,
-category: cat === 'All' ? 'General' : cat,      user_id: user.id,
-      author_id: user.id,
-      neighborhood_id: realId,
-      image_url,
-      author_name: profile?.full_name || 'Neighbor'
-    }).select().single();
+    const handleBePost = async () => {
+    if (!profile) return setShowJoin(true);
+    if (!body.trim() && !file) return;
+    setUploading(true);
+    try {
+      let image_url: string | null = null;
+      if (file) {
+        const compressed = await compressImage(file);
+        const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+        const { error: upErr } = await supabase.storage.from('post-images').upload(path, compressed);
+        if (upErr) throw upErr;
+        const { data: { publicUrl } } = supabase.storage.from('post-images').getPublicUrl(path);
+        image_url = publicUrl;
+      }
+      const realId = hoods?.find((x: any) => x.slug == hood)?.id || cur?.id || '5fb249cb-1667-475b-ab8c-43e1df245ace';
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert('You must be signed in to post');
+        setUploading(false);
+        return;
+      }
+      const { data, error } = await supabase.from('posts').insert({
+        body,
+        category: cat === 'All' ? 'General' : cat,
+        user_id: user.id,
+        author_id: user.id,
+        neighborhood_id: realId,
+        image_url,
+        author_name: profile?.full_name || 'Neighbor'
+      }).select().single();
 
-    if (error) throw error;
-    setPosts([{ ...data, profiles: { full_name: profile.full_name } }, ...posts]);
-    setBody('');
-    setFile(null);
-  } catch (e: any) {
-    alert('Could not save: ' + (e.message || e));
-  } finally {
-    setUploading(false);
-  }
-}; 
+      if (error) throw error;
+      setPosts([{ ...data, profiles: { full_name: profile.full_name } }, ...posts]);
+      setBody('');
+      setFile(null);
+    } catch (e: any) {
+      alert('Could not save: ' + (e.message || e));
+    } finally {
+      setUploading(false);
+    }
+  };
