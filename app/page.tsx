@@ -89,7 +89,7 @@ export default function Page(){
   },[]);
 
   const setTheme = (id:string)=>{ setThemeId(id); localStorage.setItem('nkc_theme', id); };
-  const cur = hoods.find((x:any)=>x.slug===hood) || hoods[0] || {name:'Parkwood Hills', zip:'64155', id: null, slug:'parkwood-hills', member_count: 247};
+  const cur = hoods.find((x:any)=>x.slug===hood) || hoods[0] || {name:'Meadow Brooks Heights', zip:'64155', id: null, slug:'Meadow Brooks Heights', member_count: 247};
   const filtered = cat==='All'? posts : posts.filter((p:any)=>p.category===cat);
   const isAdmin = profile?.full_name?.toLowerCase().includes('jason');
 
