@@ -6,9 +6,6 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
-
-const CATS = ['All','General','For Sale & Free','Safety Alert','Recommendation','Event','Lost & Found'];
-
 const THEMES: Record<string, any> = {
   midnight: { id:'midnight', name:'Midnight', emoji:'🌙', bg:'#070a0f', card:'#15181f', text:'#e8e8e8', subtext:'#8a8f98', accent:'#ffffff', border:'#262a33', input:'#1c1f28', header:'#0a0d14', pillActive:'#ffffff', pillTextActive:'#000', pillInactive:'#1c1f28' },
   daylight: { id:'daylight', name:'Daylight', emoji:'☀️', bg:'#f8f5ee', card:'#ffffff', text:'#1a3a2f', subtext:'#8a9a92', accent:'#1a3a2f', border:'#e8e0d0', input:'#f1ede6', header:'#1a3a2f', pillActive:'#1a3a2f', pillTextActive:'#fff', pillInactive:'#ffffff' },
@@ -20,6 +17,9 @@ const THEMES: Record<string, any> = {
   royals: { id:'royals', name:'KC Royals', emoji:'👑', bg:'#f0f6ff', card:'#ffffff', text:'#00205a', subtext:'#6b8ab5', accent:'#004687', border:'#c2d5f0', input:'#e6eefb', header:'#004687', pillActive:'#004687', pillTextActive:'#ffffff', pillInactive:'#ffffff' },
   sporting: { id:'sporting', name:'Sporting KC', emoji:'⚽', bg:'#070f1f', card:'#0C2340', text:'#93B1D7', subtext:'#5a7fb5', accent:'#93B1D7', border:'#93B1D740', input:'#0a1a30', header:'#070f1f', pillActive:'#93B1D7', pillTextActive:'#0C2340', pillInactive:'#0C2340' },
 };
+const CATS = ['All','General','For Sale & Free','Safety Alert','Recommendation','Event','Lost & Found'];
+
+
 
 async function compressImage(file: File): Promise<File> {
   const img = document.createElement('img');
