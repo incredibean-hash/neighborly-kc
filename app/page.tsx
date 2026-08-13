@@ -93,102 +93,44 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
   const filtered = cat==='All'? posts : posts.filter((p:any)=>p.category===cat);
   const isAdmin = profile?.full_name?.toLowerCase().includes('jason');
 
-  const handleBePost = async () => {
-  if(!profile) return setShowJoin(true); if(!body.trim() && !file) return;
+ const handleBePost = async () => {
+  if (!profile) return setShowJoin(true);
+  if (!body.trim() && !file) return;
   setUploading(true);
-  try{
+  try {
     let image_url: string | null = null;
-    if(file){ const compressed=await compressImage(file); const path=`${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`; const { error: upErr }=await supabase.storage.from('post-images').upload(path, compressed); if(upErr) throw upErr; const { data: { publicUrl } } = supabase.storage.from('post-images').getPublicUrl(path); image_url = publicUrl; }
-const realId = hoods?.find((x:any)=>x.slug==hood)?.id || cur?.id || '5fb249cb-1667-475b-ab8c-43e1df245ace';
-const { data: { user } } = await supabase.auth.getUser();
-if (!user) {
-  alert('You must be signed in to post');
-  setUploading(false);
-  return;
-}
-const { data, error } = await supabase.from('posts').insert({
-  body,
-  category: cat === 'All' ? 'General' : cat,
-  user_id: user.id,
-  author_id: user.id,
-  neighborhood_id: realId,
-  image_url,
-  author_name: profile?.full_name || 'Neighbor'
-}).select().single();
-  body,
-  category: cat === 'All' ? 'General' : cat,
-  author_id: user?.id,
-  neighborhood_id: realId,
-  image_url,
-  author_name: profile?.full_name || 'Neighbor'
-}).select().single();
-    if(error) throw error;
-    setPosts([{...data, profiles:{full_name:profile.full_name}},...posts]); setBody(''); setFile(null);
-  } catch(e:any){ alert('Could not save: '+(e.message||e)); } finally{ setUploading(false); }
-};
+    if (file) {
+      const compressed = await compressImage(file);
+      const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+      const { error: upErr } = await supabase.storage.from('post-images').upload(path, compressed);
+      if (upErr) throw upErr;
+      const { data: { publicUrl } } = supabase.storage.from('post-images').getPublicUrl(path);
+      image_url = publicUrl;
+    }
+    const realId = hoods?.find((x: any) => x.slug == hood)?.id || cur?.id || '5fb249cb-1667-475b-ab8c-43e1df245ace';
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      alert('You must be signed in to post');
+      setUploading(false);
+      return;
+    }
+    const { data, error } = await supabase.from('posts').insert({
+      body,
+      category: cat === 'All' ? 'General' : cat,
+      user_id: user.id,
+      author_id: user.id,
+      neighborhood_id: realId,
+      image_url,
+      author_name: profile?.full_name || 'Neighbor'
+    }).select().single();
 
-  const addComment = async (postId:string) => { if(!profile) return setShowJoin(true); const text=commentText[postId]?.trim(); if(!text) return; const {data, error}=await supabase.from('comments').insert({ post_id: postId, content:text, body:text, author_name:profile.full_name }).select().single(); if(error) return alert(error.message); setComments((prev)=> ({...prev, [postId]: [data,...(prev[postId]||[])]})); setCommentText((prev)=>({...prev,[postId]:''})); };
-  const togglePostLike = async (postId:string) => { if(!profile) return setShowJoin(true); const list = likes[postId]||[]; const myLike = list.find((l:any)=>l.author_name===profile.full_name); if(myLike){ await supabase.from('likes').delete().eq('id', myLike.id); setLikes((prev)=>{ const next = {...prev}; next[postId]=prev[postId].filter((x:any)=>x.id!==myLike.id); return next; }); } else { const {data}=await supabase.from('likes').insert({post_id:postId, author_name:profile.full_name}).select().single(); if(data){ setLikes((prev)=>{ const next = {...prev}; next[postId]=[...(prev[postId]||[]), data]; return next; }); } } };
-  const toggleCommentLike = async (commentId:string) => { if(!profile) return setShowJoin(true); const list = cLikes[commentId]||[]; const myLike = list.find((l:any)=>l.author_name===profile.full_name); if(myLike){ await supabase.from('likes').delete().eq('id', myLike.id); setCLikes((prev)=>{ const next={...prev}; next[commentId]=prev[commentId].filter((x:any)=>x.id!==myLike.id); return next; }); } else { const {data}=await supabase.from('likes').insert({comment_id:commentId, author_name:profile.full_name}).select().single(); if(data){ setCLikes((prev)=>{ const next={...prev}; next[commentId]=[...(prev[commentId]||[]), data]; return next; }); } } };
-  const deletePost = async (id:string, image_url:string|null) => { if(!confirm('Delete this post?')) return; if(image_url){ const path = image_url.split('/post-images/')[1]; if(path) await supabase.storage.from('post-images').remove([path]); } await supabase.from('posts').delete().eq('id', id); setPosts(posts.filter((p:any)=>p.id!==id)); };
-  const deleteComment = async (id:string, postId:string) => { if(!confirm('Delete comment?')) return; await supabase.from('comments').delete().eq('id', id); setComments((prev)=>({...prev, [postId]: prev[postId].filter((c:any)=>c.id!==id)})); };
-
-  return (
-    <div className="min-h-screen" style={{backgroundColor: theme.bg, color: theme.text}}>
-      <header className="sticky top-0 z-40 border-b" style={{backgroundColor: theme.header, borderColor: theme.border}}>
-        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
-          <div><h1 className="font-black text-xl tracking-tight text-white" style={{color: '#fff'}}>Neighborly KC</h1><p className="text-xs -mt-1 text-white/60">Kansas City • 40 Mile Radius</p></div>
-          <div className="flex items-center gap-2">
-            <button onClick={()=>setShowSettings(true)} className="w-8 h-8 rounded-full flex items-center justify-center" style={{backgroundColor: theme.card, border: `1px solid ${theme.border}`}}>⚙️</button>
-            {profile? <><span className="text-xs hidden sm:block opacity-60">{profile.full_name}</span><button onClick={()=>{localStorage.removeItem('nkc_profile'); supabase.auth.signOut(); setProfile(null);}} className="px-3 py-1.5 rounded-full text-xs font-bold" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>Sign out</button></> : <button onClick={()=>setShowJoin(true)} className="px-4 py-2 rounded-full text-sm font-black" style={{backgroundColor: theme.pillActive, color: theme.pillTextActive}}>Join / Sign in</button>}
-          </div>
-        </div>
-        <div className="max-w-6xl mx-auto px-6 pb-3 flex gap-2 justify-center flex-wrap">
-          {['Feed','Safety','For Sale'].map(t=>{ const active = (cat==='All' && t==='Feed') || (t==='Safety' && cat==='Safety Alert') || (t==='For Sale' && cat==='For Sale & Free'); return (<button key={t} onClick={()=>{ if(t==='Feed') setCat('All'); if(t==='Safety') setCat('Safety Alert'); if(t==='For Sale') setCat('For Sale & Free'); }} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor: active? theme.pillActive : theme.pillInactive, color: active? theme.pillTextActive : theme.text, border: `1px solid ${theme.border}`}}>{t}</button>)})}
-        </div>
-      </header>
-
-      <div className="max-w-6xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-[220px_1fr_300px] gap-6">
-        <aside className="rounded-2xl p-3 h-fit border hidden lg:block" style={{backgroundColor: theme.card, borderColor: theme.border}}><p className="text-xs font-bold px-3 py-2 opacity-40">FILTER</p>{CATS.map(c=><button key={c} onClick={()=>setCat(c)} className="w-full text-left px-3 py-2.5 rounded-xl text-sm" style={{backgroundColor: cat===c? theme.accent : 'transparent', color: cat===c? theme.pillTextActive : theme.text}}>{c}</button>)}</aside>
-
-        <main className="space-y-3">
-          <div className="rounded-2xl p-4 border" style={{backgroundColor: theme.card, borderColor: theme.border}}><textarea value={body} onChange={e=>setBody(e.target.value)} placeholder={profile?`What's up in ${cur?.name}?`:'Join Meadow Brooks Heights to post...'} className="w-full rounded-xl p-3 min-h-[80px] text-sm outline-none" style={{backgroundColor: theme.input, color: theme.text, border: `1px solid ${theme.border}`}} /><div className="flex items-center gap-2 mt-3"><input id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="text-xs" />{file && <span className="text-xs opacity-60">{(file.size/1024).toFixed(0)}KB</span>}</div><div className="flex justify-end mt-2"><button disabled={uploading} onClick={handleBePost} className="px-5 py-2 rounded-full text-sm font-bold disabled:opacity-50" style={{backgroundColor: theme.accent, color: theme.pillTextActive}}>{uploading?'Uploading...':'Post to neighbors'}</button></div></div>
-
-          {filtered.map((p:any)=>{ const cList=comments[p.id]||[]; const isOpen=openComments[p.id]; const pLikes=likes[p.id]||[]; const liked=pLikes.some((l:any)=>l.author_name===profile?.full_name); const isOwner = profile && (p.profiles?.full_name===profile.full_name || p.author_name===profile.full_name); const canDelete = isOwner || isAdmin; return (
-            <div key={p.id} className="rounded-2xl p-4 border" style={{backgroundColor: theme.card, borderColor: theme.border}}><div className="flex justify-between"><p className="text-xs font-bold opacity-60">{p.profiles?.full_name||p.author_name||'Neighbor'} · {p.category}</p>{canDelete && <button onClick={()=>deletePost(p.id,p.image_url)} className="text-xs opacity-40 hover:text-red-600">🗑️ Delete</button>}</div><p className="mt-1 whitespace-pre-wrap">{p.body || p.content}</p>{p.image_url && <img src={p.image_url} alt="post" className="mt-3 rounded-xl max-h-[400px] w-full object-cover border" style={{borderColor: theme.border}} />}<p className="text-xs opacity-40 mt-2">{new Date(p.created_at).toLocaleString()}</p><div className="mt-3 pt-3 border-t flex gap-4" style={{borderColor: theme.border}}><button onClick={()=>togglePostLike(p.id)} className="text-xs font-bold">{liked?'❤️':'🤍'} {pLikes.length}</button><button onClick={()=>setOpenComments((prev)=>({...prev,[p.id]:!prev[p.id]}))} className="text-xs font-bold opacity-60">💬 {cList.length} {isOpen?'▲':'▼'}</button></div>{isOpen && (<div className="mt-3 rounded-xl p-3 space-y-2" style={{backgroundColor: theme.input}}>{cList.map((c:any)=>{ const cl=cLikes[c.id]||[]; const cliked=cl.some((l:any)=>l.author_name===profile?.full_name); const canDelC = (profile && c.author_name===profile.full_name) || isAdmin; return (<div key={c.id} className="text-sm rounded-lg p-2 flex justify-between gap-2" style={{backgroundColor: theme.card}}><div><b className="text-xs">{c.author_name}:</b> {c.content||c.body} <button onClick={()=>toggleCommentLike(c.id)} className="ml-3 text-xs">{cliked?'❤️':'🤍'} {cl.length}</button></div>{canDelC && <button onClick={()=>deleteComment(c.id,p.id)} className="text-[10px] opacity-30">🗑️</button>}</div>);})}<div className="flex gap-2 pt-2"><input value={commentText[p.id]||''} onChange={e=>setCommentText((prev)=>({...prev,[p.id]:e.target.value}))} placeholder="Add a comment..." className="flex-1 border rounded-full px-3 py-2 text-sm outline-none" style={{backgroundColor: theme.card, borderColor: theme.border, color: theme.text}} /><button onClick={()=>addComment(p.id)} className="px-4 py-2 rounded-full text-xs font-bold" style={{backgroundColor: theme.accent, color: theme.pillTextActive}}>Reply</button></div></div>)}</div>
-          )})}
-        </main>
-
-        <aside className="rounded-2xl p-5 border h-fit" style={{backgroundColor: theme.card, borderColor: theme.border}}><h3 className="font-black">{cur?.name}</h3><p className="text-xs opacity-60">{cur?.zip} · Kansas City, MO</p><div className="grid grid-cols-2 gap-2 mt-4"><div className="rounded-xl p-3 text-center" style={{backgroundColor: theme.input}}><b className="text-lg">{cur?.member_count}</b><p className="text-xs">NEIGHBORS</p></div><div className="rounded-xl p-3 text-center" style={{backgroundColor: theme.input}}><b className="text-lg">{posts.length}</b><p className="text-xs">POSTS</p></div></div></aside>
-      </div>
-
-      {showSettings && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="rounded-[24px] w-full max-w-sm p-5 border max-h-[80vh] overflow-y-auto" style={{backgroundColor: '#15181f', borderColor: '#262a33'}}>
-            <div className="flex justify-between items-center mb-4"><h2 className="font-black text-white">Settings • Themes</h2><button onClick={()=>setShowSettings(false)} className="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center">✕</button></div>
-            <div className="grid grid-cols-2 gap-3">
-              {Object.values(THEMES).map((t:any)=>{ const active = themeId===t.id; return (<button key={t.id} onClick={()=>setTheme(t.id)} className="rounded-2xl p-3 text-left border-2 text-sm font-bold flex flex-col gap-2" style={{backgroundColor: t.card, borderColor: active? '#fff' : t.border, color: t.text}}><span>{t.name} {t.emoji}</span></button>)})}
-            </div>
-            <button onClick={()=>setShowSettings(false)} className="mt-4 w-full py-3 rounded-full bg-white text-black font-bold">Done</button>
-          </div>
-        </div>
-      )}
-
-      {showJoin && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="rounded-[28px] w-full max-w-sm p-6 shadow-2xl border" style={{backgroundColor: theme.card, borderColor: theme.border}}>
-            <h2 className="font-black text-xl">Join {cur?.name}</h2><p className="text-xs opacity-60">{theme.id==='royals'? 'THE K • 64155 • ROYALS BLUE & WHITE' : theme.id==='chiefs'? 'ARROWHEAD • CHIEFS KINGDOM' : '40 mile radius KC network'}</p>
-            <button onClick={signInWithGoogle} disabled={googleLoading} className="mt-5 w-full bg-white border-2 border-black text-black py-3.5 rounded-full font-bold text-sm flex items-center justify-center gap-2">{googleLoading? 'Redirecting...' : 'Continue with Google'}</button>
-            <div className="flex items-center gap-3 my-5"><div className="h-px flex-1 bg-black/10"></div><span className="text-xs font-bold opacity-30">OR</span><div className="h-px flex-1 bg-black/10"></div></div>
-            <form onSubmit={e=>{e.preventDefault(); const pr={full_name:name,email,street_address:addr,zip:cur?.zip,neighborhood_id:cur?.id}; localStorage.setItem('nkc_profile',JSON.stringify(pr)); setProfile(pr); setShowJoin(false);}} className="space-y-3">
-              <input required value={name} onChange={e=>setName(e.target.value)} placeholder="Full name" className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-sm outline-none"/>
-              <input required value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-sm outline-none"/>
-              <input required value={addr} onChange={e=>setAddr(e.target.value)} placeholder={`Address in ${cur?.zip}`} className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-sm outline-none"/>
-              <div className="flex gap-2 pt-2"><button type="button" onClick={()=>setShowJoin(false)} className="flex-1 bg-[#f8f5ee] py-3.5 rounded-full font-bold text-sm">Cancel</button><button className="flex-1 text-white py-3.5 rounded-full font-bold text-sm" style={{backgroundColor: theme.accent}}>Join</button></div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+    if (error) throw error;
+    setPosts([{ ...data, profiles: { full_name: profile.full_name } }, ...posts]);
+    setBody('');
+    setFile(null);
+  } catch (e: any) {
+    alert('Could not save: ' + (e.message || e));
+  } finally {
+    setUploading(false);
+  }
+}; 
