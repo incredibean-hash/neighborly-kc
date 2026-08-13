@@ -3,7 +3,7 @@
 
 This is a complete, working Nextdoor clone built for Kansas City - 40 mile radius.
 
-**Default address: 304 NE 115TH ST, 64155 - Parkwood Hills**
+**Default address: 304 NE 115TH ST, 64155 - Meadow Brook Heights**
 
 ## Features (Nextdoor parity)
 - Feed with categories: All, General, For Sale & Free, Safety Alert, Recommendation, Event, Lost & Found
