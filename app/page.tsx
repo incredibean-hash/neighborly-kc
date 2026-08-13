@@ -93,17 +93,18 @@ export default function Page(){
   const filtered = cat==='All'? posts : posts.filter((p:any)=>p.category===cat);
   const isAdmin = profile?.full_name?.toLowerCase().includes('jason');
 
-  const handlePost = async () => {
-    if(!profile) return setShowJoin(true); if(!body.trim() &&!file) return; if(file && file.size > 3*1024*1024){ alert('Max 3MB!'); return; }
-    setUploading(true);
-    try{
-      let image_url: string | null = null;
-      if(file){ const compressed=await compressImage(file); const path=`${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`; const {error: upErr}=await supabase.storage.from('post-images').upload(path, compressed); if(upErr) throw upErr; const {data}=supabase.storage.from('post-images').getPublicUrl(path); image_url=data.publicUrl; }
-      const realId = hoods.find((x:any)=>x.slug===hood)?.id || cur?.id;
-      const { data, error } = await supabase.from('posts').insert({ body, category: cat==='All'? 'General' : cat, neighborhood_id: realId, image_url }).select().single(); if(error) throw error;
-      setPosts([{...data, profiles:{full_name:profile.full_name}},...posts]); setBody(''); setFile(null); const el = document.getElementById('file-input') as HTMLInputElement; if(el) el.value='';
-    } catch(e:any){ alert('Could not save: '+(e.message||e)); } finally{ setUploading(false); }
-  };
+  const handleBePost = async () => {
+  if(!profile) return setShowJoin(true); if(!body.trim() && !file) return;
+  setUploading(true);
+  try{
+    let image_url: string | null = null;
+    if(file){ const compressed=await compressImage(file); const path=`${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`; const { error: upErr }=await supabase.storage.from('post-images').upload(path, compressed); if(upErr) throw upErr; const { data: { publicUrl } } = supabase.storage.from('post-images').getPublicUrl(path); image_url = publicUrl; }
+    const realId = hoods.find((x:any)=>x.slug===hood)?.id || cur?.id;
+    const { data, error } = await supabase.from('posts').insert({ body, category: cat, user_id: profile.id, neighborhood_id: realId, image_url }).select().single();
+    if(error) throw error;
+    setPosts([{...data, profiles:{full_name:profile.full_name}},...posts]); setBody(''); setFile(null);
+  } catch(e:any){ alert('Could not save: '+(e.message||e)); } finally{ setUploading(false); }
+};
 
   const addComment = async (postId:string) => { if(!profile) return setShowJoin(true); const text=commentText[postId]?.trim(); if(!text) return; const {data, error}=await supabase.from('comments').insert({ post_id: postId, content:text, body:text, author_name:profile.full_name }).select().single(); if(error) return alert(error.message); setComments((prev)=> ({...prev, [postId]: [data,...(prev[postId]||[])]})); setCommentText((prev)=>({...prev,[postId]:''})); };
   const togglePostLike = async (postId:string) => { if(!profile) return setShowJoin(true); const list = likes[postId]||[]; const myLike = list.find((l:any)=>l.author_name===profile.full_name); if(myLike){ await supabase.from('likes').delete().eq('id', myLike.id); setLikes((prev)=>{ const next = {...prev}; next[postId]=prev[postId].filter((x:any)=>x.id!==myLike.id); return next; }); } else { const {data}=await supabase.from('likes').insert({post_id:postId, author_name:profile.full_name}).select().single(); if(data){ setLikes((prev)=>{ const next = {...prev}; next[postId]=[...(prev[postId]||[]), data]; return next; }); } } };
