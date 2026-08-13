@@ -101,8 +101,14 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
     if(file){ const compressed=await compressImage(file); const path=`${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`; const { error: upErr }=await supabase.storage.from('post-images').upload(path, compressed); if(upErr) throw upErr; const { data: { publicUrl } } = supabase.storage.from('post-images').getPublicUrl(path); image_url = publicUrl; }
 const realId = hoods?.find((x:any)=>x.slug==hood)?.id || cur?.id || '5fb249cb-1667-475b-ab8c-43e1df245ace';
     const { data: { user } } = await supabase.auth.getUser();
-        const { data, error } = await supabase.from('posts').insert({ body, category: cat, user_id: user?.id, neighborhood_id: realId, image_url }).select().single();
-
+const { data, error } = await supabase.from('posts').insert({
+  body,
+  category: cat === 'All' ? 'General' : cat,
+  author_id: user?.id,
+  neighborhood_id: realId,
+  image_url,
+  author_name: profile?.full_name || 'Neighbor'
+}).select().single();
     if(error) throw error;
     setPosts([{...data, profiles:{full_name:profile.full_name}},...posts]); setBody(''); setFile(null);
   } catch(e:any){ alert('Could not save: '+(e.message||e)); } finally{ setUploading(false); }
