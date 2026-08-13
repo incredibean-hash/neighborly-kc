@@ -100,8 +100,21 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
     let image_url: string | null = null;
     if(file){ const compressed=await compressImage(file); const path=`${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`; const { error: upErr }=await supabase.storage.from('post-images').upload(path, compressed); if(upErr) throw upErr; const { data: { publicUrl } } = supabase.storage.from('post-images').getPublicUrl(path); image_url = publicUrl; }
 const realId = hoods?.find((x:any)=>x.slug==hood)?.id || cur?.id || '5fb249cb-1667-475b-ab8c-43e1df245ace';
-    const { data: { user } } = await supabase.auth.getUser();
+const { data: { user } } = await supabase.auth.getUser();
+if (!user) {
+  alert('You must be signed in to post');
+  setUploading(false);
+  return;
+}
 const { data, error } = await supabase.from('posts').insert({
+  body,
+  category: cat === 'All' ? 'General' : cat,
+  user_id: user.id,
+  author_id: user.id,
+  neighborhood_id: realId,
+  image_url,
+  author_name: profile?.full_name || 'Neighbor'
+}).select().single();
   body,
   category: cat === 'All' ? 'General' : cat,
   author_id: user?.id,
