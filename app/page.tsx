@@ -99,7 +99,7 @@ export default function Page(){
   try{
     let image_url: string | null = null;
     if(file){ const compressed=await compressImage(file); const path=`${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`; const { error: upErr }=await supabase.storage.from('post-images').upload(path, compressed); if(upErr) throw upErr; const { data: { publicUrl } } = supabase.storage.from('post-images').getPublicUrl(path); image_url = publicUrl; }
-    const realId = hoods?.find((x:any)=>x.slug===hood)?.id || cur?.id || 102;
+    const realId = hoods?.find((x:any)=>x.slug===hood)?.id || cur?.id ;
         const { data: { user } } = await supabase.auth.getUser();
         const { data, error } = await supabase.from('posts').insert({ body, category: cat, user_id: user?.id, neighborhood_id: realId, image_url }).select().single();
 
