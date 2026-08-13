@@ -89,7 +89,7 @@ export default function Page(){
   },[]);
 
   const setTheme = (id:string)=>{ setThemeId(id); localStorage.setItem('nkc_theme', id); };
-  const cur = hoods.find((x:any)=>x.slug===hood) || hoods[0] || {name:'Meadow Brooks Heights', zip:'64155', id: null, slug:'Meadow Brooks Heights', member_count: 247};
+const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brooks Heights', zip:'64155', id: '5fb249cb-1667-475b-ab8c-43e1df245ace', slug:'meadow-brooks-heights'};
   const filtered = cat==='All'? posts : posts.filter((p:any)=>p.category===cat);
   const isAdmin = profile?.full_name?.toLowerCase().includes('jason');
 
@@ -99,8 +99,8 @@ export default function Page(){
   try{
     let image_url: string | null = null;
     if(file){ const compressed=await compressImage(file); const path=`${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`; const { error: upErr }=await supabase.storage.from('post-images').upload(path, compressed); if(upErr) throw upErr; const { data: { publicUrl } } = supabase.storage.from('post-images').getPublicUrl(path); image_url = publicUrl; }
-    const realId = hoods?.find((x:any)=>x.slug==hood)?.id || cur?.id || '5fb249cb-1667-475b-ab8c-43e1df245ace';
-        const { data: { user } } = await supabase.auth.getUser();
+const realId = hoods?.find((x:any)=>x.slug==hood)?.id || cur?.id || '5fb249cb-1667-475b-ab8c-43e1df245ace';
+    const { data: { user } } = await supabase.auth.getUser();
         const { data, error } = await supabase.from('posts').insert({ body, category: cat, user_id: user?.id, neighborhood_id: realId, image_url }).select().single();
 
     if(error) throw error;
