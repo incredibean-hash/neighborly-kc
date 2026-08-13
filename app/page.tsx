@@ -80,7 +80,7 @@ export default function Page(){
     const saved = localStorage.getItem('nkc_theme'); if(saved && THEMES[saved]) setThemeId(saved);
     (async()=>{
       const {data:h}=await supabase.from('neighborhoods').select('*').order('member_count',{ascending:false}); if(h) setHoods(h);
-      const {data:p}=await supabase.from('posts').select('*,profiles(full_name)').order('created_at',{ascending:false}).limit(50); if(p){ setPosts(p); loadAll(p.map((x:any)=>x.id)); }
+      const {data:p}=await supabase.from('posts').select('*').order('created_at',{ascending:false}).limit(50); if(p){ setPosts(p); loadAll(p.map((x:any)=>x.id)); }
       const { data: { session } } = await supabase.auth.getSession();
       if(session?.user){ const u=session.user; const pr={full_name: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split('@')[0] || 'Neighbor', email: u.email, avatar: u.user_metadata?.avatar_url, google_id: u.id}; localStorage.setItem('nkc_profile', JSON.stringify(pr)); setProfile(pr); }
       else { const s=localStorage.getItem('nkc_profile'); if(s) try{setProfile(JSON.parse(s))}catch{} }
