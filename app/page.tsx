@@ -116,8 +116,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
     }
     const { data, error } = await supabase.from('posts').insert({
       body,
-      category: cat === 'All' ? 'General' : cat,
-      user_id: user.id,
+category: cat === 'All' ? 'General' : cat,      user_id: user.id,
       author_id: user.id,
       neighborhood_id: realId,
       image_url,
