@@ -33,6 +33,20 @@ async function compressImage(file: File): Promise<File> {
   return new File([blob], file.name.replace(/\.\w+$/, '.jpg'), {type:'image/jpeg'});
 }
 
+
+async function syncCommunityProfile(user:any, fallback?:any){
+  if(!user) return null;
+  const profile = {
+    auth_user_id: user.id,
+    full_name: user.user_metadata?.full_name || user.user_metadata?.name || fallback?.full_name || user.email?.split('@')[0] || 'Neighbor',
+    email: user.email || fallback?.email || '',
+    street_address: fallback?.street_address || '',
+    zip: fallback?.zip || '',
+  };
+  await supabase.from('profiles').upsert(profile, { onConflict:'auth_user_id' });
+  return {...fallback, ...profile, user_id:user.id};
+}
+
 export default function Page(){
   const [hoods,setHoods]=useState<any[]>([]);
   const [posts,setPosts]=useState<any[]>([]);
@@ -43,6 +57,8 @@ export default function Page(){
   const [commentText,setCommentText]=useState<Record<string,string>>({});
   const [hood,setHood]=useState('Meadow Brooks Heights');
   const [cat,setCat]=useState('All');
+  const [scope,setScope]=useState<'local'|'kc'>('local');
+  const [showExplore,setShowExplore]=useState(false);
   const [body,setBody]=useState('');
   const [profile,setProfile]=useState<any>(null);
   const [showJoin,setShowJoin]=useState(false);
@@ -82,15 +98,19 @@ export default function Page(){
       const {data:h}=await supabase.from('neighborhoods').select('*').order('member_count',{ascending:false}); if(h) setHoods(h);
       const {data:p}=await supabase.from('posts').select('*').order('created_at',{ascending:false}).limit(50); if(p){ setPosts(p); loadAll(p.map((x:any)=>x.id)); }
       const { data: { session } } = await supabase.auth.getSession();
-      if(session?.user){ const u=session.user; const pr={full_name: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split('@')[0] || 'Neighbor', email: u.email, avatar: u.user_metadata?.avatar_url, google_id: u.id}; localStorage.setItem('nkc_profile', JSON.stringify(pr)); setProfile(pr); }
+      if(session?.user){ const u=session.user; const pr=await syncCommunityProfile(u); localStorage.setItem('nkc_profile', JSON.stringify(pr)); setProfile(pr); }
       else { const s=localStorage.getItem('nkc_profile'); if(s) try{setProfile(JSON.parse(s))}catch{} }
-      supabase.auth.onAuthStateChange((_, sess)=>{ if(sess?.user){ const u=sess.user; const pr={full_name: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split('@')[0] || 'Neighbor', email: u.email, avatar: u.user_metadata?.avatar_url, google_id: u.id}; localStorage.setItem('nkc_profile', JSON.stringify(pr)); setProfile(pr); setShowJoin(false); } });
+      supabase.auth.onAuthStateChange(async (_, sess)=>{ if(sess?.user){ const u=sess.user; const pr=await syncCommunityProfile(u); localStorage.setItem('nkc_profile', JSON.stringify(pr)); setProfile(pr); setShowJoin(false); } });
     })()
   },[]);
 
   const setTheme = (id:string)=>{ setThemeId(id); localStorage.setItem('nkc_theme', id); };
 const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brooks Heights', zip:'64155', id: '5fb249cb-1667-475b-ab8c-43e1df245ace', slug:'meadow-brooks-heights'};
-  const filtered = cat==='All'? posts : posts.filter((p:any)=>p.category===cat);
+  const scopedPosts = scope==='local'
+    ? posts.filter((p:any)=>!p.neighborhood_id || String(p.neighborhood_id)===String(cur?.id||''))
+    : posts;
+  const filtered = cat==='All'? scopedPosts : scopedPosts.filter((p:any)=>p.category===cat);
+  const neighborhoodName = (id:any) => hoods.find((h:any)=>String(h.id)===String(id))?.name || cur?.name || 'Kansas City';
   const isAdmin = profile?.full_name?.toLowerCase().includes('jason');
 
    const handleBePost = async () => {
@@ -135,9 +155,9 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
     }
   };
 
-  const addComment = async (postId:string) => { if(!profile) return setShowJoin(true); const text=commentText[postId]?.trim(); if(!text) return; const {data, error}=await supabase.from('comments').insert({ post_id: postId, content:text, body:text, author_name:profile.full_name }).select().single(); if(error) return alert(error.message); setComments((prev)=> ({...prev, [postId]: [data,...(prev[postId]||[])]})); setCommentText((prev)=>({...prev,[postId]:''})); };
-  const togglePostLike = async (postId:string) => { if(!profile) return setShowJoin(true); const list = likes[postId]||[]; const myLike = list.find((l:any)=>l.author_name===profile.full_name); if(myLike){ await supabase.from('likes').delete().eq('id', myLike.id); setLikes((prev)=>{ const next = {...prev}; next[postId]=prev[postId].filter((x:any)=>x.id!==myLike.id); return next; }); } else { const {data}=await supabase.from('likes').insert({post_id:postId, author_name:profile.full_name}).select().single(); if(data){ setLikes((prev)=>{ const next = {...prev}; next[postId]=[...(prev[postId]||[]), data]; return next; }); } } };
-  const toggleCommentLike = async (commentId:string) => { if(!profile) return setShowJoin(true); const list = cLikes[commentId]||[]; const myLike = list.find((l:any)=>l.author_name===profile.full_name); if(myLike){ await supabase.from('likes').delete().eq('id', myLike.id); setCLikes((prev)=>{ const next={...prev}; next[commentId]=prev[commentId].filter((x:any)=>x.id!==myLike.id); return next; }); } else { const {data}=await supabase.from('likes').insert({comment_id:commentId, author_name:profile.full_name}).select().single(); if(data){ setCLikes((prev)=>{ const next={...prev}; next[commentId]=[...(prev[commentId]||[]), data]; return next; }); } } };
+  const addComment = async (postId:string) => { if(!profile) return setShowJoin(true); const text=commentText[postId]?.trim(); if(!text) return; const {data, error}=await supabase.from('comments').insert({ post_id: postId, content:text, body:text, author_name:profile.full_name, author_id:profile.user_id }).select().single(); if(error) return alert(error.message); setComments((prev)=> ({...prev, [postId]: [data,...(prev[postId]||[])]})); setCommentText((prev)=>({...prev,[postId]:''})); };
+  const togglePostLike = async (postId:string) => { if(!profile) return setShowJoin(true); const list = likes[postId]||[]; const myLike = list.find((l:any)=>l.author_name===profile.full_name); if(myLike){ await supabase.from('likes').delete().eq('id', myLike.id); setLikes((prev)=>{ const next = {...prev}; next[postId]=prev[postId].filter((x:any)=>x.id!==myLike.id); return next; }); } else { const {data}=await supabase.from('likes').insert({post_id:postId, author_name:profile.full_name, author_id:profile.user_id}).select().single(); if(data){ setLikes((prev)=>{ const next = {...prev}; next[postId]=[...(prev[postId]||[]), data]; return next; }); } } };
+  const toggleCommentLike = async (commentId:string) => { if(!profile) return setShowJoin(true); const list = cLikes[commentId]||[]; const myLike = list.find((l:any)=>l.author_name===profile.full_name); if(myLike){ await supabase.from('likes').delete().eq('id', myLike.id); setCLikes((prev)=>{ const next={...prev}; next[commentId]=prev[commentId].filter((x:any)=>x.id!==myLike.id); return next; }); } else { const {data}=await supabase.from('likes').insert({comment_id:commentId, author_name:profile.full_name, author_id:profile.user_id}).select().single(); if(data){ setCLikes((prev)=>{ const next={...prev}; next[commentId]=[...(prev[commentId]||[]), data]; return next; }); } } };
   const deletePost = async (id:string, image_url:string|null) => { if(!confirm('Delete this post?')) return; if(image_url){ const path = image_url.split('/post-images/')[1]; if(path) await supabase.storage.from('post-images').remove([path]); } await supabase.from('posts').delete().eq('id', id); setPosts(posts.filter((p:any)=>p.id!==id)); };
   const deleteComment = async (id:string, postId:string) => { if(!confirm('Delete comment?')) return; await supabase.from('comments').delete().eq('id', id); setComments((prev)=>({...prev, [postId]: prev[postId].filter((c:any)=>c.id!==id)})); };
 
@@ -147,27 +167,51 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
           <div><h1 className="font-black text-xl tracking-tight text-white" style={{color: '#fff'}}>Neighborly KC</h1><p className="text-xs -mt-1 text-white/60">Kansas City • 40 Mile Radius</p></div>
           <div className="flex items-center gap-2">
+            <a href="/people" className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>People</a>
+            <a href="/dms" className="px-3 py-1.5 rounded-full text-xs font-bold" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>💬</a>
+            <a href="/notifications" className="px-3 py-1.5 rounded-full text-xs font-bold" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>🔔</a>
             <button onClick={()=>setShowSettings(true)} className="w-8 h-8 rounded-full flex items-center justify-center" style={{backgroundColor: theme.card, border: `1px solid ${theme.border}`}}>⚙️</button>
             {profile? <><span className="text-xs hidden sm:block opacity-60">{profile.full_name}</span><button onClick={()=>{localStorage.removeItem('nkc_profile'); supabase.auth.signOut(); setProfile(null);}} className="px-3 py-1.5 rounded-full text-xs font-bold" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>Sign out</button></> : <button onClick={()=>setShowJoin(true)} className="px-4 py-2 rounded-full text-sm font-black" style={{backgroundColor: theme.pillActive, color: theme.pillTextActive}}>Join / Sign in</button>}
           </div>
         </div>
         <div className="max-w-6xl mx-auto px-6 pb-3 flex gap-2 justify-center flex-wrap">
-          {['Feed','Safety','For Sale'].map(t=>{ const active = (cat==='All' && t==='Feed') || (t==='Safety' && cat==='Safety Alert') || (t==='For Sale' && cat==='For Sale & Free'); return (<button key={t} onClick={()=>{ if(t==='Feed') setCat('All'); if(t==='Safety') setCat('Safety Alert'); if(t==='For Sale') setCat('For Sale & Free'); }} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor: active? theme.pillActive : theme.pillInactive, color: active? theme.pillTextActive : theme.text, border: `1px solid ${theme.border}`}}>{t}</button>)})}
+          <button onClick={()=>setCat('All')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor: cat==='All'?theme.pillActive:theme.pillInactive,color:cat==='All'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Feed</button>
+          <button onClick={()=>setCat('Safety Alert')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor: cat==='Safety Alert'?theme.pillActive:theme.pillInactive,color:cat==='Safety Alert'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Safety</button>
+          <button onClick={()=>setCat('For Sale & Free')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor: cat==='For Sale & Free'?theme.pillActive:theme.pillInactive,color:cat==='For Sale & Free'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>For Sale</button>
+          <button onClick={()=>setShowExplore(v=>!v)} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:showExplore?theme.pillActive:theme.pillInactive,color:showExplore?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Explore ▾</button>
         </div>
+        {showExplore && <div className="max-w-6xl mx-auto px-6 pb-3 flex gap-2 justify-center flex-wrap">
+          <a href="/people" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>👥 People</a>
+          <a href="/dms" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>💬 Messages</a>
+          <a href="/notifications" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>🔔 Notifications</a>
+          <button onClick={()=>setCat('Event')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>📅 Events</button>
+          <button onClick={()=>setCat('Lost & Found')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>🔎 Lost & Found</button>
+        </div>}
       </header>
 
       <div className="max-w-6xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-[220px_1fr_300px] gap-6">
         <aside className="rounded-2xl p-3 h-fit border hidden lg:block" style={{backgroundColor: theme.card, borderColor: theme.border}}><p className="text-xs font-bold px-3 py-2 opacity-40">FILTER</p>{CATS.map(c=><button key={c} onClick={()=>setCat(c)} className="w-full text-left px-3 py-2.5 rounded-xl text-sm" style={{backgroundColor: cat===c? theme.accent : 'transparent', color: cat===c? theme.pillTextActive : theme.text}}>{c}</button>)}</aside>
 
         <main className="space-y-3">
-          <div className="rounded-2xl p-4 border" style={{backgroundColor: theme.card, borderColor: theme.border}}><textarea value={body} onChange={e=>setBody(e.target.value)} placeholder={profile?`What's up in ${cur?.name}?`:'Join Meadow Brooks Heights to post...'} className="w-full rounded-xl p-3 min-h-[80px] text-sm outline-none" style={{backgroundColor: theme.input, color: theme.text, border: `1px solid ${theme.border}`}} /><div className="flex items-center gap-2 mt-3"><input id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="text-xs" />{file && <span className="text-xs opacity-60">{(file.size/1024).toFixed(0)}KB</span>}</div><div className="flex justify-end mt-2"><button disabled={uploading} onClick={handleBePost} className="px-5 py-2 rounded-full text-sm font-bold disabled:opacity-50" style={{backgroundColor: theme.accent, color: theme.pillTextActive}}>{uploading?'Uploading...':'Post to neighbors'}</button></div></div>
+          <div className="rounded-2xl p-4 border" style={{backgroundColor: theme.card, borderColor: theme.border}}>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+              <div><p className="text-xs font-black uppercase tracking-wider opacity-50">Neighborly KC Network</p><h2 className="text-xl font-black">{scope==='local'?cur?.name:'All Kansas City'}</h2><p className="text-xs opacity-55">{scope==='local'?'Your neighborhood and nearby local conversation':'Everyone inside the 40-mile Neighborly KC network'}</p></div>
+              <div className="flex rounded-full p-1 gap-1" style={{backgroundColor:theme.input,border:`1px solid ${theme.border}`}}>
+                <button onClick={()=>setScope('local')} className="px-4 py-2 rounded-full text-xs font-black" style={{backgroundColor:scope==='local'?theme.pillActive:'transparent',color:scope==='local'?theme.pillTextActive:theme.text}}>📍 My Area</button>
+                <button onClick={()=>setScope('kc')} className="px-4 py-2 rounded-full text-xs font-black" style={{backgroundColor:scope==='kc'?theme.pillActive:'transparent',color:scope==='kc'?theme.pillTextActive:theme.text}}>🏙️ All KC</button>
+              </div>
+            </div>
+            <textarea value={body} onChange={e=>setBody(e.target.value)} placeholder={profile?(scope==='kc'?'What should Kansas City know?':`What's up in ${cur?.name}?`):'Join Neighborly KC to post...'} className="w-full rounded-xl p-3 min-h-[80px] text-sm outline-none" style={{backgroundColor: theme.input, color: theme.text, border: `1px solid ${theme.border}`}} />
+            <div className="flex items-center gap-2 mt-3"><input id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="text-xs" />{file && <span className="text-xs opacity-60">{(file.size/1024).toFixed(0)}KB</span>}</div>
+            <div className="flex justify-end mt-2"><button disabled={uploading} onClick={handleBePost} className="px-5 py-2 rounded-full text-sm font-bold disabled:opacity-50" style={{backgroundColor: theme.accent, color: theme.pillTextActive}}>{uploading?'Uploading...':scope==='kc'?'Post to KC':'Post to neighbors'}</button></div>
+          </div>
 
           {filtered.map((p:any)=>{ const cList=comments[p.id]||[]; const isOpen=openComments[p.id]; const pLikes=likes[p.id]||[]; const liked=pLikes.some((l:any)=>l.author_name===profile?.full_name); const isOwner = profile && (p.profiles?.full_name===profile.full_name || p.author_name===profile.full_name); const canDelete = isOwner || isAdmin; return (
-            <div key={p.id} className="rounded-2xl p-4 border" style={{backgroundColor: theme.card, borderColor: theme.border}}><div className="flex justify-between"><p className="text-xs font-bold opacity-60">{p.profiles?.full_name||p.author_name||'Neighbor'} · {p.category}</p>{canDelete && <button onClick={()=>deletePost(p.id,p.image_url)} className="text-xs opacity-40 hover:text-red-600">🗑️ Delete</button>}</div><p className="mt-1 whitespace-pre-wrap">{p.body || p.content}</p>{p.image_url && <img src={p.image_url} alt="post" className="mt-3 rounded-xl max-h-[400px] w-full object-cover border" style={{borderColor: theme.border}} />}<p className="text-xs opacity-40 mt-2">{new Date(p.created_at).toLocaleString()}</p><div className="mt-3 pt-3 border-t flex gap-4" style={{borderColor: theme.border}}><button onClick={()=>togglePostLike(p.id)} className="text-xs font-bold">{liked?'❤️':'🤍'} {pLikes.length}</button><button onClick={()=>setOpenComments((prev)=>({...prev,[p.id]:!prev[p.id]}))} className="text-xs font-bold opacity-60">💬 {cList.length} {isOpen?'▲':'▼'}</button></div>{isOpen && (<div className="mt-3 rounded-xl p-3 space-y-2" style={{backgroundColor: theme.input}}>{cList.map((c:any)=>{ const cl=cLikes[c.id]||[]; const cliked=cl.some((l:any)=>l.author_name===profile?.full_name); const canDelC = (profile && c.author_name===profile.full_name) || isAdmin; return (<div key={c.id} className="text-sm rounded-lg p-2 flex justify-between gap-2" style={{backgroundColor: theme.card}}><div><b className="text-xs">{c.author_name}:</b> {c.content||c.body} <button onClick={()=>toggleCommentLike(c.id)} className="ml-3 text-xs">{cliked?'❤️':'🤍'} {cl.length}</button></div>{canDelC && <button onClick={()=>deleteComment(c.id,p.id)} className="text-[10px] opacity-30">🗑️</button>}</div>);})}<div className="flex gap-2 pt-2"><input value={commentText[p.id]||''} onChange={e=>setCommentText((prev)=>({...prev,[p.id]:e.target.value}))} placeholder="Add a comment..." className="flex-1 border rounded-full px-3 py-2 text-sm outline-none" style={{backgroundColor: theme.card, borderColor: theme.border, color: theme.text}} /><button onClick={()=>addComment(p.id)} className="px-4 py-2 rounded-full text-xs font-bold" style={{backgroundColor: theme.accent, color: theme.pillTextActive}}>Reply</button></div></div>)}</div>
+            <div key={p.id} className="rounded-2xl p-4 border" style={{backgroundColor: theme.card, borderColor: theme.border}}><div className="flex justify-between gap-3"><div><p className="text-xs font-bold opacity-60">{p.profiles?.full_name||p.author_name||'Neighbor'} · {p.category}</p>{scope==='kc' && <p className="text-[11px] font-bold mt-1 opacity-45">📍 {neighborhoodName(p.neighborhood_id)}</p>}</div>{canDelete && <button onClick={()=>deletePost(p.id,p.image_url)} className="text-xs opacity-40 hover:text-red-600">🗑️ Delete</button>}</div><p className="mt-1 whitespace-pre-wrap">{p.body || p.content}</p>{p.image_url && <img src={p.image_url} alt="post" className="mt-3 rounded-xl max-h-[400px] w-full object-cover border" style={{borderColor: theme.border}} />}<p className="text-xs opacity-40 mt-2">{new Date(p.created_at).toLocaleString()}</p><div className="mt-3 pt-3 border-t flex gap-4" style={{borderColor: theme.border}}><button onClick={()=>togglePostLike(p.id)} className="text-xs font-bold">{liked?'❤️':'🤍'} {pLikes.length}</button><button onClick={()=>setOpenComments((prev)=>({...prev,[p.id]:!prev[p.id]}))} className="text-xs font-bold opacity-60">💬 {cList.length} {isOpen?'▲':'▼'}</button></div>{isOpen && (<div className="mt-3 rounded-xl p-3 space-y-2" style={{backgroundColor: theme.input}}>{cList.map((c:any)=>{ const cl=cLikes[c.id]||[]; const cliked=cl.some((l:any)=>l.author_name===profile?.full_name); const canDelC = (profile && c.author_name===profile.full_name) || isAdmin; return (<div key={c.id} className="text-sm rounded-lg p-2 flex justify-between gap-2" style={{backgroundColor: theme.card}}><div><b className="text-xs">{c.author_name}:</b> {c.content||c.body} <button onClick={()=>toggleCommentLike(c.id)} className="ml-3 text-xs">{cliked?'❤️':'🤍'} {cl.length}</button></div>{canDelC && <button onClick={()=>deleteComment(c.id,p.id)} className="text-[10px] opacity-30">🗑️</button>}</div>);})}<div className="flex gap-2 pt-2"><input value={commentText[p.id]||''} onChange={e=>setCommentText((prev)=>({...prev,[p.id]:e.target.value}))} placeholder="Add a comment..." className="flex-1 border rounded-full px-3 py-2 text-sm outline-none" style={{backgroundColor: theme.card, borderColor: theme.border, color: theme.text}} /><button onClick={()=>addComment(p.id)} className="px-4 py-2 rounded-full text-xs font-bold" style={{backgroundColor: theme.accent, color: theme.pillTextActive}}>Reply</button></div></div>)}</div>
           )})}
         </main>
 
-        <aside className="rounded-2xl p-5 border h-fit" style={{backgroundColor: theme.card, borderColor: theme.border}}><h3 className="font-black">{cur?.name}</h3><p className="text-xs opacity-60">{cur?.zip} · Kansas City, MO</p><div className="grid grid-cols-2 gap-2 mt-4"><div className="rounded-xl p-3 text-center" style={{backgroundColor: theme.input}}><b className="text-lg">{cur?.member_count}</b><p className="text-xs">NEIGHBORS</p></div><div className="rounded-xl p-3 text-center" style={{backgroundColor: theme.input}}><b className="text-lg">{posts.length}</b><p className="text-xs">POSTS</p></div></div></aside>
+        <aside className="rounded-2xl p-5 border h-fit" style={{backgroundColor: theme.card, borderColor: theme.border}}><h3 className="font-black">{cur?.name}</h3><p className="text-xs opacity-60">{cur?.zip} · Kansas City, MO</p><div className="grid grid-cols-2 gap-2 mt-4"><div className="rounded-xl p-3 text-center" style={{backgroundColor: theme.input}}><b className="text-lg">{cur?.member_count}</b><p className="text-xs">NEIGHBORS</p></div><div className="rounded-xl p-3 text-center" style={{backgroundColor: theme.input}}><b className="text-lg">{scopedPosts.length}</b><p className="text-xs">{scope==='kc'?'KC POSTS':'LOCAL POSTS'}</p></div></div></aside>
       </div>
 
       {showSettings && (
