@@ -1,8 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
-
+import { supabase } from "../../lib/supabase";
 export default function ConnectionsPage() {
   const router = useRouter();
   const [me, setMe] = useState<any>(null);
