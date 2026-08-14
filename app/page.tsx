@@ -140,9 +140,8 @@ export default function Page(){
       }, 0);
     };
 
-    // Register the listener BEFORE getSession(). During a PKCE OAuth redirect the
-    // session can be established asynchronously; registering after getSession()
-    // creates a race where the first login is missed.
+    // Register the auth listener before restoring/exchanging a session so the
+    // UI reacts immediately when Supabase establishes the authenticated user.
     const { data } = supabase.auth.onAuthStateChange((event, sess)=>{
       if(!alive) return;
       if(sess?.user){
@@ -164,15 +163,30 @@ export default function Page(){
       const {data:p}=await supabase.from('posts').select('*').order('created_at',{ascending:false}).limit(50);
       if(p && alive){ setPosts(p); void loadAll(p.map((x:any)=>x.id)); }
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if(!alive) return;
-      if(session?.user){
-        applySession(session.user);
+      // We handle the PKCE callback explicitly so the first Google login cannot
+      // render the app before the OAuth code has been exchanged for a session.
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      if(code){
+        const { data: exchanged, error } = await supabase.auth.exchangeCodeForSession(code);
+        if(!alive) return;
+        if(error){
+          console.error('OAuth callback error:', error);
+          localStorage.removeItem('nkc_profile');
+          setProfile(null);
+          setAuthReady(true);
+          return;
+        }
+        window.history.replaceState({}, '', window.location.pathname);
+        if(exchanged?.user){
+          applySession(exchanged.user);
+        }
       } else {
-        // Supabase may still be exchanging the PKCE `code` in the URL.
-        // Do not erase the auth state during that short callback window.
-        const callbackPending = new URLSearchParams(window.location.search).has('code');
-        if(!callbackPending){
+        const { data: { session } } = await supabase.auth.getSession();
+        if(!alive) return;
+        if(session?.user){
+          applySession(session.user);
+        } else {
           localStorage.removeItem('nkc_profile');
           setProfile(null);
         }
