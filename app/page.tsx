@@ -49,6 +49,7 @@ async function withTimeout<T>(promise: PromiseLike<T>, ms = 30000): Promise<T> {
 async function syncCommunityProfile(user:any, fallback?:any){
   if(!user) return null;
   const profile = {
+    id: user.id,
     auth_user_id: user.id,
     full_name: user.user_metadata?.full_name || user.user_metadata?.name || fallback?.full_name || user.email?.split('@')[0] || 'Neighbor',
     email: user.email || fallback?.email || '',
@@ -88,6 +89,7 @@ export default function Page(){
   const [googleLoading,setGoogleLoading]=useState(false);
   const [postSuccess,setPostSuccess]=useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [fileInputKey, setFileInputKey] = useState(0);
 
   const theme = THEMES[themeId] || THEMES['royals'];
 
@@ -130,7 +132,13 @@ export default function Page(){
       const { data } = supabase.auth.onAuthStateChange((event, sess)=>{
         if(!alive) return;
         if(sess?.user){
-          void syncCommunityProfile(sess.user).then(pr=>{ if(alive){ localStorage.setItem('nkc_profile', JSON.stringify(pr)); setProfile(pr); setShowJoin(false); } });
+          // Only trust the Supabase session for auth state. Profile syncing happens
+          // after the auth callback returns so a refresh cannot be mistaken for a logout.
+          setProfile((current:any)=>current || { user_id:sess.user.id, full_name:sess.user.user_metadata?.full_name || sess.user.user_metadata?.name || sess.user.email?.split('@')[0] || 'Neighbor', email:sess.user.email || '' });
+          setShowJoin(false);
+          window.setTimeout(() => { void syncCommunityProfile(sess.user).then(pr=>{
+            if(alive && pr){ localStorage.setItem('nkc_profile', JSON.stringify(pr)); setProfile(pr); }
+          }); }, 0);
         } else if(event === 'SIGNED_OUT'){
           localStorage.removeItem('nkc_profile');
           setProfile(null);
@@ -248,7 +256,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
   return (
     <div className="min-h-screen w-full overflow-x-hidden" style={{backgroundColor: theme.bg, color: theme.text}}>
       <header className="sticky top-0 z-40 border-b" style={{backgroundColor: theme.header, borderColor: theme.border}}>
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2.5 flex items-center gap-3 min-w-0">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2.5 flex items-center gap-2 sm:gap-3 min-w-0">
           <div className="min-w-0 flex-1 overflow-hidden">
             <h1 className="font-black text-lg sm:text-xl tracking-tight text-white">Neighborly KC</h1>
             <p className="text-[10px] sm:text-xs -mt-1 text-white/60">Kansas City • 40 Mile Radius</p>
@@ -256,12 +264,12 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
               <svg viewBox="0 0 620 70" className="w-full h-full max-w-[520px]" preserveAspectRatio="none"><path d="M0 64h42V43h18v21h18V31h20v33h18V48h13V64h19V20h8v44h13V38h20v26h18V50h10v14h18V12h9v52h15V33h14v31h20V44h12v20h16V28h9v36h17V8h7v56h18V25h17v39h15V42h12v22h17V34h8v30h17V18h6v46h18V39h12v25h18V29h9v35h20V46h13v18h20V36h10v28h18V14h6v50h22V52h14v12h32v-8h-18v-11h-12V33h-10v23h-13V24h-12v32h-14V44h-13v12h-18V29h-10v27h-15V17h-8v39h-18V40h-12v16h-20V26h-9v30h-18V36h-10v20h-19V15h-7v41h-20V33h-12v23h-19V47h-11v9h-20V28h-8v28h-22V39h-12v17h-19V22h-8v34h-19V42h-13v14H0Z" fill="currentColor" className="text-white/25"/></svg>
             </div>
           </div>
-          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 max-w-[52vw]">
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 min-w-0">
             <a href="/people" className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>People</a>
             <a href="/dms" aria-label="Messages" className="px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>💬</a>
             <a href="/notifications" aria-label="Notifications" className="px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>🔔</a>
             <button onClick={()=>setShowSettings(true)} aria-label="Themes" className="w-8 h-8 rounded-full flex items-center justify-center" style={{backgroundColor: theme.card, border: `1px solid ${theme.border}`}}>⚙️</button>
-            {profile ? <><span className="text-xs hidden lg:block opacity-60 max-w-28 truncate">{profile.full_name}</span><button onClick={()=>{localStorage.removeItem('nkc_profile'); void supabase.auth.signOut(); setProfile(null);}} className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>Sign out</button></> : <button onClick={()=>setShowJoin(true)} className="shrink-0 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-black whitespace-nowrap max-w-[76px] overflow-hidden" style={{backgroundColor: theme.pillActive, color: theme.pillTextActive}}>Join</button>}
+            {profile ? <><span className="text-xs hidden lg:block opacity-60 max-w-28 truncate">{profile.full_name}</span><button onClick={()=>{localStorage.removeItem('nkc_profile'); void supabase.auth.signOut(); setProfile(null);}} className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>Sign out</button></> : <button onClick={()=>setShowJoin(true)} className="shrink-0 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-black whitespace-nowrap" style={{backgroundColor: theme.pillActive, color: theme.pillTextActive}}>Join</button>}
           </div>
         </div>
         <div className="max-w-6xl mx-auto px-6 pb-3 flex gap-2 justify-center flex-wrap">
@@ -294,8 +302,8 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
             <textarea value={body} onChange={e=>setBody(e.target.value)} placeholder={profile?(scope==='kc'?'What should Kansas City know?':`What's up in ${cur?.name}?`):'Join Neighborly KC to post...'} className="w-full rounded-xl p-3 min-h-[80px] text-sm outline-none" style={{backgroundColor: theme.input, color: theme.text, border: `1px solid ${theme.border}`}} />
             <div className="flex items-center gap-2 mt-3 min-w-0">
   <label htmlFor="file-input" className="shrink-0 cursor-pointer rounded-full border px-3 py-1.5 text-xs font-bold" style={{borderColor:theme.border}}>Choose image</label>
-  <input ref={fileInputRef} id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="sr-only" />
-  {file && <div className="min-w-0 flex items-center gap-2 text-xs opacity-70"><span className="truncate max-w-[180px]" title={file.name}>{file.name}</span><button type="button" onClick={()=>{setFile(null); if(fileInputRef.current) fileInputRef.current.value='';}} className="shrink-0 font-black" aria-label="Remove selected image">✕</button></div>}
+  <input key={fileInputKey} ref={fileInputRef} id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="sr-only" />
+  {file && <div className="min-w-0 flex items-center gap-2 text-xs opacity-70"><span className="truncate max-w-[180px]" title={file.name}>{file.name}</span><button type="button" onClick={()=>{setFile(null); if(fileInputRef.current) fileInputRef.current.value=''; setFileInputKey(k=>k+1);}} className="shrink-0 font-black" aria-label="Remove selected image">✕</button></div>}
 </div>
             <div className="flex justify-end mt-2"><button disabled={uploading} onClick={handleBePost} className="px-5 py-2 rounded-full text-sm font-bold disabled:opacity-50" style={{backgroundColor: theme.accent, color: theme.pillTextActive}}>{uploading?'Uploading...':scope==='kc'?'Post to KC':'Post to neighbors'}</button></div>
           </div>

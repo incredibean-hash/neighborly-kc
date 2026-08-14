@@ -21,7 +21,7 @@ This source includes the current UI/code fixes plus a **safe Supabase migration 
 
 Your existing production tables were not identical to the original migration files. In particular, `connections` already existed with only `id` and `created_at`, while the app expected `requester_id` and `addressee_id`. The old migration therefore failed when its trigger referenced `new.requester_id`.
 
-Run **`supabase_batch_fixes.sql` by itself** in Supabase SQL Editor. It first adds the missing columns to the existing tables, then installs RLS, likes protection, admin/post-limit enforcement, notifications and triggers.
+Run **`supabase_batch_fixes.sql` by itself** in Supabase SQL Editor (or use the identical `supabase_apply_fixes.sql` copy). It first adds the missing columns to the existing tables, then installs RLS, likes protection, admin/post-limit enforcement, notifications and triggers.
 
 If your admin account is not already `is_founder = true`, set `profiles.is_admin = true` for that account's Supabase Auth UUID using the final commented SQL line in the migration.
 
@@ -34,3 +34,19 @@ The DMs page already contains the required Suspense boundary. The project uses N
 ## Deploy
 
 Replace the project files in GitHub, commit to `main`, and let Vercel deploy.
+
+## Current production-schema note
+
+The schema output you supplied showed that `connections` initially had only `id` and `created_at`, while the application expects `requester_id`, `addressee_id`, and `status`. The consolidated migration adds those columns before creating any connection trigger, which avoids the earlier `column "requester_id" does not exist` failure.
+
+It also adds the Auth ownership columns used by likes, posts, comments, DMs and profiles, plus `is_admin` and the post-limit trigger. After the migration, verify the admin row with:
+
+```sql
+select auth_user_id, full_name, is_admin, is_founder
+from public.profiles
+order by created_at desc;
+```
+
+Then set the intended admin row to `is_admin = true` if it is not already a founder.
+
+The SQL files shown under Supabase Studio's **Private** query list are saved query documents, not database tables. They do not need to be deleted for the application to work.
