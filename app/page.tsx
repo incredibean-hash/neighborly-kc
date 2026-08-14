@@ -87,6 +87,7 @@ export default function Page(){
   const [file,setFile]=useState<File|null>(null);
   const [uploading,setUploading]=useState(false);
   const [googleLoading,setGoogleLoading]=useState(false);
+  const [authReady,setAuthReady]=useState(false);
   const [postSuccess,setPostSuccess]=useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
@@ -117,35 +118,68 @@ export default function Page(){
     setThemeId(saved && THEMES[saved] ? saved : DEFAULT_THEME_ID);
     let alive = true;
     let subscription: { unsubscribe: () => void } | null = null;
+
+    const applySession = (user:any) => {
+      if(!user || !alive) return;
+      // Show the signed-in UI immediately, then hydrate the full profile in the
+      // next task. This prevents the OAuth callback from briefly looking logged out.
+      setShowJoin(false);
+      setProfile((current:any)=>current || {
+        user_id:user.id,
+        auth_user_id:user.id,
+        full_name:user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Neighbor',
+        email:user.email || ''
+      });
+      window.setTimeout(() => {
+        void syncCommunityProfile(user).then(pr=>{
+          if(alive && pr){
+            localStorage.setItem('nkc_profile', JSON.stringify(pr));
+            setProfile(pr);
+          }
+        });
+      }, 0);
+    };
+
+    // Register the listener BEFORE getSession(). During a PKCE OAuth redirect the
+    // session can be established asynchronously; registering after getSession()
+    // creates a race where the first login is missed.
+    const { data } = supabase.auth.onAuthStateChange((event, sess)=>{
+      if(!alive) return;
+      if(sess?.user){
+        applySession(sess.user);
+        setAuthReady(true);
+      } else if(event === 'SIGNED_OUT'){
+        localStorage.removeItem('nkc_profile');
+        setProfile(null);
+        setShowJoin(false);
+        setAuthReady(true);
+      }
+    });
+    subscription = data.subscription;
+
     (async()=>{
-      const {data:h}=await supabase.from('neighborhoods').select('*').order('member_count',{ascending:false}); if(h && alive) setHoods(h);
-      const {data:p}=await supabase.from('posts').select('*').order('created_at',{ascending:false}).limit(50); if(p && alive){ setPosts(p); loadAll(p.map((x:any)=>x.id)); }
+      // Load public feed data independently of authentication.
+      const {data:h}=await supabase.from('neighborhoods').select('*').order('member_count',{ascending:false});
+      if(h && alive) setHoods(h);
+      const {data:p}=await supabase.from('posts').select('*').order('created_at',{ascending:false}).limit(50);
+      if(p && alive){ setPosts(p); void loadAll(p.map((x:any)=>x.id)); }
+
       const { data: { session } } = await supabase.auth.getSession();
       if(!alive) return;
       if(session?.user){
-        const pr=await syncCommunityProfile(session.user);
-        if(alive){ localStorage.setItem('nkc_profile', JSON.stringify(pr)); setProfile(pr); }
+        applySession(session.user);
       } else {
-        localStorage.removeItem('nkc_profile');
-        if(alive) setProfile(null);
-      }
-      const { data } = supabase.auth.onAuthStateChange((event, sess)=>{
-        if(!alive) return;
-        if(sess?.user){
-          // Only trust the Supabase session for auth state. Profile syncing happens
-          // after the auth callback returns so a refresh cannot be mistaken for a logout.
-          setProfile((current:any)=>current || { user_id:sess.user.id, full_name:sess.user.user_metadata?.full_name || sess.user.user_metadata?.name || sess.user.email?.split('@')[0] || 'Neighbor', email:sess.user.email || '' });
-          setShowJoin(false);
-          window.setTimeout(() => { void syncCommunityProfile(sess.user).then(pr=>{
-            if(alive && pr){ localStorage.setItem('nkc_profile', JSON.stringify(pr)); setProfile(pr); }
-          }); }, 0);
-        } else if(event === 'SIGNED_OUT'){
+        // Supabase may still be exchanging the PKCE `code` in the URL.
+        // Do not erase the auth state during that short callback window.
+        const callbackPending = new URLSearchParams(window.location.search).has('code');
+        if(!callbackPending){
           localStorage.removeItem('nkc_profile');
           setProfile(null);
         }
-      });
-      subscription = data.subscription;
+      }
+      setAuthReady(true);
     })();
+
     return ()=>{ alive=false; subscription?.unsubscribe(); };
   },[]);
 
@@ -269,7 +303,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
             <a href="/dms" aria-label="Messages" className="px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>💬</a>
             <a href="/notifications" aria-label="Notifications" className="px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>🔔</a>
             <button onClick={()=>setShowSettings(true)} aria-label="Themes" className="w-8 h-8 rounded-full flex items-center justify-center" style={{backgroundColor: theme.card, border: `1px solid ${theme.border}`}}>⚙️</button>
-            {profile ? <><span className="text-xs hidden lg:block opacity-60 max-w-28 truncate">{profile.full_name}</span><button onClick={()=>{localStorage.removeItem('nkc_profile'); void supabase.auth.signOut(); setProfile(null);}} className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>Sign out</button></> : <button onClick={()=>setShowJoin(true)} className="shrink-0 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-black whitespace-nowrap" style={{backgroundColor: theme.pillActive, color: theme.pillTextActive}}>Join</button>}
+            {!authReady ? <span className="shrink-0 px-3 sm:px-4 py-2 text-xs sm:text-sm font-black opacity-50">Loading…</span> : profile ? <><span className="text-xs hidden lg:block opacity-60 max-w-28 truncate">{profile.full_name}</span><button onClick={()=>{localStorage.removeItem('nkc_profile'); void supabase.auth.signOut(); setProfile(null);}} className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>Sign out</button></> : <button onClick={()=>setShowJoin(true)} className="shrink-0 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-black whitespace-nowrap" style={{backgroundColor: theme.pillActive, color: theme.pillTextActive}}>Join</button>}
           </div>
         </div>
         <div className="max-w-6xl mx-auto px-6 pb-3 flex gap-2 justify-center flex-wrap">
