@@ -80,6 +80,10 @@ export default function Page(){
   const [profile,setProfile]=useState<any>(null);
   const [showJoin,setShowJoin]=useState(false);
   const [showSettings,setShowSettings]=useState(false);
+  const [showFeedback,setShowFeedback]=useState(false);
+  const [feedbackText,setFeedbackText]=useState('');
+  const [feedbackSending,setFeedbackSending]=useState(false);
+  const [feedbackSent,setFeedbackSent]=useState(false);
   const [themeId,setThemeId]=useState(DEFAULT_THEME_ID);
   const [name,setName]=useState('');
   const [email,setEmail]=useState('');
@@ -205,6 +209,33 @@ export default function Page(){
   },[]);
 
   const setTheme = (id:string)=>{ setThemeId(id); localStorage.setItem('nkc_theme', id); };
+
+  const submitFeedback = async () => {
+    const message = feedbackText.trim();
+    if (!message || feedbackSending) return;
+    setFeedbackSending(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        alert('Please sign in before sending feedback.');
+        return;
+      }
+      const res = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ message }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Could not send feedback.');
+      setFeedbackText('');
+      setFeedbackSent(true);
+      window.setTimeout(() => { setFeedbackSent(false); setShowFeedback(false); }, 1200);
+    } catch (err:any) {
+      alert(err?.message || 'Could not send feedback. Please try again.');
+    } finally {
+      setFeedbackSending(false);
+    }
+  };
 const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brooks Heights', zip:'64155', id: '5fb249cb-1667-475b-ab8c-43e1df245ace', slug:'meadow-brooks-heights'};
   const scopedPosts = scope==='local'
     ? posts.filter((p:any)=>!p.neighborhood_id || String(p.neighborhood_id)===String(cur?.id||''))
@@ -403,7 +434,20 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
             <div className="grid grid-cols-2 gap-2">
               {['daylight','midnight','space','warm-sand','aim','pip-boy'].map(id=>{ const t=THEMES[id]; const active=themeId===id; return <button key={id} onClick={()=>setTheme(id)} className="rounded-2xl p-3 text-left border-2 text-sm font-bold min-h-16" style={{backgroundColor:t.card,borderColor:active?'#fff':t.border,color:t.text}}><span>{t.emoji} {t.name}</span>{active&&<span className="block text-[10px] mt-1 opacity-60">Active</span>}</button>})}
             </div>
-            <button onClick={()=>setShowSettings(false)} className="mt-4 w-full py-3 rounded-full bg-white text-black font-bold">Done</button>
+            <button onClick={()=>{setShowSettings(false);setFeedbackSent(false);setShowFeedback(true)}} className="mt-4 w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold nkc-smooth">💬 Leave Feedback</button>
+            <button onClick={()=>setShowSettings(false)} className="mt-2 w-full py-3 rounded-full bg-white text-black font-bold">Done</button>
+          </div>
+        </div>
+      )}
+
+      {showFeedback && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[70] flex items-center justify-center p-4 nkc-pop-in">
+          <div className="rounded-[24px] w-full max-w-md p-5 border" style={{backgroundColor:'#15181f',borderColor:'#262a33'}}>
+            <div className="flex justify-between items-center mb-2"><div><h2 className="font-black text-white text-xl">Leave Feedback</h2><p className="text-xs text-white/50 mt-1">Tell Jason what you think about Neighborly KC.</p></div><button onClick={()=>setShowFeedback(false)} className="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center" aria-label="Close feedback">✕</button></div>
+            {feedbackSent ? <div className="py-12 text-center text-white"><div className="text-4xl mb-3">💙</div><p className="font-black text-lg">Feedback sent!</p><p className="text-sm opacity-60 mt-1">Thanks for helping make Neighborly KC better.</p></div> : <>
+              <textarea autoFocus value={feedbackText} onChange={e=>setFeedbackText(e.target.value)} placeholder="What would you like to tell Jason?" className="mt-4 w-full min-h-[150px] rounded-2xl p-4 text-sm outline-none resize-none" style={{backgroundColor:theme.input,color:theme.text,border:`1px solid ${theme.border}`}} maxLength={2000} />
+              <div className="flex items-center justify-between gap-3 mt-2"><span className="text-[11px] text-white/35">{feedbackText.length}/2000</span><div className="flex gap-2"><button onClick={()=>setShowFeedback(false)} className="px-4 py-2.5 rounded-full text-sm font-bold bg-white/10 text-white">Cancel</button><button disabled={!feedbackText.trim()||feedbackSending} onClick={submitFeedback} className="px-5 py-2.5 rounded-full text-sm font-bold disabled:opacity-40" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{feedbackSending?'Sending...':'Send Feedback'}</button></div></div>
+            </>}
           </div>
         </div>
       )}
