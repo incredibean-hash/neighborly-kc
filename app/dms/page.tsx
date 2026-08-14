@@ -1,8 +1,10 @@
-'use client';
-import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import { supabase, displayName } from '../../lib/community';
+"use client";
+
+export const dynamic = "force-dynamic";
+
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { supabase } from "../../lib/supabase";
 
 export default function DmsPage(){
  const params=useSearchParams(); const target=params.get('user');
