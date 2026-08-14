@@ -7,7 +7,11 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 
-export default function DmsPage(){
+function displayName(p: any) {
+  return p?.full_name || p?.name || p?.email || "Neighbor";
+}
+
+export default function DmsPage() {
  const params=useSearchParams(); const target=params.get('user');
  const [me,setMe]=useState<any>(null),[people,setPeople]=useState<any[]>([]),[messages,setMessages]=useState<any[]>([]),[selected,setSelected]=useState<string|null>(target),[text,setText]=useState(''),[loading,setLoading]=useState(true),[sending,setSending]=useState(false);
  const load=async()=>{const {data:{user}}=await supabase.auth.getUser();setMe(user);if(!user){setLoading(false);return;}const {data:p}=await supabase.from('profiles').select('auth_user_id,full_name,email,zip').not('auth_user_id','is',null).neq('auth_user_id',user.id).order('full_name');setPeople(p||[]);setLoading(false)};
