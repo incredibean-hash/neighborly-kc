@@ -37,12 +37,12 @@ body { overscroll-behavior-y: none; }
     display:flex;
     position:fixed;
     left:50%;
-    bottom:calc(12px + env(safe-area-inset-bottom));
-    transform:translateX(-50%);
+    bottom:calc(10px + env(safe-area-inset-bottom) + var(--nkc-vv-bottom, 0px));
+    transform:translate3d(-50%,0,0);
     z-index:70;
     align-items:center;
     justify-content:center;
-    gap:14px;
+    gap:12px;
     pointer-events:none;
     width:max-content;
   }
@@ -69,4 +69,10 @@ body { overscroll-behavior-y: none; }
   .nkc-mobile-action svg { width:21px; height:21px; display:block; }
   .nkc-mobile-action-post svg { width:25px; height:25px; }
   .nkc-mobile-action:active { transform:scale(.94); }
+}
+
+@media (max-width: 639px) {
+  .nkc-scope-switch { width:100%; max-width:280px; }
+  .nkc-scope-switch button { flex:1; white-space:nowrap; }
+  header .nkc-mobile-signin { display:inline-flex; }
 }
