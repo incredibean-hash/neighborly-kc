@@ -1,1 +1,15 @@
-@tailwind base;@tailwind components;@tailwind utilities; body{background:#f6f7f8; font-family:system-ui} .card{@apply bg-white rounded-xl border border-gray-200}
+@tailwind base;@tailwind components;@tailwind utilities;
+
+:root{scroll-behavior:smooth}
+body{background:#f6f7f8;font-family:system-ui;transition:background-color .25s ease,color .25s ease}
+.card{@apply bg-white rounded-xl border border-gray-200}
+button,a,label,input,textarea,select{transition:color .18s ease,background-color .18s ease,border-color .18s ease,box-shadow .18s ease,opacity .18s ease,transform .18s ease}
+button:not(:disabled):hover,a:hover,label:hover{transform:translateY(-1px)}
+button:active:not(:disabled),a:active{transform:translateY(0) scale(.98)}
+.nkc-surface{transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease}
+.nkc-surface:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,32,90,.08)}
+.nkc-fade-in{animation:nkcFadeIn .28s ease both}
+.nkc-pop-in{animation:nkcPopIn .22s ease both}
+@keyframes nkcFadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@keyframes nkcPopIn{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}

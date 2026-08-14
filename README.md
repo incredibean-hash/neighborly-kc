@@ -50,3 +50,14 @@ order by created_at desc;
 Then set the intended admin row to `is_admin = true` if it is not already a founder.
 
 The SQL files shown under Supabase Studio's **Private** query list are saved query documents, not database tables. They do not need to be deleted for the application to work.
+
+## Latest UI / community pass
+
+- Full-width Neighborly KC header with expanded skyline treatment.
+- Upgraded NKC web/PWA logo assets.
+- Added the KC Heartland theme to complete the KC theme grid.
+- Users can edit their own posts, including category and optional image replacement.
+- Added optional transactional email notifications for post reactions via Resend.
+- Added smooth hover, press, surface, modal, and feed-entry transitions with reduced-motion support.
+
+For reaction email setup, see `EMAIL_NOTIFICATIONS.md` and `.env.example`.

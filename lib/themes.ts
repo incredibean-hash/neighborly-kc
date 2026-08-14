@@ -10,6 +10,7 @@ export const THEMES: Record<string, any> = {
   sporting: { id:'sporting', name:'Sporting KC', emoji:'⚽', bg:'#070f1f', card:'#0C2340', text:'#93B1D7', subtext:'#5a7fb5', accent:'#93B1D7', border:'#93B1D740', input:'#0a1a30', header:'#070f1f', pillActive:'#93B1D7', pillTextActive:'#0C2340', pillInactive:'#0C2340' },
   'kc-night': { id:'kc-night', name:'KC Night', emoji:'🌆', bg:'#071426', card:'#10233d', text:'#f7f2df', subtext:'#a9b7c9', accent:'#f2b134', border:'#2b4262', input:'#0c1b30', header:'#06101f', pillActive:'#f2b134', pillTextActive:'#071426', pillInactive:'#10233d' },
   'kc-sunset': { id:'kc-sunset', name:'KC Sunset', emoji:'🌇', bg:'#fff4ed', card:'#ffffff', text:'#3b2940', subtext:'#8b6875', accent:'#d45b4c', border:'#f0cfc3', input:'#fff0e8', header:'#40284b', pillActive:'#d45b4c', pillTextActive:'#ffffff', pillInactive:'#ffffff' },
+  'kc-heartland': { id:'kc-heartland', name:'KC Heartland', emoji:'🌾', bg:'#f7f2e8', card:'#fffdf8', text:'#193b63', subtext:'#7c8a96', accent:'#d7a83d', border:'#dfd2bb', input:'#eee6d6', header:'#193b63', pillActive:'#d7a83d', pillTextActive:'#193b63', pillInactive:'#fffdf8' },
 };
 
 export const DEFAULT_THEME_ID = 'royals';
