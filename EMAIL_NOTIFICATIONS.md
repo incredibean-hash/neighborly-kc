@@ -17,23 +17,3 @@ If the Resend variables are missing, reactions still work normally and the in-ap
 ## Supabase
 
 Run `supabase_tweaks.sql` once if you are not using the updated `supabase_batch_fixes.sql` or `supabase_apply_fixes.sql`. The migration adds owner/admin RLS for post updates and deletes.
-
-## User feedback
-
-The Settings menu includes **Leave Feedback**. Signed-in users can send private feedback directly to the site owner by email.
-
-Add this Vercel environment variable alongside the existing Resend variables:
-
-- `FEEDBACK_TO_EMAIL` — the email address that should receive user feedback.
-
-The feedback route uses the signed-in user's name/email as `Reply-To`, so you can reply directly to the neighbor who sent it.
-
-## User feedback
-
-The Settings menu includes **Leave Feedback**. Signed-in users can send private feedback directly to the site owner by email.
-
-Add this Vercel environment variable alongside the existing Resend variables:
-
-- `FEEDBACK_TO_EMAIL` — the email address that should receive user feedback.
-
-The feedback route uses the signed-in user's name/email as `Reply-To`, so you can reply directly to the neighbor who sent it.

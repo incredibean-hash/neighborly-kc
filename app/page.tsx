@@ -80,10 +80,6 @@ export default function Page(){
   const [profile,setProfile]=useState<any>(null);
   const [showJoin,setShowJoin]=useState(false);
   const [showSettings,setShowSettings]=useState(false);
-  const [showFeedback,setShowFeedback]=useState(false);
-  const [feedbackText,setFeedbackText]=useState('');
-  const [feedbackSending,setFeedbackSending]=useState(false);
-  const [feedbackSent,setFeedbackSent]=useState(false);
   const [themeId,setThemeId]=useState(DEFAULT_THEME_ID);
   const [name,setName]=useState('');
   const [email,setEmail]=useState('');
@@ -209,33 +205,6 @@ export default function Page(){
   },[]);
 
   const setTheme = (id:string)=>{ setThemeId(id); localStorage.setItem('nkc_theme', id); };
-
-  const submitFeedback = async () => {
-    const message = feedbackText.trim();
-    if (!message || feedbackSending) return;
-    setFeedbackSending(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        alert('Please sign in before sending feedback.');
-        return;
-      }
-      const res = await fetch('/api/feedback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ message }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || 'Could not send feedback.');
-      setFeedbackText('');
-      setFeedbackSent(true);
-      window.setTimeout(() => { setFeedbackSent(false); setShowFeedback(false); }, 1200);
-    } catch (err:any) {
-      alert(err?.message || 'Could not send feedback. Please try again.');
-    } finally {
-      setFeedbackSending(false);
-    }
-  };
 const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brooks Heights', zip:'64155', id: '5fb249cb-1667-475b-ab8c-43e1df245ace', slug:'meadow-brooks-heights'};
   const scopedPosts = scope==='local'
     ? posts.filter((p:any)=>!p.neighborhood_id || String(p.neighborhood_id)===String(cur?.id||''))
@@ -358,26 +327,20 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
   const deleteComment = async (id:string, postId:string) => { if(!confirm('Delete comment?')) return; const {error}=await supabase.from('comments').delete().eq('id', id); if(error)return alert(error.message); setComments((prev)=>({...prev, [postId]: prev[postId].filter((c:any)=>c.id!==id)})); };
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden" style={{backgroundColor: theme.bg, color: theme.text}}>
+    <div className="min-h-screen w-full overflow-x-hidden nkc-app-shell" style={{backgroundColor: theme.bg, color: theme.text}}>
       <header className="sticky top-0 z-40 overflow-hidden border-b" style={{backgroundColor: theme.header, borderColor: theme.border}}>
-        <div className="relative min-h-[92px] sm:min-h-[154px]">
-          <div className="absolute inset-x-0 bottom-0 h-11 sm:h-28 opacity-90 pointer-events-none" aria-hidden="true">
+        <div className="relative min-h-[128px] sm:min-h-[154px]">
+          <div className="absolute inset-x-0 bottom-0 h-20 sm:h-28 opacity-90 pointer-events-none" aria-hidden="true">
             <svg viewBox="0 0 620 70" className="w-full h-full" preserveAspectRatio="none"><path d="M0 64h42V43h18v21h18V31h20v33h18V48h13V64h19V20h8v44h13V38h20v26h18V50h10v14h18V12h9v52h15V33h14v31h20V44h12v20h16V28h9v36h17V8h7v56h18V25h17v39h15V42h12v22h17V34h8v30h17V18h6v46h18V39h12v25h18V29h9v35h20V46h13v18h20V36h10v28h18V14h6v50h22V52h14v12h32v-8h-18v-11h-12V33h-10v23h-13V24h-12v32h-14V44h-13v12h-18V29h-10v27h-15V17h-8v39h-18V40h-12v16h-20V26h-9v30h-18V36h-10v20h-19V15h-7v41h-20V33h-12v23h-19V47h-11v9h-20V28h-8v28h-22V39h-12v17h-19V22h-8v34h-19V42h-13v14H0Z" fill="currentColor" className="text-white/25"/></svg>
           </div>
-          <div className="max-w-6xl mx-auto px-3 sm:px-6 pt-2 sm:pt-4 relative z-10">
-            <div className="flex items-start justify-between gap-2">
-              <a href="/" className="group min-w-0 block"><div className="nkc-wordmark" aria-label="Neighborly KC"><span className="nkc-wordmark-main">Neighborly</span><span className="nkc-wordmark-kc">KC</span></div><p className="text-[8px] sm:text-xs mt-1 text-white/65 tracking-[.12em] uppercase font-bold">Kansas City • 40 Mile Radius</p></a>
-              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-                <a href="/people" className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>People</a>
-                <a href="/dms" aria-label="Messages" className="hidden sm:inline px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>💬</a>
-                <a href="/notifications" aria-label="Notifications" className="hidden sm:inline px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>🔔</a>
-                <button onClick={()=>setShowSettings(true)} aria-label="Settings and themes" className="w-9 h-9 sm:w-8 sm:h-8 rounded-full flex items-center justify-center nkc-smooth shadow-sm" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>⚙️</button>
-                <span className="hidden sm:inline">{!authReady ? <span className="shrink-0 px-3 py-2 text-xs font-black opacity-50">Loading…</span> : profile ? <><span className="text-xs hidden lg:inline opacity-60 max-w-28 truncate text-white">{profile.full_name}</span><button onClick={()=>{localStorage.removeItem('nkc_profile'); void supabase.auth.signOut(); setProfile(null);}} className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>Sign out</button></> : <button onClick={()=>setShowJoin(true)} className="px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-black whitespace-nowrap nkc-smooth" style={{backgroundColor: theme.pillActive, color: theme.pillTextActive}}>Join</button>}</span>
-              </div>
+          <div className="max-w-6xl mx-auto px-3 sm:px-6 pt-3 sm:pt-4 relative z-10">
+            <div className="flex items-start justify-between gap-3">
+              <a href="/" className="group flex items-center gap-3 min-w-0"><img src="/neighborly-kc-logo.svg" alt="" aria-hidden="true" className="hidden" /><div className="min-w-0"><h1 className="font-black text-2xl sm:text-4xl tracking-tight text-white leading-none">Neighborly KC</h1><p className="text-[10px] sm:text-xs mt-1 text-white/65 tracking-[.08em] uppercase">Kansas City • 40 Mile Radius</p></div></a>
+              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0"><a href="/people" className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>People</a><a href="/dms" aria-label="Messages" className="hidden sm:inline px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>💬</a><a href="/notifications" aria-label="Notifications" className="hidden sm:inline px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>🔔</a><button onClick={()=>setShowSettings(true)} aria-label="Themes" className="w-8 h-8 rounded-full flex items-center justify-center nkc-smooth" style={{backgroundColor: theme.card, border: `1px solid ${theme.border}`}}>⚙️</button>{!authReady ? <span className="shrink-0 px-3 sm:px-4 py-2 text-xs sm:text-sm font-black opacity-50">Loading…</span> : profile ? <><span className="text-xs hidden lg:block opacity-60 max-w-28 truncate text-white">{profile.full_name}</span><button onClick={()=>{localStorage.removeItem('nkc_profile'); void supabase.auth.signOut(); setProfile(null);}} className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>Sign out</button></> : <button onClick={()=>setShowJoin(true)} className="hidden sm:inline shrink-0 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-black whitespace-nowrap nkc-smooth" style={{backgroundColor: theme.pillActive, color: theme.pillTextActive}}>Join</button>}</div>
             </div>
           </div>
         </div>
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 pb-2 sm:pb-3 flex gap-2 justify-center flex-wrap relative z-10 mobile-header-nav">
+        <div className="max-w-6xl mx-auto px-6 pb-3 flex gap-2 justify-center flex-wrap relative z-10 nkc-desktop-nav">
           <button onClick={()=>setCat('All')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor: cat==='All'?theme.pillActive:theme.pillInactive,color:cat==='All'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Feed</button>
           <button onClick={()=>setCat('Safety Alert')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor: cat==='Safety Alert'?theme.pillActive:theme.pillInactive,color:cat==='Safety Alert'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Safety</button>
           <button onClick={()=>setCat('For Sale & Free')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor: cat==='For Sale & Free'?theme.pillActive:theme.pillInactive,color:cat==='For Sale & Free'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>For Sale</button>
@@ -392,11 +355,11 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
         </div>}
       </header>
 
-      <div className="max-w-6xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-[220px_1fr_300px] gap-6">
+      <div className="max-w-6xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-[220px_1fr_300px] gap-6 nkc-page-content">
         <aside className="rounded-2xl p-3 h-fit border hidden lg:block" style={{backgroundColor: theme.card, borderColor: theme.border}}><p className="text-xs font-bold px-3 py-2 opacity-40">FILTER</p>{CATS.map(c=><button key={c} onClick={()=>setCat(c)} className="w-full text-left px-3 py-2.5 rounded-xl text-sm" style={{backgroundColor: cat===c? theme.accent : 'transparent', color: cat===c? theme.pillTextActive : theme.text}}>{c}</button>)}</aside>
 
         <main className="space-y-3">
-          <div id="post-composer" className="rounded-2xl p-4 border nkc-surface nkc-fade-in" style={{backgroundColor: theme.card, borderColor: theme.border}}>
+          <div className="rounded-2xl p-4 border nkc-surface nkc-fade-in" style={{backgroundColor: theme.card, borderColor: theme.border}}>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
               <div><p className="text-xs font-black uppercase tracking-wider opacity-50">Neighborly KC Network</p><h2 className="text-xl font-black">{scope==='local'?cur?.name:'All Kansas City'}</h2><p className="text-xs opacity-55">{scope==='local'?'Your neighborhood and nearby local conversation':'Everyone inside the 40-mile Neighborly KC network'}</p></div>
               <div className="flex rounded-full p-1 gap-1" style={{backgroundColor:theme.input,border:`1px solid ${theme.border}`}}>
@@ -428,10 +391,11 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
         <aside className="rounded-2xl p-5 border h-fit nkc-surface" style={{backgroundColor: theme.card, borderColor: theme.border}}><h3 className="font-black">{cur?.name}</h3><p className="text-xs opacity-60">{cur?.zip} · Kansas City, MO</p><div className="grid grid-cols-2 gap-2 mt-4"><div className="rounded-xl p-3 text-center" style={{backgroundColor: theme.input}}><b className="text-lg">{cur?.member_count}</b><p className="text-xs">NEIGHBORS</p></div><div className="rounded-xl p-3 text-center" style={{backgroundColor: theme.input}}><b className="text-lg">{scopedPosts.length}</b><p className="text-xs">{scope==='kc'?'KC POSTS':'LOCAL POSTS'}</p></div></div></aside>
       </div>
 
-      <nav className="mobile-float-actions" aria-label="Quick actions">
-        <a href="/dms" aria-label="Messages" className="mobile-float-action" style={{backgroundColor: theme.card, color: theme.text, borderColor: theme.border}}>💬</a>
-        <button aria-label="Create post" className="mobile-float-action mobile-float-post" style={{backgroundColor: theme.accent, color: theme.pillTextActive, borderColor: theme.accent}} onClick={()=>{ document.getElementById('post-composer')?.scrollIntoView({behavior:'smooth',block:'center'}); window.setTimeout(()=>document.querySelector<HTMLTextAreaElement>('#post-composer textarea')?.focus(),250); }}>＋</button>
-        <a href="/notifications" aria-label="Notifications" className="mobile-float-action" style={{backgroundColor: theme.card, color: theme.text, borderColor: theme.border}}>🔔</a>
+
+      <nav className="nkc-mobile-actions" aria-label="Quick actions">
+        <a href="/dms" aria-label="Messages" title="Messages" className="nkc-mobile-action">💬</a>
+        <button type="button" aria-label="Create post" title="Create post" className="nkc-mobile-action nkc-mobile-action-post" onClick={()=>{ document.querySelector<HTMLTextAreaElement>('textarea[placeholder*="What should Kansas City"], textarea[placeholder*="What’s up"], textarea[placeholder*="Join Neighborly"]')?.focus(); window.scrollTo({top:0,behavior:'smooth'}); }}>＋</button>
+        <a href="/notifications" aria-label="Notifications" title="Notifications" className="nkc-mobile-action">🔔</a>
       </nav>
 
       {showSettings && (
@@ -446,20 +410,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
             <div className="grid grid-cols-2 gap-2">
               {['daylight','midnight','space','warm-sand','aim','pip-boy'].map(id=>{ const t=THEMES[id]; const active=themeId===id; return <button key={id} onClick={()=>setTheme(id)} className="rounded-2xl p-3 text-left border-2 text-sm font-bold min-h-16" style={{backgroundColor:t.card,borderColor:active?'#fff':t.border,color:t.text}}><span>{t.emoji} {t.name}</span>{active&&<span className="block text-[10px] mt-1 opacity-60">Active</span>}</button>})}
             </div>
-            <button onClick={()=>{setShowSettings(false);setFeedbackSent(false);setShowFeedback(true)}} className="mt-4 w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold nkc-smooth">💬 Leave Feedback</button>
-            <button onClick={()=>setShowSettings(false)} className="mt-2 w-full py-3 rounded-full bg-white text-black font-bold">Done</button>
-          </div>
-        </div>
-      )}
-
-      {showFeedback && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[70] flex items-center justify-center p-4 nkc-pop-in">
-          <div className="rounded-[24px] w-full max-w-md p-5 border" style={{backgroundColor:'#15181f',borderColor:'#262a33'}}>
-            <div className="flex justify-between items-center mb-2"><div><h2 className="font-black text-white text-xl">Leave Feedback</h2><p className="text-xs text-white/50 mt-1">Tell Jason what you think about Neighborly KC.</p></div><button onClick={()=>setShowFeedback(false)} className="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center" aria-label="Close feedback">✕</button></div>
-            {feedbackSent ? <div className="py-12 text-center text-white"><div className="text-4xl mb-3">💙</div><p className="font-black text-lg">Feedback sent!</p><p className="text-sm opacity-60 mt-1">Thanks for helping make Neighborly KC better.</p></div> : <>
-              <textarea autoFocus value={feedbackText} onChange={e=>setFeedbackText(e.target.value)} placeholder="What would you like to tell Jason?" className="mt-4 w-full min-h-[150px] rounded-2xl p-4 text-sm outline-none resize-none" style={{backgroundColor:theme.input,color:theme.text,border:`1px solid ${theme.border}`}} maxLength={2000} />
-              <div className="flex items-center justify-between gap-3 mt-2"><span className="text-[11px] text-white/35">{feedbackText.length}/2000</span><div className="flex gap-2"><button onClick={()=>setShowFeedback(false)} className="px-4 py-2.5 rounded-full text-sm font-bold bg-white/10 text-white">Cancel</button><button disabled={!feedbackText.trim()||feedbackSending} onClick={submitFeedback} className="px-5 py-2.5 rounded-full text-sm font-bold disabled:opacity-40" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{feedbackSending?'Sending...':'Send Feedback'}</button></div></div>
-            </>}
+            <button onClick={()=>setShowSettings(false)} className="mt-4 w-full py-3 rounded-full bg-white text-black font-bold">Done</button>
           </div>
         </div>
       )}

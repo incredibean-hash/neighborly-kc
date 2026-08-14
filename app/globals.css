@@ -14,22 +14,56 @@ button:active:not(:disabled),a:active{transform:translateY(0) scale(.98)}
 @keyframes nkcPopIn{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 
-.nkc-wordmark{display:flex;align-items:baseline;white-space:nowrap;color:#fff;font-family:Georgia,"Times New Roman",serif;font-weight:900;letter-spacing:-.055em;line-height:.88;text-shadow:0 2px 0 rgba(0,35,90,.24),0 5px 14px rgba(0,0,0,.12)}
-.nkc-wordmark-main{font-size:clamp(2rem,5vw,3.2rem);font-style:normal}
-.nkc-wordmark-kc{font-size:clamp(2.15rem,5.4vw,3.45rem);letter-spacing:-.12em;margin-left:-.08em;transform:translateY(.04em);font-style:italic}
-@media(max-width:640px){.nkc-wordmark-main{font-size:2rem}.nkc-wordmark-kc{font-size:2.2rem}.nkc-wordmark{letter-spacing:-.06em}}
+html, body { min-height: 100%; }
+body { overscroll-behavior-y: none; }
+.nkc-app-shell { min-height: 100svh; min-height: 100dvh; }
+.nkc-mobile-actions { display:none; }
 
-/* Mobile app-style navigation: keep the header compact and move quick actions to the screen edge. */
-.mobile-float-actions{display:none}
-@media (max-width:640px){
-  .mobile-header-nav{display:none!important}
-  .nkc-wordmark-main{font-size:1.7rem}
-  .nkc-wordmark-kc{font-size:1.85rem}
-  .nkc-wordmark{line-height:.84}
-  .mobile-float-actions{display:flex;position:fixed;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:55;flex-direction:column;align-items:center;gap:10px;pointer-events:none}
-  .mobile-float-action{pointer-events:auto;width:46px;height:46px;border-radius:9999px;border:1px solid;display:flex;align-items:center;justify-content:center;font-size:19px;text-decoration:none;box-shadow:0 8px 24px rgba(0,0,0,.18);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
-  .mobile-float-action:hover{transform:translateY(-2px)}
-  .mobile-float-post{width:54px;height:54px;font-size:28px;font-weight:900}
-  #post-composer{scroll-margin-top:90px}
-  body{padding-bottom:82px}
+@media (max-width: 639px) {
+  html, body { width:100%; overflow-x:hidden; overscroll-behavior-x:none; }
+  body { padding-bottom: env(safe-area-inset-bottom); }
+  .nkc-app-shell { min-height: 100svh; min-height: 100dvh; padding-bottom: calc(78px + env(safe-area-inset-bottom)); }
+  header.sticky { position: sticky; top:0; }
+  header .relative.min-h-\[128px\] { min-height: 88px; }
+  header .absolute.inset-x-0.bottom-0 { height: 44px; }
+  header .max-w-6xl.mx-auto.px-3.sm\:px-6.pt-3.sm\:pt-4 { padding-top: 10px; }
+  header .group { gap:0; }
+  header .group h1 { font-size: 1.55rem; letter-spacing:-.035em; }
+  header .group p { font-size: 8px; margin-top: 3px; }
+  .nkc-desktop-nav { display:none; }
+  header .flex.items-start.justify-between > div:last-child { gap: 4px; }
+  .nkc-page-content { padding: 12px 12px 28px; }
+  .nkc-mobile-actions {
+    display:flex;
+    position:fixed;
+    left:50%;
+    bottom:calc(12px + env(safe-area-inset-bottom));
+    transform:translateX(-50%);
+    z-index:70;
+    align-items:center;
+    justify-content:center;
+    gap:14px;
+    pointer-events:none;
+    width:max-content;
+  }
+  .nkc-mobile-action {
+    pointer-events:auto;
+    width:48px;
+    height:48px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:9999px;
+    background:rgba(255,255,255,.72);
+    color:#111827;
+    border:1px solid rgba(255,255,255,.62);
+    box-shadow:0 8px 24px rgba(0,0,0,.18);
+    backdrop-filter:blur(14px) saturate(150%);
+    -webkit-backdrop-filter:blur(14px) saturate(150%);
+    font-size:20px;
+    line-height:1;
+    text-decoration:none;
+  }
+  .nkc-mobile-action-post { width:54px; height:54px; font-size:30px; font-weight:800; }
+  .nkc-mobile-action:active { transform:scale(.94); }
 }
