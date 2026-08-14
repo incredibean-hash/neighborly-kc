@@ -61,3 +61,10 @@ The SQL files shown under Supabase Studio's **Private** query list are saved que
 - Added smooth hover, press, surface, modal, and feed-entry transitions with reduced-motion support.
 
 For reaction email setup, see `EMAIL_NOTIFICATIONS.md` and `.env.example`.
+
+## Public legal pages
+- Privacy Policy: `/privacy`
+- Terms of Service: `/terms`
+
+## Feedback email
+Set `FEEDBACK_TO_EMAIL` in Vercel. The existing `RESEND_API_KEY` and `RESEND_FROM_EMAIL` variables are reused for feedback delivery.
