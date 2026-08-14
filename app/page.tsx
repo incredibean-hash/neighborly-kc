@@ -304,24 +304,26 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden" style={{backgroundColor: theme.bg, color: theme.text}}>
-      <header className="sticky top-0 z-40 border-b" style={{backgroundColor: theme.header, borderColor: theme.border}}>
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2.5 flex items-center gap-2 sm:gap-3 min-w-0">
-          <div className="min-w-0 flex-1 overflow-hidden">
-            <h1 className="font-black text-lg sm:text-xl tracking-tight text-white">Neighborly KC</h1>
-            <p className="text-[10px] sm:text-xs -mt-1 text-white/60">Kansas City • 40 Mile Radius</p>
-            <div className="mt-1 h-5 sm:h-7 opacity-90 pointer-events-none" aria-hidden="true">
-              <svg viewBox="0 0 620 70" className="w-full h-full max-w-[520px]" preserveAspectRatio="none"><path d="M0 64h42V43h18v21h18V31h20v33h18V48h13V64h19V20h8v44h13V38h20v26h18V50h10v14h18V12h9v52h15V33h14v31h20V44h12v20h16V28h9v36h17V8h7v56h18V25h17v39h15V42h12v22h17V34h8v30h17V18h6v46h18V39h12v25h18V29h9v35h20V46h13v18h20V36h10v28h18V14h6v50h22V52h14v12h32v-8h-18v-11h-12V33h-10v23h-13V24h-12v32h-14V44h-13v12h-18V29h-10v27h-15V17h-8v39h-18V40h-12v16h-20V26h-9v30h-18V36h-10v20h-19V15h-7v41h-20V33h-12v23h-19V47h-11v9h-20V28h-8v28h-22V39h-12v17h-19V22h-8v34h-19V42h-13v14H0Z" fill="currentColor" className="text-white/25"/></svg>
+      <header className="sticky top-0 z-40 overflow-hidden border-b" style={{backgroundColor: theme.header, borderColor: theme.border}}>
+        <div className="relative">
+          <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2.5 flex items-center gap-2 sm:gap-3 min-w-0 relative z-10">
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <h1 className="font-black text-lg sm:text-xl tracking-tight text-white">Neighborly KC</h1>
+              <p className="text-[10px] sm:text-xs -mt-1 text-white/60">Kansas City • 40 Mile Radius</p>
             </div>
-          </div>
-          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 min-w-0">
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 min-w-0">
             <a href="/people" className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>People</a>
             <a href="/dms" aria-label="Messages" className="px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>💬</a>
             <a href="/notifications" aria-label="Notifications" className="px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>🔔</a>
             <button onClick={()=>setShowSettings(true)} aria-label="Themes" className="w-8 h-8 rounded-full flex items-center justify-center" style={{backgroundColor: theme.card, border: `1px solid ${theme.border}`}}>⚙️</button>
             {!authReady ? <span className="shrink-0 px-3 sm:px-4 py-2 text-xs sm:text-sm font-black opacity-50">Loading…</span> : profile ? <><span className="text-xs hidden lg:block opacity-60 max-w-28 truncate">{profile.full_name}</span><button onClick={()=>{localStorage.removeItem('nkc_profile'); void supabase.auth.signOut(); setProfile(null);}} className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>Sign out</button></> : <button onClick={()=>setShowJoin(true)} className="shrink-0 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-black whitespace-nowrap" style={{backgroundColor: theme.pillActive, color: theme.pillTextActive}}>Join</button>}
+            </div>
+          </div>
+          <div className="absolute inset-x-0 bottom-0 h-8 sm:h-10 opacity-90 pointer-events-none" aria-hidden="true">
+            <svg viewBox="0 0 620 70" className="w-full h-full" preserveAspectRatio="none"><path d="M0 64h42V43h18v21h18V31h20v33h18V48h13V64h19V20h8v44h13V38h20v26h18V50h10v14h18V12h9v52h15V33h14v31h20V44h12v20h16V28h9v36h17V8h7v56h18V25h17v39h15V42h12v22h17V34h8v30h17V18h6v46h18V39h12v25h18V29h9v35h20V46h13v18h20V36h10v28h18V14h6v50h22V52h14v12h32v-8h-18v-11h-12V33h-10v23h-13V24h-12v32h-14V44h-13v12h-18V29h-10v27h-15V17h-8v39h-18V40h-12v16h-20V26h-9v30h-18V36h-10v20h-19V15h-7v41h-20V33h-12v23h-19V47h-11v9h-20V28h-8v28h-22V39h-12v17h-19V22h-8v34h-19V42h-13v14H0Z" fill="currentColor" className="text-white/25"/></svg>
           </div>
         </div>
-        <div className="max-w-6xl mx-auto px-6 pb-3 flex gap-2 justify-center flex-wrap">
+        <div className="max-w-6xl mx-auto px-6 pb-3 flex gap-2 justify-center flex-wrap relative z-10">
           <button onClick={()=>setCat('All')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor: cat==='All'?theme.pillActive:theme.pillInactive,color:cat==='All'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Feed</button>
           <button onClick={()=>setCat('Safety Alert')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor: cat==='Safety Alert'?theme.pillActive:theme.pillInactive,color:cat==='Safety Alert'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Safety</button>
           <button onClick={()=>setCat('For Sale & Free')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor: cat==='For Sale & Free'?theme.pillActive:theme.pillInactive,color:cat==='For Sale & Free'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>For Sale</button>
