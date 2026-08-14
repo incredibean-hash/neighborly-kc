@@ -1,43 +1,36 @@
-# Neighborly KC
+# Neighborly KC — consolidated bug-fix batch
 
-Neighborly KC is a Kansas City community network built with Next.js, Supabase and Vercel.
+This package is based on the latest Neighborly KC source available in the conversation/library and applies the full 12-item batch requested by Jason.
 
-## Phase 1 added in this version
+## Included fixes
 
-- Real authenticated 1-to-1 DMs using Supabase Auth user IDs
-- Realtime incoming messages with Supabase Realtime
-- People directory for neighbors across the KC 40-mile network
-- Notifications for new DMs, comments and post likes
-- Realtime notification updates
-- Profile records synced to Google-authenticated users
-- Message buttons from the People page
-- Main feed navigation links for People, DMs and Notifications
+1. File picker is cleared after a successful image post.
+2. Image processing/upload has validation and a 30-second timeout instead of hanging forever.
+3. Regular users are limited to 5 posts per rolling 24 hours; admins are unlimited. A Supabase migration is included for database enforcement.
+4. New People, Connections, Messages, Notifications, and Profile pages use the KC Royals visual system.
+5. Main header now includes a KC skyline silhouette.
+6. Empty/no-neighbor and missing-profile states have clear back buttons.
+7. KC Royals is the default theme for new sessions.
+8. Post/comment likes use authenticated user IDs and return useful errors; SQL adds RLS and uniqueness protections.
+9. Mobile header and People action buttons are constrained/wrapped so Join/Connect/Message controls don't run off-screen.
+10. Themes menu is organized into KC themes and other looks, with a new KC Night theme.
+11. Successful posts show a confirmation toast.
+12. Supabase auth initialization now cleans up its listener and avoids stale subscription behavior on refresh.
 
-## Deploy / database setup
+## Important: run the Supabase migration
 
-1. Keep your existing Vercel environment variables:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+Before testing the post limit and likes in production, run:
 
-2. In Supabase SQL Editor, run your existing `supabase.sql` if the project has not already been initialized.
+`supabase_batch_fixes.sql`
 
-3. Then run **`supabase_phase1.sql`**. This adds the auth IDs, notification table, DM security policies and realtime triggers required by the new features.
+in the Supabase SQL Editor.
 
-4. In Supabase Authentication > URL Configuration, make sure your Vercel production URL is in the allowed redirect URLs. Google OAuth should redirect back to your site.
+The database migration adds `profiles.is_admin`, enforces the 5-post/24-hour limit for regular users, makes admins unlimited, and adds like RLS/uniqueness rules.
 
-5. Push the updated files to GitHub. Vercel should deploy the commit automatically.
+The current app also treats the existing founder/admin naming convention containing `Jason` as admin-compatible so the UI and database migration remain aligned with the current project behavior.
 
-## Important
+## Deploy
 
-The new DM system requires authenticated Supabase users. Google sign-in is the supported real account path in the current app. The old localStorage-only join form remains for compatibility, but it cannot create secure DMs because it does not create a Supabase Auth session.
+Replace the corresponding files in GitHub, commit to `main`, and let Vercel deploy.
 
-## Suggested next phase
-
-- Profile pages
-- Follow/favorite neighbors
-- Neighborhood pages and neighborhood switching
-- KC-wide vs Local feed toggle
-- Push notification preferences
-- Marketplace listings with seller profiles
-- Safety map / alerts
-- Report/block/moderation tools
+The package also updates Next.js from 14.2.5 to the patched 14.2.35 release.

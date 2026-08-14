@@ -12,9 +12,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <head>
         <link rel="icon" href="/icon-192.png" />
-        <meta name="theme-color" content="#0a0a0a" />
+        <meta name="theme-color" content="#004687" />
       </head>
-      <body className="bg-[#0a0a0a]">{children}</body>
+      <body className="bg-[#f0f6ff]">{children}</body>
     </html>
   );
 }
