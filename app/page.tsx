@@ -1,23 +1,8 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../lib/community';
+import { THEMES, DEFAULT_THEME_ID } from '../lib/themes';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-const THEMES: Record<string, any> = {
-  midnight: { id:'midnight', name:'Midnight', emoji:'🌙', bg:'#070a0f', card:'#15181f', text:'#e8e8e8', subtext:'#8a8f98', accent:'#ffffff', border:'#262a33', input:'#1c1f28', header:'#0a0d14', pillActive:'#ffffff', pillTextActive:'#000', pillInactive:'#1c1f28' },
-  daylight: { id:'daylight', name:'Daylight', emoji:'☀️', bg:'#f8f5ee', card:'#ffffff', text:'#1a3a2f', subtext:'#8a9a92', accent:'#1a3a2f', border:'#e8e0d0', input:'#f1ede6', header:'#1a3a2f', pillActive:'#1a3a2f', pillTextActive:'#fff', pillInactive:'#ffffff' },
-  space: { id:'space', name:'Space', emoji:'🌌', bg:'#0b0e19', card:'#151a2a', text:'#e8e8e8', subtext:'#8a8f98', accent:'#8be9fd', border:'#1f2538', input:'#1f2538', header:'#070a0f', pillActive:'#8be9fd', pillTextActive:'#000', pillInactive:'#1f2538' }, 
-  'warm-sand': { id:'warm-sand', name:'Warm Sand', bg:'#f2eadc', card:'#fffaf2', text:'#4a3f35', subtext:'#9a8d7e', accent:'#8b7355', border:'#e5d9c5', input:'#ece3d3', header:'#4a3f35', pillActive:'#8b7355', pillTextActive:'#fff', pillInactive:'#fffaf2' },
-  aim: { id:'aim', name:'AIM', bg:'#fef9d6', card:'#ffffff', text:'#2a2a2a', subtext:'#9a9a6a', accent:'#ffcc00', border:'#f5e88a', input:'#fef6b5', header:'#ffcc00', pillActive:'#ffcc00', pillTextActive:'#000', pillInactive:'#ffffff' },
-  'pip-boy': { id:'pip-boy', name:'Pip-Boy 3000', bg:'#000b00', card:'#0a1f0a', text:'#1aff61', subtext:'#3d9e5a', accent:'#1aff61', border:'#1aff6140', input:'#0f2f15', header:'#000b00', pillActive:'#1aff61', pillTextActive:'#000', pillInactive:'#0a1f0a', glow:'0 0 8px #1aff6166' },
-  chiefs: { id:'chiefs', name:'KC Chiefs', emoji:'🏈', bg:'#0a0000', card:'#1a0a0a', text:'#ffffff', subtext:'#ff9a9a', accent:'#E31837', border:'#E3183740', input:'#2a0a0a', header:'#000000', pillActive:'#E31837', pillTextActive:'#FFB81C', pillInactive:'#1a0a0a' },
-  royals: { id:'royals', name:'KC Royals', emoji:'👑', bg:'#f0f6ff', card:'#ffffff', text:'#00205a', subtext:'#6b8ab5', accent:'#004687', border:'#c2d5f0', input:'#e6eefb', header:'#004687', pillActive:'#004687', pillTextActive:'#ffffff', pillInactive:'#ffffff' },
-  sporting: { id:'sporting', name:'Sporting KC', emoji:'⚽', bg:'#070f1f', card:'#0C2340', text:'#93B1D7', subtext:'#5a7fb5', accent:'#93B1D7', border:'#93B1D740', input:'#0a1a30', header:'#070f1f', pillActive:'#93B1D7', pillTextActive:'#0C2340', pillInactive:'#0C2340' },
-  'kc-night': { id:'kc-night', name:'KC Night', emoji:'🌆', bg:'#071426', card:'#10233d', text:'#f7f2df', subtext:'#a9b7c9', accent:'#f2b134', border:'#2b4262', input:'#0c1b30', header:'#06101f', pillActive:'#f2b134', pillTextActive:'#071426', pillInactive:'#10233d' },
-};
 const CATS = ['All','General','For Sale & Free','Safety Alert','Recommendation','Event','Lost & Found'];
 
 
@@ -70,8 +55,12 @@ async function syncCommunityProfile(user:any, fallback?:any){
     street_address: fallback?.street_address || '',
     zip: fallback?.zip || '',
   };
-  await supabase.from('profiles').upsert(profile, { onConflict:'auth_user_id' });
-  return {...fallback, ...profile, user_id:user.id};
+  const { data: saved } = await supabase
+    .from('profiles')
+    .upsert(profile, { onConflict:'auth_user_id' })
+    .select('auth_user_id,full_name,email,street_address,zip,is_admin,is_founder')
+    .single();
+  return {...fallback, ...profile, ...(saved || {}), user_id:user.id};
 }
 
 export default function Page(){
@@ -90,7 +79,7 @@ export default function Page(){
   const [profile,setProfile]=useState<any>(null);
   const [showJoin,setShowJoin]=useState(false);
   const [showSettings,setShowSettings]=useState(false);
-  const [themeId,setThemeId]=useState('royals');
+  const [themeId,setThemeId]=useState(DEFAULT_THEME_ID);
   const [name,setName]=useState('');
   const [email,setEmail]=useState('');
   const [addr,setAddr]=useState('');
@@ -123,7 +112,7 @@ export default function Page(){
 
   useEffect(()=>{
     const saved = localStorage.getItem('nkc_theme');
-    setThemeId(saved && THEMES[saved] ? saved : 'royals');
+    setThemeId(saved && THEMES[saved] ? saved : DEFAULT_THEME_ID);
     let alive = true;
     let subscription: { unsubscribe: () => void } | null = null;
     (async()=>{
@@ -135,13 +124,16 @@ export default function Page(){
         const pr=await syncCommunityProfile(session.user);
         if(alive){ localStorage.setItem('nkc_profile', JSON.stringify(pr)); setProfile(pr); }
       } else {
-        const s=localStorage.getItem('nkc_profile');
-        if(s) try { const localProfile=JSON.parse(s); if(alive) setProfile(localProfile); } catch {}
+        localStorage.removeItem('nkc_profile');
+        if(alive) setProfile(null);
       }
-      const { data } = supabase.auth.onAuthStateChange((_, sess)=>{
+      const { data } = supabase.auth.onAuthStateChange((event, sess)=>{
         if(!alive) return;
         if(sess?.user){
           void syncCommunityProfile(sess.user).then(pr=>{ if(alive){ localStorage.setItem('nkc_profile', JSON.stringify(pr)); setProfile(pr); setShowJoin(false); } });
+        } else if(event === 'SIGNED_OUT'){
+          localStorage.removeItem('nkc_profile');
+          setProfile(null);
         }
       });
       subscription = data.subscription;
@@ -156,7 +148,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
     : posts;
   const filtered = cat==='All'? scopedPosts : scopedPosts.filter((p:any)=>p.category===cat);
   const neighborhoodName = (id:any) => hoods.find((h:any)=>String(h.id)===String(id))?.name || cur?.name || 'Kansas City';
-  const isAdmin = Boolean(profile?.is_admin || profile?.is_founder || profile?.full_name?.toLowerCase().includes('jason'));
+  const isAdmin = Boolean(profile?.is_admin || profile?.is_founder);
   const POST_LIMIT_24H = 5;
 
   const getRecentPostCount = async (userId:string) => {
@@ -207,7 +199,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
       setPostSuccess(true);
-      window.setTimeout(() => setPostSuccess(false), 2800);
+      window.setTimeout(() => setPostSuccess(false), 3500);
     } catch (e: any) {
       alert('Could not save: ' + (e.message || e));
     } finally {
@@ -254,22 +246,22 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
   const deleteComment = async (id:string, postId:string) => { if(!confirm('Delete comment?')) return; await supabase.from('comments').delete().eq('id', id); setComments((prev)=>({...prev, [postId]: prev[postId].filter((c:any)=>c.id!==id)})); };
 
   return (
-    <div className="min-h-screen" style={{backgroundColor: theme.bg, color: theme.text}}>
+    <div className="min-h-screen w-full overflow-x-hidden" style={{backgroundColor: theme.bg, color: theme.text}}>
       <header className="sticky top-0 z-40 border-b" style={{backgroundColor: theme.header, borderColor: theme.border}}>
         <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2.5 flex items-center gap-3 min-w-0">
           <div className="min-w-0 flex-1 overflow-hidden">
             <h1 className="font-black text-lg sm:text-xl tracking-tight text-white">Neighborly KC</h1>
             <p className="text-[10px] sm:text-xs -mt-1 text-white/60">Kansas City • 40 Mile Radius</p>
             <div className="mt-1 h-5 sm:h-7 opacity-90 pointer-events-none" aria-hidden="true">
-              <svg viewBox="0 0 500 55" className="w-full h-full max-w-[420px]" preserveAspectRatio="none"><path d="M0 48h30V34h12v14h9V27h14v21h12V17h18v31h9V31h12v17h11V8h5v40h10V22h18v26h8V14h8v34h12V30h14v18h12V5h5v43h8V24h14v24h10V34h10v14h12V18h16v30h11V29h8v19h15V12h7v36h13V35h12v13h12V23h18v25h12V16h10v32h16V30h11v18h20V39h14v9H0Z" fill="currentColor" className="text-white/25"/></svg>
+              <svg viewBox="0 0 620 70" className="w-full h-full max-w-[520px]" preserveAspectRatio="none"><path d="M0 64h42V43h18v21h18V31h20v33h18V48h13V64h19V20h8v44h13V38h20v26h18V50h10v14h18V12h9v52h15V33h14v31h20V44h12v20h16V28h9v36h17V8h7v56h18V25h17v39h15V42h12v22h17V34h8v30h17V18h6v46h18V39h12v25h18V29h9v35h20V46h13v18h20V36h10v28h18V14h6v50h22V52h14v12h32v-8h-18v-11h-12V33h-10v23h-13V24h-12v32h-14V44h-13v12h-18V29h-10v27h-15V17h-8v39h-18V40h-12v16h-20V26h-9v30h-18V36h-10v20h-19V15h-7v41h-20V33h-12v23h-19V47h-11v9h-20V28h-8v28h-22V39h-12v17h-19V22h-8v34h-19V42h-13v14H0Z" fill="currentColor" className="text-white/25"/></svg>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 max-w-[52vw]">
             <a href="/people" className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>People</a>
             <a href="/dms" aria-label="Messages" className="px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>💬</a>
             <a href="/notifications" aria-label="Notifications" className="px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>🔔</a>
             <button onClick={()=>setShowSettings(true)} aria-label="Themes" className="w-8 h-8 rounded-full flex items-center justify-center" style={{backgroundColor: theme.card, border: `1px solid ${theme.border}`}}>⚙️</button>
-            {profile ? <><span className="text-xs hidden lg:block opacity-60 max-w-28 truncate">{profile.full_name}</span><button onClick={()=>{localStorage.removeItem('nkc_profile'); void supabase.auth.signOut(); setProfile(null);}} className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>Sign out</button></> : <button onClick={()=>setShowJoin(true)} className="shrink-0 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-black whitespace-nowrap" style={{backgroundColor: theme.pillActive, color: theme.pillTextActive}}>Join</button>}
+            {profile ? <><span className="text-xs hidden lg:block opacity-60 max-w-28 truncate">{profile.full_name}</span><button onClick={()=>{localStorage.removeItem('nkc_profile'); void supabase.auth.signOut(); setProfile(null);}} className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>Sign out</button></> : <button onClick={()=>setShowJoin(true)} className="shrink-0 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-black whitespace-nowrap max-w-[76px] overflow-hidden" style={{backgroundColor: theme.pillActive, color: theme.pillTextActive}}>Join</button>}
           </div>
         </div>
         <div className="max-w-6xl mx-auto px-6 pb-3 flex gap-2 justify-center flex-wrap">
@@ -300,7 +292,11 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
               </div>
             </div>
             <textarea value={body} onChange={e=>setBody(e.target.value)} placeholder={profile?(scope==='kc'?'What should Kansas City know?':`What's up in ${cur?.name}?`):'Join Neighborly KC to post...'} className="w-full rounded-xl p-3 min-h-[80px] text-sm outline-none" style={{backgroundColor: theme.input, color: theme.text, border: `1px solid ${theme.border}`}} />
-            <div className="flex items-center gap-2 mt-3"><input ref={fileInputRef} id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="text-xs" />{file && <span className="text-xs opacity-60">{(file.size/1024).toFixed(0)}KB</span>}</div>
+            <div className="flex items-center gap-2 mt-3 min-w-0">
+  <label htmlFor="file-input" className="shrink-0 cursor-pointer rounded-full border px-3 py-1.5 text-xs font-bold" style={{borderColor:theme.border}}>Choose image</label>
+  <input ref={fileInputRef} id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="sr-only" />
+  {file && <div className="min-w-0 flex items-center gap-2 text-xs opacity-70"><span className="truncate max-w-[180px]" title={file.name}>{file.name}</span><button type="button" onClick={()=>{setFile(null); if(fileInputRef.current) fileInputRef.current.value='';}} className="shrink-0 font-black" aria-label="Remove selected image">✕</button></div>}
+</div>
             <div className="flex justify-end mt-2"><button disabled={uploading} onClick={handleBePost} className="px-5 py-2 rounded-full text-sm font-bold disabled:opacity-50" style={{backgroundColor: theme.accent, color: theme.pillTextActive}}>{uploading?'Uploading...':scope==='kc'?'Post to KC':'Post to neighbors'}</button></div>
           </div>
 
@@ -318,7 +314,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
             <div className="flex justify-between items-center mb-4"><h2 className="font-black text-white">Settings • Themes</h2><button onClick={()=>setShowSettings(false)} className="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center">✕</button></div>
             <p className="text-[10px] font-black tracking-widest uppercase text-white/40 mb-2">KC themes</p>
             <div className="grid grid-cols-2 gap-2 mb-4">
-              {['royals','chiefs','sporting','kc-night'].map(id=>{ const t=THEMES[id]; const active=themeId===id; return <button key={id} onClick={()=>setTheme(id)} className="rounded-2xl p-3 text-left border-2 text-sm font-bold min-h-16" style={{backgroundColor:t.card,borderColor:active?'#fff':t.border,color:t.text}}><span>{t.emoji} {t.name}</span>{active&&<span className="block text-[10px] mt-1 opacity-60">Active</span>}</button>})}
+              {['royals','chiefs','sporting','kc-night','kc-sunset'].map(id=>{ const t=THEMES[id]; const active=themeId===id; return <button key={id} onClick={()=>setTheme(id)} className="rounded-2xl p-3 text-left border-2 text-sm font-bold min-h-16" style={{backgroundColor:t.card,borderColor:active?'#fff':t.border,color:t.text}}><span>{t.emoji} {t.name}</span>{active&&<span className="block text-[10px] mt-1 opacity-60">Active</span>}</button>})}
             </div>
             <p className="text-[10px] font-black tracking-widest uppercase text-white/40 mb-2">Other looks</p>
             <div className="grid grid-cols-2 gap-2">
@@ -329,7 +325,14 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
         </div>
       )}
 
-      {postSuccess && <div role="status" className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[60] rounded-full px-5 py-3 shadow-2xl font-bold text-sm border" style={{backgroundColor:theme.card,color:theme.text,borderColor:theme.border}}>✓ Post published to Neighborly KC</div>}
+      {postSuccess && <div role="dialog" aria-modal="true" aria-label="Post published" className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+  <div className="w-full max-w-xs rounded-3xl p-6 shadow-2xl border text-center" style={{backgroundColor:theme.card,color:theme.text,borderColor:theme.border}}>
+    <div className="text-4xl mb-2">✓</div>
+    <h2 className="font-black text-xl">Post published</h2>
+    <p className="text-sm opacity-60 mt-1">Your post is now on Neighborly KC.</p>
+    <button onClick={()=>setPostSuccess(false)} className="mt-5 w-full rounded-full py-3 font-bold" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>Done</button>
+  </div>
+</div>}
 
       {showJoin && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">

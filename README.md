@@ -1,36 +1,36 @@
-# Neighborly KC — consolidated bug-fix batch
+# Neighborly KC — consolidated 12-bug fix
 
-This package is based on the latest Neighborly KC source available in the conversation/library and applies the full 12-item batch requested by Jason.
+This source includes the current UI/code fixes plus a **safe Supabase migration for the database schema that already exists in production**.
 
-## Included fixes
+## Fixed / addressed
 
-1. File picker is cleared after a successful image post.
-2. Image processing/upload has validation and a 30-second timeout instead of hanging forever.
-3. Regular users are limited to 5 posts per rolling 24 hours; admins are unlimited. A Supabase migration is included for database enforcement.
-4. New People, Connections, Messages, Notifications, and Profile pages use the KC Royals visual system.
-5. Main header now includes a KC skyline silhouette.
-6. Empty/no-neighbor and missing-profile states have clear back buttons.
-7. KC Royals is the default theme for new sessions.
-8. Post/comment likes use authenticated user IDs and return useful errors; SQL adds RLS and uniqueness protections.
-9. Mobile header and People action buttons are constrained/wrapped so Join/Connect/Message controls don't run off-screen.
-10. Themes menu is organized into KC themes and other looks, with a new KC Night theme.
-11. Successful posts show a confirmation toast.
-12. Supabase auth initialization now cleans up its listener and avoids stale subscription behavior on refresh.
+1. Image picker clears after a successful post and now shows a compact selected-file row with a remove button.
+2. `/dms` is wrapped in `Suspense` for `useSearchParams()` and uses the patched Next.js version in `package.json`.
+3. Regular users are limited to 5 posts per rolling 24 hours; admins/founders are unlimited. The database trigger is included.
+4. People, Connections, Messages, Notifications and Profile pages use the KC Royals visual system.
+5. Main header includes a KC skyline silhouette.
+6. Missing-neighbor/profile states include a clear Back to People button.
+7. KC Royals is the default theme.
+8. Likes use authenticated user IDs; RLS and unique indexes are included.
+9. Mobile header/action sizing is constrained to keep Join and other controls on screen.
+10. Themes are grouped into KC and Other Looks, with a fifth KC theme: KC Sunset.
+11. Successful posts show a centered confirmation popup.
+12. Auth uses persistent Supabase sessions and no longer treats a stale local profile as proof of authentication on refresh.
 
-## Important: run the Supabase migration
+## IMPORTANT: Supabase SQL
 
-Before testing the post limit and likes in production, run:
+Your existing production tables were not identical to the original migration files. In particular, `connections` already existed with only `id` and `created_at`, while the app expected `requester_id` and `addressee_id`. The old migration therefore failed when its trigger referenced `new.requester_id`.
 
-`supabase_batch_fixes.sql`
+Run **`supabase_batch_fixes.sql` by itself** in Supabase SQL Editor. It first adds the missing columns to the existing tables, then installs RLS, likes protection, admin/post-limit enforcement, notifications and triggers.
 
-in the Supabase SQL Editor.
+If your admin account is not already `is_founder = true`, set `profiles.is_admin = true` for that account's Supabase Auth UUID using the final commented SQL line in the migration.
 
-The database migration adds `profiles.is_admin`, enforces the 5-post/24-hour limit for regular users, makes admins unlimited, and adds like RLS/uniqueness rules.
+Do not run the old connection trigger SQL from earlier attempts.
 
-The current app also treats the existing founder/admin naming convention containing `Jason` as admin-compatible so the UI and database migration remain aligned with the current project behavior.
+## Build
+
+The DMs page already contains the required Suspense boundary. The project uses Next.js 14.2.35 in `package.json`.
 
 ## Deploy
 
-Replace the corresponding files in GitHub, commit to `main`, and let Vercel deploy.
-
-The package also updates Next.js from 14.2.5 to the patched 14.2.35 release.
+Replace the project files in GitHub, commit to `main`, and let Vercel deploy.
