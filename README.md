@@ -61,3 +61,6 @@ The SQL files shown under Supabase Studio's **Private** query list are saved que
 - Added smooth hover, press, surface, modal, and feed-entry transitions with reduced-motion support.
 
 For reaction email setup, see `EMAIL_NOTIFICATIONS.md` and `.env.example`.
+### Header / app icon
+The web header uses a compact baseball-inspired serif Neighborly KC wordmark and intentionally does not display the square app logo. The square NKC skyline logo remains in `public/neighborly-kc-logo.svg` and is used for the favicon/PWA installed-app artwork.
+

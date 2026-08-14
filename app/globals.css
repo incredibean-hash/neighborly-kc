@@ -13,3 +13,8 @@ button:active:not(:disabled),a:active{transform:translateY(0) scale(.98)}
 @keyframes nkcFadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
 @keyframes nkcPopIn{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+.nkc-wordmark{display:flex;align-items:baseline;white-space:nowrap;color:#fff;font-family:Georgia,"Times New Roman",serif;font-weight:900;letter-spacing:-.055em;line-height:.88;text-shadow:0 2px 0 rgba(0,35,90,.24),0 5px 14px rgba(0,0,0,.12)}
+.nkc-wordmark-main{font-size:clamp(2rem,5vw,3.2rem);font-style:normal}
+.nkc-wordmark-kc{font-size:clamp(2.15rem,5.4vw,3.45rem);letter-spacing:-.12em;margin-left:-.08em;transform:translateY(.04em);font-style:italic}
+@media(max-width:640px){.nkc-wordmark-main{font-size:2rem}.nkc-wordmark-kc{font-size:2.2rem}.nkc-wordmark{letter-spacing:-.06em}}
