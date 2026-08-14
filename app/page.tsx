@@ -109,7 +109,8 @@ export default function Page(){
 
   const signInWithGoogle = async () => {
     setGoogleLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? window.location.origin : 'https://neighborlykc.com');
+    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: siteUrl.replace(/\/$/, '') } });
     if(error){ alert('Google login failed: '+error.message); setGoogleLoading(false); }
   };
 

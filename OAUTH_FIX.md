@@ -1,21 +1,36 @@
-# Neighborly KC OAuth first-login fix
+# OAuth / Google Login Fix
 
-This build patches the Google OAuth/PKCE callback race that could leave the first login showing the Join dialog until a second login attempt.
+This deployment includes the PKCE OAuth callback fix and uses the canonical production domain for Google OAuth redirects.
 
-## Changes
+## Production redirect
 
-- Supabase client now uses `detectSessionInUrl: false`.
-- `app/page.tsx` explicitly detects the OAuth `code` in the URL and calls `supabase.auth.exchangeCodeForSession(code)` before treating the user as logged out.
-- The callback URL remains the site root, so no new Supabase redirect URL is required beyond the existing site URL.
-- The auth-state listener remains registered before session restoration so later auth events update the UI immediately.
+Google OAuth now returns to:
 
-## Deployment
+`https://neighborlykc.com`
 
-Deploy the project normally to Vercel. No database migration is included in this patch; the existing Supabase trigger/unique profile constraint are left unchanged.
+The app exchanges the `code` query parameter for a Supabase session before showing the signed-in state.
 
-After deployment, test in a private/incognito window:
+## Environment variable
 
-1. Open the production site while signed out.
-2. Click Join / Continue with Google.
-3. Complete Google authentication.
-4. Confirm the browser returns to the site and immediately shows the signed-in account rather than the Join dialog.
+For production, set this Vercel environment variable (Production):
+
+`NEXT_PUBLIC_SITE_URL=https://neighborlykc.com`
+
+For local development, use:
+
+`NEXT_PUBLIC_SITE_URL=http://localhost:3000`
+
+If the variable is absent, production automatically falls back to `https://neighborlykc.com`, while localhost uses the local origin.
+
+## Supabase Auth URL configuration
+
+In Supabase Dashboard → Authentication → URL Configuration, set:
+
+- Site URL: `https://neighborlykc.com`
+- Redirect URL: `https://neighborlykc.com`
+
+If you want to test Vercel preview deployments, add their exact preview URL to Supabase Redirect URLs and set `NEXT_PUBLIC_SITE_URL` to that preview URL for that environment.
+
+## Important
+
+The application no longer uses `window.location.origin` for production OAuth redirects. This prevents Google/Supabase from returning to a Vercel deployment URL that may be protected by Vercel Deployment Protection.
