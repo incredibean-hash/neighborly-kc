@@ -100,6 +100,7 @@ export default function Page(){
   const [authReady,setAuthReady]=useState(false);
   const [postSuccess,setPostSuccess]=useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const postComposerRef = useRef<HTMLTextAreaElement>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
 
   const theme = THEMES[themeId] || THEMES['royals'];
@@ -375,27 +376,18 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
   return (
     <div className="min-h-screen w-full overflow-x-hidden nkc-app-shell" style={{backgroundColor: theme.bg, color: theme.text}}>
       <header className="sticky top-0 z-40 overflow-hidden border-b nkc-main-header" style={{backgroundColor: theme.header, borderColor: theme.border}}>
-        <div className="nkc-header-hero">
-          <div className="max-w-6xl mx-auto px-3 sm:px-6 relative z-10">
-            <div className="nkc-header-brand-row flex items-start justify-between gap-3">
-              <a href="/" className="group flex items-center gap-3 min-w-0">
-                <span className="nkc-kc-mark" aria-hidden="true">KC</span>
-                <div className="min-w-0">
-                  <h1 className="font-black text-2xl sm:text-4xl tracking-tight text-white leading-none">Neighborly KC</h1>
-                  <p className="text-[10px] sm:text-xs mt-1 text-white/70 tracking-[.08em] uppercase">Kansas City • 40 Mile Radius</p>
-                </div>
-              </a>
-              <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
-                <a href="/people" className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: 'transparent', color: '#fff', border: `1px solid ${theme.border}`}}>People</a>
-                <a href="/dms" aria-label="Messages" className="hidden sm:inline w-9 h-8 rounded-full text-xs font-bold nkc-smooth grid place-items-center" style={{backgroundColor: 'transparent', color: '#fff', border: `1px solid ${theme.border}`}}>💬</a>
-                <a href="/notifications" aria-label="Notifications" className="hidden sm:inline w-9 h-8 rounded-full text-xs font-bold nkc-smooth grid place-items-center" style={{backgroundColor: 'transparent', color: '#fff', border: `1px solid ${theme.border}`}}>🔔</a>
-                <button onClick={()=>setShowSettings(true)} aria-label="Themes and settings" className="w-9 h-8 rounded-full flex items-center justify-center nkc-smooth" style={{backgroundColor: 'transparent', color:'#fff', border: `1px solid ${theme.border}`}}>⚙️</button>
-                {!authReady ? <span className="shrink-0 px-3 py-2 text-xs sm:text-sm font-black opacity-50 text-white">Loading…</span> : profile ? <><span className="text-xs hidden lg:block opacity-60 max-w-28 truncate text-white">{profile.full_name}</span><button onClick={signOut} className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth text-white" style={{backgroundColor: 'transparent', border: `1px solid ${theme.border}`}}>Sign out</button></> : <button onClick={()=>setShowJoin(true)} className="shrink-0 px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-black whitespace-nowrap nkc-smooth text-white" style={{backgroundColor: 'transparent', border: `1px solid ${theme.border}`}}>Sign in</button>}
-              </div>
+        <div className="nkc-header-banner-wrap">
+          <a href="/" className="block nkc-header-banner-link" aria-label="Neighborly KC home">
+            <img src="/neighborly-kc-header-banner.png" alt="Neighborly KC" className="nkc-header-banner" draggable="false" />
+          </a>
+          <div className="nkc-header-controls" aria-label="Account controls">
+            <div className="flex items-center gap-1.5">
+              <a href="/people" className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold nkc-header-control">People</a>
+              <a href="/dms" aria-label="Messages" className="hidden sm:grid w-9 h-8 rounded-full text-xs font-bold place-items-center nkc-header-control">💬</a>
+              <a href="/notifications" aria-label="Notifications" className="hidden sm:grid w-9 h-8 rounded-full text-xs font-bold place-items-center nkc-header-control">🔔</a>
+              <button type="button" onClick={()=>setShowSettings(true)} aria-label="Themes and settings" className="w-9 h-8 rounded-full flex items-center justify-center nkc-header-control">⚙️</button>
+              {!authReady ? <span className="shrink-0 px-3 py-2 text-xs font-black text-white/70">Loading…</span> : profile ? <><span className="text-xs hidden lg:block max-w-28 truncate text-white/80">{profile.full_name}</span><button type="button" onClick={signOut} className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold nkc-header-control">Sign out</button></> : <button type="button" onClick={()=>setShowJoin(true)} className="shrink-0 px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-black whitespace-nowrap nkc-header-control">Sign in</button>}
             </div>
-          </div>
-          <div className="nkc-header-brand-art" aria-hidden="true">
-            <img src="/icon-512.png" alt="" draggable="false" />
           </div>
         </div>
         <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2.5 flex gap-2 justify-center flex-wrap relative z-10 nkc-desktop-nav">
@@ -425,7 +417,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
                 <button onClick={()=>setScope('kc')} className="px-3 py-1.5 rounded-full text-xs font-black" style={{backgroundColor:scope==='kc'?theme.pillActive:'transparent',color:scope==='kc'?theme.pillTextActive:theme.text}}>🏙️ All KC</button>
               </div>
             </div>
-            <textarea value={body} onChange={e=>setBody(e.target.value)} placeholder={profile?(scope==='kc'?'What should Kansas City know?':`What's up in ${cur?.name}?`):'Join Neighborly KC to post...'} className="w-full rounded-xl p-3 min-h-[80px] text-sm outline-none" style={{backgroundColor: theme.input, color: theme.text, border: `1px solid ${theme.border}`}} />
+            <textarea ref={postComposerRef} value={body} onChange={e=>setBody(e.target.value)} placeholder={profile?(scope==='kc'?'What should Kansas City know?':`What's up in ${cur?.name}?`):'Join Neighborly KC to post...'} className="w-full rounded-xl p-3 min-h-[80px] text-sm outline-none" style={{backgroundColor: theme.input, color: theme.text, border: `1px solid ${theme.border}`}} />
             <div className="flex items-center gap-2 mt-3 min-w-0">
   <label htmlFor="file-input" className="shrink-0 cursor-pointer rounded-full border px-3 py-1.5 text-xs font-bold" style={{borderColor:theme.border}}>Choose image</label>
   <input key={fileInputKey} ref={fileInputRef} id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="sr-only" />
@@ -458,7 +450,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
         <a href="/dms" aria-label="Messages" title="Messages" className="nkc-mobile-action">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A3.5 3.5 0 0 1 7.5 2h9A3.5 3.5 0 0 1 20 5.5v6A3.5 3.5 0 0 1 16.5 15H11l-4.5 4v-4.5A3.5 3.5 0 0 1 4 11.5z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M8 7.5h8M8 10.5h5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
         </a>
-        <button type="button" aria-label="Create post" title="Create post" className="nkc-mobile-action nkc-mobile-action-post" onClick={()=>{ document.querySelector<HTMLTextAreaElement>('textarea[placeholder*="What should Kansas City"], textarea[placeholder*="What’s up"], textarea[placeholder*="Join Neighborly"]')?.focus(); window.scrollTo({top:0,behavior:'smooth'}); }}>
+        <button type="button" aria-label="Create post" title="Create post" className="nkc-mobile-action nkc-mobile-action-post" onClick={()=>{ if(!profile){ setShowJoin(true); return; } postComposerRef.current?.focus(); postComposerRef.current?.scrollIntoView({behavior:'smooth',block:'center'}); }}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
         </button>
         <a href="/notifications" aria-label="Notifications" title="Notifications" className="nkc-mobile-action">

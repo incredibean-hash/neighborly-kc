@@ -4,8 +4,8 @@
 body{background:#f6f7f8;font-family:system-ui;transition:background-color .25s ease,color .25s ease}
 .card{@apply bg-white rounded-xl border border-gray-200}
 button,a,label,input,textarea,select{transition:color .18s ease,background-color .18s ease,border-color .18s ease,box-shadow .18s ease,opacity .18s ease,transform .18s ease}
-button:not(:disabled):hover,a:hover,label:hover{transform:translateY(-1px)}
-button:active:not(:disabled),a:active{transform:translateY(0) scale(.98)}
+button:not(:disabled):hover,a:hover,label:hover{transform:none}
+button:active:not(:disabled),a:active{transform:scale(.98)}
 .nkc-surface{transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease}
 .nkc-surface:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,32,90,.08)}
 .nkc-fade-in{animation:nkcFadeIn .28s ease both}
@@ -94,17 +94,18 @@ body { overscroll-behavior-y: none; }
   header.sticky{z-index:60}
 }
 
-/* v14 header art: use the Neighborly KC mark as the header artwork.
-   Keep the entire image visible so the logo and skyline are not clipped. */
-.nkc-main-header { isolation:isolate; }
-.nkc-header-hero { position:relative; }
-.nkc-header-brand-row { min-height:82px; padding-top:18px; padding-bottom:10px; }
-.nkc-header-brand-art { height:190px; width:100%; display:flex; align-items:center; justify-content:center; overflow:hidden; background:rgba(0,0,0,.12); }
-.nkc-header-brand-art img { display:block; width:min(190px, 42vw); height:auto; max-height:180px; object-fit:contain; object-position:center; border-radius:28px; }
-.nkc-main-header .nkc-desktop-nav { border-top:1px solid rgba(255,255,255,.10); }
+/* Full-width NeighborlyKC banner */
+.nkc-main-header{isolation:isolate}
+.nkc-header-banner-wrap{position:relative;width:100%;background:#0b2b52}
+.nkc-header-banner-link{width:100%;line-height:0}
+.nkc-header-banner{display:block;width:100%;height:clamp(180px,19.1667vw,368px);object-fit:cover;object-position:center;user-select:none}
+.nkc-header-controls{position:absolute;top:12px;right:16px;z-index:2}
+.nkc-header-control{color:#fff;background:rgba(7,25,51,.58);border:1px solid rgba(255,255,255,.42);box-shadow:0 4px 14px rgba(0,0,0,.18);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);text-decoration:none}
+.nkc-header-control:hover{background:rgba(7,25,51,.78);color:#fff}
+.nkc-main-header .nkc-desktop-nav{border-top:1px solid rgba(255,255,255,.10)}
 @media (max-width:639px){
-  .nkc-header-brand-row { min-height:66px; padding-top:12px; padding-bottom:8px; }
-  .nkc-header-brand-art { height:126px; }
-  .nkc-header-brand-art img { width:118px; max-height:118px; border-radius:22px; }
-  .nkc-main-header .nkc-desktop-nav { display:none; }
+  .nkc-header-banner{height:126px;object-position:center}
+  .nkc-header-controls{top:8px;right:10px}
+  .nkc-header-control{box-shadow:0 3px 10px rgba(0,0,0,.16)}
+  .nkc-main-header .nkc-desktop-nav{display:none}
 }
