@@ -68,3 +68,10 @@ For reaction email setup, see `EMAIL_NOTIFICATIONS.md` and `.env.example`.
 
 ## Feedback email
 Set `FEEDBACK_TO_EMAIL` in Vercel. The existing `RESEND_API_KEY` and `RESEND_FROM_EMAIL` variables are reused for feedback delivery.
+
+## V10 profile + KC skyline update
+- Added a theme-aware Kansas City skyline treatment to the main header and profile header.
+- Added a compact KC mark in the header so the branding reads as Kansas City rather than North Kansas City.
+- User profiles are available from People, post author names, DMs, and Settings → My Profile.
+- Signed-in users can edit their display name and ZIP from their own profile page; street address is not displayed publicly.
+- Existing admin/founder post-limit bypass remains in the database migration (`supabase_apply_fixes.sql`) and owner bootstrap (`supabase_admin_owner.sql`).

@@ -368,13 +368,22 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
   return (
     <div className="min-h-screen w-full overflow-x-hidden nkc-app-shell" style={{backgroundColor: theme.bg, color: theme.text}}>
       <header className="sticky top-0 z-40 overflow-hidden border-b" style={{backgroundColor: theme.header, borderColor: theme.border}}>
-        <div className="relative min-h-[128px] sm:min-h-[154px]">
-          <div className="absolute inset-x-0 bottom-0 h-20 sm:h-28 opacity-90 pointer-events-none" aria-hidden="true">
-            <svg viewBox="0 0 620 70" className="w-full h-full" preserveAspectRatio="none"><path d="M0 64h42V43h18v21h18V31h20v33h18V48h13V64h19V20h8v44h13V38h20v26h18V50h10v14h18V12h9v52h15V33h14v31h20V44h12v20h16V28h9v36h17V8h7v56h18V25h17v39h15V42h12v22h17V34h8v30h17V18h6v46h18V39h12v25h18V29h9v35h20V46h13v18h20V36h10v28h18V14h6v50h22V52h14v12h32v-8h-18v-11h-12V33h-10v23h-13V24h-12v32h-14V44h-13v12h-18V29h-10v27h-15V17h-8v39h-18V40h-12v16h-20V26h-9v30h-18V36h-10v20h-19V15h-7v41h-20V33h-12v23h-19V47h-11v9h-20V28h-8v28h-22V39h-12v17h-19V22h-8v34h-19V42h-13v14H0Z" fill={theme.accent} opacity="0.24"/></svg>
+        <div className="relative min-h-[138px] sm:min-h-[170px]">
+          <div className="absolute inset-x-0 bottom-0 h-[76px] sm:h-[112px] pointer-events-none" aria-hidden="true">
+            <svg viewBox="0 0 1200 170" className="w-full h-full" preserveAspectRatio="none">
+              <defs><linearGradient id="nkcSkylineFade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={theme.accent} stopOpacity=".30"/><stop offset="1" stopColor={theme.accent} stopOpacity=".12"/></linearGradient></defs>
+              <path d="M0 132h74v-30h34v30h34v-52h22v52h35V74h14v58h38V96h22v36h31V67h17v65h32V52h10v80h27V83h20v49h28V28h12v104h26V61h25v71h30V45h16v87h27V76h18v56h24V14h12v118h27V54h20v78h30V80h16v52h24V38h12v94h28V67h18v65h28V48h10v84h30V77h20v55h34V91h14v41h28V58h20v74h26V72h18v60h29V94h18v38h33V84h20v48h26V69h14v63h28V100h22v32h24V80h16v52h40v-18h28v18h80v38H0Z" fill="url(#nkcSkylineFade)"/>
+              <path d="M0 137h1200v33H0z" fill={theme.accent} opacity=".10"/>
+              <path d="M0 139h1200v2H0z" fill={theme.accent} opacity=".34"/>
+              <path d="M28 141h1144v23H28z" fill={theme.card} opacity=".08"/>
+            </svg>
           </div>
           <div className="max-w-6xl mx-auto px-3 sm:px-6 pt-3 sm:pt-4 relative z-10">
             <div className="flex items-start justify-between gap-3">
-              <a href="/" className="group flex items-center gap-3 min-w-0"><img src="/neighborly-kc-logo.svg" alt="" aria-hidden="true" className="hidden" /><div className="min-w-0"><h1 className="font-black text-2xl sm:text-4xl tracking-tight text-white leading-none">Neighborly KC</h1><p className="text-[10px] sm:text-xs mt-1 text-white/65 tracking-[.08em] uppercase">Kansas City • 40 Mile Radius</p></div></a>
+              <a href="/" className="group flex items-center gap-3 min-w-0">
+                <span className="nkc-kc-mark" aria-hidden="true">KC</span>
+                <div className="min-w-0"><h1 className="font-black text-2xl sm:text-4xl tracking-tight text-white leading-none">Neighborly KC</h1><p className="text-[10px] sm:text-xs mt-1 text-white/70 tracking-[.08em] uppercase">Kansas City • 40 Mile Radius</p></div>
+              </a>
               <div className="flex items-center gap-1 sm:gap-1.5 shrink-0"><a href="/people" className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>People</a><a href="/dms" aria-label="Messages" className="hidden sm:inline px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>💬</a><a href="/notifications" aria-label="Notifications" className="hidden sm:inline px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>🔔</a><button onClick={()=>setShowSettings(true)} aria-label="Themes and settings" className="w-8 h-8 rounded-full flex items-center justify-center nkc-smooth" style={{backgroundColor: theme.card, border: `1px solid ${theme.border}`}}>⚙️</button>{!authReady ? <span className="shrink-0 px-3 sm:px-4 py-2 text-xs sm:text-sm font-black opacity-50">Loading…</span> : profile ? <><span className="text-xs hidden lg:block opacity-60 max-w-28 truncate text-white">{profile.full_name}</span><button onClick={signOut} className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>Sign out</button></> : <button onClick={()=>setShowJoin(true)} className="shrink-0 px-2.5 sm:px-4 py-2 rounded-full text-[11px] sm:text-sm font-black whitespace-nowrap nkc-smooth" style={{backgroundColor: theme.pillActive, color: theme.pillTextActive}}>Sign in</button>}</div>
             </div>
           </div>
@@ -459,7 +468,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
             <div className="grid grid-cols-2 gap-2">
               {['daylight','midnight','space','warm-sand','aim','pip-boy'].map(id=>{ const t=THEMES[id]; const active=themeId===id; return <button key={id} onClick={()=>setTheme(id)} className="rounded-2xl p-3 text-left border-2 text-sm font-bold min-h-16" style={{backgroundColor:t.card,borderColor:active?'#fff':t.border,color:t.text}}><span>{t.emoji} {t.name}</span>{active&&<span className="block text-[10px] mt-1 opacity-60">Active</span>}</button>})}
             </div>
-            <button onClick={()=>{if(!profile){setShowJoin(true);return;}setShowFeedback(true)}} className="mt-4 w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold">💬 Leave Feedback</button>{profile&&<button onClick={signOut} className="mt-2 w-full py-3 rounded-full border border-red-300/20 bg-red-500/10 text-red-200 font-bold">🚪 Sign out</button>}<button onClick={()=>setShowSettings(false)} className="mt-2 w-full py-3 rounded-full bg-white text-black font-bold">Done</button>
+            {profile&&<a href={`/profile/${profile.user_id||profile.auth_user_id}`} onClick={()=>setShowSettings(false)} className="mt-4 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center">👤 My Profile</a>}<button onClick={()=>{if(!profile){setShowJoin(true);return;}setShowFeedback(true)}} className="mt-2 w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold">💬 Leave Feedback</button>{profile&&<button onClick={signOut} className="mt-2 w-full py-3 rounded-full border border-red-300/20 bg-red-500/10 text-red-200 font-bold">🚪 Sign out</button>}<button onClick={()=>setShowSettings(false)} className="mt-2 w-full py-3 rounded-full bg-white text-black font-bold">Done</button>
           </div>
         </div>
       )}

@@ -18,6 +18,8 @@ html, body { min-height: 100%; }
 body { overscroll-behavior-y: none; }
 .nkc-app-shell { min-height: 100svh; min-height: 100dvh; }
 .nkc-mobile-actions { display:none; }
+.nkc-kc-mark{display:grid;place-items:center;width:42px;height:42px;border:2px solid rgba(255,255,255,.72);border-radius:14px;background:rgba(255,255,255,.08);color:#fff;font-weight:950;letter-spacing:-.08em;font-size:15px;line-height:1;box-shadow:0 6px 20px rgba(0,0,0,.12);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+
 
 @media (max-width: 639px) {
   html, body { width:100%; overflow-x:hidden; overscroll-behavior-x:none; }
@@ -28,6 +30,7 @@ body { overscroll-behavior-y: none; }
   header .absolute.inset-x-0.bottom-0 { height: 44px; }
   header .max-w-6xl.mx-auto.px-3.sm\:px-6.pt-3.sm\:pt-4 { padding-top: 10px; }
   header .group { gap:0; }
+  .nkc-kc-mark { width:34px; height:34px; border-radius:11px; font-size:12px; }
   header .group h1 { font-size: 1.55rem; letter-spacing:-.035em; }
   header .group p { font-size: 8px; margin-top: 3px; }
   .nkc-desktop-nav { display:none; }
