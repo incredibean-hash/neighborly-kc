@@ -4,7 +4,7 @@ import type { Metadata, Viewport } from "next";
 export const metadata: Metadata = {
   title: "Neighborly KC",
   description: "Kansas City neighborhood network",
-  manifest: "/manifest.json?v=9",
+  manifest: "/manifest.json?v=4",
 };
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover" };

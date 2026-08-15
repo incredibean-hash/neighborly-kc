@@ -18,19 +18,16 @@ html, body { min-height: 100%; }
 body { overscroll-behavior-y: none; }
 .nkc-app-shell { min-height: 100svh; min-height: 100dvh; }
 .nkc-mobile-actions { display:none; }
-.nkc-kc-mark{display:grid;place-items:center;width:42px;height:42px;border:2px solid rgba(255,255,255,.72);border-radius:14px;background:rgba(255,255,255,.08);color:#fff;font-weight:950;letter-spacing:-.08em;font-size:15px;line-height:1;box-shadow:0 6px 20px rgba(0,0,0,.12);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
-
 
 @media (max-width: 639px) {
   html, body { width:100%; overflow-x:hidden; overscroll-behavior-x:none; }
   body { padding-bottom: env(safe-area-inset-bottom); }
   .nkc-app-shell { min-height: 100svh; min-height: 100dvh; padding-bottom: calc(78px + env(safe-area-inset-bottom)); }
   header.sticky { position: sticky; top:0; }
-  header .relative.min-h-\[138px\] { min-height: 92px; }
-  header .absolute.inset-x-0.bottom-0 { height: 52px; }
+  header .relative.min-h-\[150px\] { min-height: 98px; }
+  header .absolute.inset-x-0.bottom-0 { height: 50px; }
   header .max-w-6xl.mx-auto.px-3.sm\:px-6.pt-3.sm\:pt-4 { padding-top: 10px; }
   header .group { gap:0; }
-  .nkc-kc-mark { width:34px; height:34px; border-radius:11px; font-size:12px; }
   header .group h1 { font-size: 1.55rem; letter-spacing:-.035em; }
   header .group p { font-size: 8px; margin-top: 3px; }
   .nkc-desktop-nav { display:none; }
@@ -40,12 +37,12 @@ body { overscroll-behavior-y: none; }
     display:flex;
     position:fixed;
     left:50%;
-    bottom:calc(10px + env(safe-area-inset-bottom) + var(--nkc-vv-bottom, 0px));
-    transform:translate3d(-50%,0,0);
+    bottom:calc(12px + env(safe-area-inset-bottom));
+    transform:translateX(-50%);
     z-index:70;
     align-items:center;
     justify-content:center;
-    gap:12px;
+    gap:14px;
     pointer-events:none;
     width:max-content;
   }
@@ -74,37 +71,23 @@ body { overscroll-behavior-y: none; }
   .nkc-mobile-action:active { transform:scale(.94); }
 }
 
+/* Keep the main header controls visually steady; the feed can still animate below. */
+.nkc-header-button,
+.nkc-nav-button {
+  transform: none !important;
+  transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease, opacity .16s ease !important;
+  will-change: background-color, border-color, box-shadow;
+  -webkit-tap-highlight-color: transparent;
+}
+.nkc-header-button:hover,
+.nkc-nav-button:hover {
+  transform: none !important;
+  box-shadow: 0 3px 10px rgba(0,32,90,.10);
+}
+.nkc-header-button:active,
+.nkc-nav-button:active {
+  transform: scale(.985) !important;
+}
 @media (max-width: 639px) {
-  .nkc-scope-switch { width:100%; max-width:280px; }
-  .nkc-scope-switch button { flex:1; white-space:nowrap; }
-  header .nkc-mobile-signin { display:inline-flex; }
-}
-
-/* Header stability: keep the brand row clear of the skyline and prevent the
-   sticky header from visually collapsing while the browser restores scroll. */
-.nkc-header-brand-row{min-height:72px}
-.nkc-header-skyline{height:76px}
-@media (min-width:640px){
-  .nkc-header-brand-row{min-height:78px}
-  .nkc-header-skyline{height:112px}
-}
-@media (max-width:639px){
-  .nkc-header-brand-row{min-height:50px}
-  .nkc-header-skyline{height:58px}
-  header.sticky{z-index:60}
-}
-
-/* v13 header: brand row, full skyline, then navigation. The skyline uses
-   contain rather than cover so the tops of the buildings are never clipped. */
-.nkc-main-header { isolation:isolate; }
-.nkc-header-hero { position:relative; }
-.nkc-header-brand-row { min-height:82px; padding-top:18px; padding-bottom:10px; }
-.nkc-header-skyline { height:126px; width:100%; overflow:hidden; display:flex; align-items:flex-end; justify-content:center; }
-.nkc-header-skyline img { display:block; width:100%; height:100%; object-fit:contain; object-position:center bottom; opacity:.96; }
-.nkc-main-header .nkc-desktop-nav { border-top:1px solid rgba(255,255,255,.10); }
-@media (max-width:639px){
-  .nkc-header-brand-row { min-height:66px; padding-top:12px; padding-bottom:8px; }
-  .nkc-header-skyline { height:88px; }
-  .nkc-header-skyline img { object-fit:contain; object-position:center bottom; }
-  .nkc-main-header .nkc-desktop-nav { display:none; }
+  .nkc-mobile-action-post { cursor:pointer; }
 }

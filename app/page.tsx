@@ -100,28 +100,10 @@ export default function Page(){
   const [authReady,setAuthReady]=useState(false);
   const [postSuccess,setPostSuccess]=useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
 
   const theme = THEMES[themeId] || THEMES['royals'];
-
-  useEffect(()=>{
-    const meta=document.querySelector('meta[name="theme-color"]');
-    if(meta) meta.setAttribute('content', theme.header);
-  },[theme.header]);
-
-  useEffect(()=>{
-    const vv=window.visualViewport;
-    if(!vv) return;
-    const update=()=>{
-      const bottom=Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
-      document.documentElement.style.setProperty('--nkc-vv-bottom', `${bottom}px`);
-    };
-    update();
-    vv.addEventListener('resize',update);
-    vv.addEventListener('scroll',update);
-    window.addEventListener('resize',update);
-    return()=>{ vv.removeEventListener('resize',update); vv.removeEventListener('scroll',update); window.removeEventListener('resize',update); };
-  },[]);
 
   const loadAll = async (postIds:string[]) => {
     if(!postIds.length) return;
@@ -185,14 +167,16 @@ export default function Page(){
       }
     });
     subscription = data.subscription;
-    // Auth controls should never be held hostage by feed/profile network requests.
-    // Resolve the header state immediately; the async session hydration below can
-    // then upgrade the UI to the signed-in state when Supabase is ready.
-    setAuthReady(true);
 
     (async()=>{
-      // Restore/exchange authentication independently of the public feed.
-      // We handle the PKCE callback explicitly for Google sign-in.
+      // Load public feed data independently of authentication.
+      const {data:h}=await supabase.from('neighborhoods').select('*').order('member_count',{ascending:false});
+      if(h && alive) setHoods(h);
+      const {data:p}=await supabase.from('posts').select('*').order('created_at',{ascending:false}).limit(50);
+      if(p && alive){ setPosts(p); void loadAll(p.map((x:any)=>x.id)); }
+
+      // We handle the PKCE callback explicitly so the first Google login cannot
+      // render the app before the OAuth code has been exchanged for a session.
       const params = new URLSearchParams(window.location.search);
       const code = params.get('code');
       if(code){
@@ -219,16 +203,7 @@ export default function Page(){
           setProfile(null);
         }
       }
-
-      // Public feed data loads separately so a slow Supabase query can never
-      // leave the header stuck on "Loading…".
-      const [hoodsResult, postsResult] = await Promise.all([
-        supabase.from('neighborhoods').select('*').order('member_count',{ascending:false}),
-        supabase.from('posts').select('*').order('created_at',{ascending:false}).limit(50),
-      ]);
-      if(!alive) return;
-      if(hoodsResult.data) setHoods(hoodsResult.data);
-      if(postsResult.data){ setPosts(postsResult.data); void loadAll(postsResult.data.map((x:any)=>x.id)); }
+      setAuthReady(true);
     })();
 
     return ()=>{ alive=false; subscription?.unsubscribe(); };
@@ -372,44 +347,38 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
   const deletePost = async (id:string, image_url:string|null) => { if(!confirm('Delete this post?')) return; if(image_url){ const path = image_url.split('/post-images/')[1]; if(path) await supabase.storage.from('post-images').remove([path]); } const {error}=await supabase.from('posts').delete().eq('id', id); if(error) return alert('Could not delete post: '+error.message); setPosts(prev=>prev.filter((p:any)=>p.id!==id)); };
   const deleteComment = async (id:string, postId:string) => { if(!confirm('Delete comment?')) return; const {error}=await supabase.from('comments').delete().eq('id', id); if(error)return alert(error.message); setComments((prev)=>({...prev, [postId]: prev[postId].filter((c:any)=>c.id!==id)})); };
 
+  const openComposer = () => {
+    if(!profile){ setShowJoin(true); return; }
+    window.scrollTo({top:0, behavior:'smooth'});
+    window.setTimeout(()=>composerRef.current?.focus(), 220);
+  };
+
   return (
     <div className="min-h-screen w-full overflow-x-hidden nkc-app-shell" style={{backgroundColor: theme.bg, color: theme.text}}>
-      <header className="sticky top-0 z-40 overflow-hidden border-b nkc-main-header" style={{backgroundColor: theme.header, borderColor: theme.border}}>
-        <div className="nkc-header-hero">
-          <div className="max-w-6xl mx-auto px-3 sm:px-6 relative z-10">
-            <div className="nkc-header-brand-row flex items-start justify-between gap-3">
-              <a href="/" className="group flex items-center gap-3 min-w-0">
-                <span className="nkc-kc-mark" aria-hidden="true">KC</span>
-                <div className="min-w-0">
-                  <h1 className="font-black text-2xl sm:text-4xl tracking-tight text-white leading-none">Neighborly KC</h1>
-                  <p className="text-[10px] sm:text-xs mt-1 text-white/70 tracking-[.08em] uppercase">Kansas City • 40 Mile Radius</p>
-                </div>
-              </a>
-              <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
-                <a href="/people" className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: 'transparent', color: '#fff', border: `1px solid ${theme.border}`}}>People</a>
-                <a href="/dms" aria-label="Messages" className="hidden sm:inline w-9 h-8 rounded-full text-xs font-bold nkc-smooth grid place-items-center" style={{backgroundColor: 'transparent', color: '#fff', border: `1px solid ${theme.border}`}}>💬</a>
-                <a href="/notifications" aria-label="Notifications" className="hidden sm:inline w-9 h-8 rounded-full text-xs font-bold nkc-smooth grid place-items-center" style={{backgroundColor: 'transparent', color: '#fff', border: `1px solid ${theme.border}`}}>🔔</a>
-                <button onClick={()=>setShowSettings(true)} aria-label="Themes and settings" className="w-9 h-8 rounded-full flex items-center justify-center nkc-smooth" style={{backgroundColor: 'transparent', color:'#fff', border: `1px solid ${theme.border}`}}>⚙️</button>
-                {!authReady ? <span className="shrink-0 px-3 py-2 text-xs sm:text-sm font-black opacity-50 text-white">Loading…</span> : profile ? <><span className="text-xs hidden lg:block opacity-60 max-w-28 truncate text-white">{profile.full_name}</span><button onClick={signOut} className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth text-white" style={{backgroundColor: 'transparent', border: `1px solid ${theme.border}`}}>Sign out</button></> : <button onClick={()=>setShowJoin(true)} className="shrink-0 px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-black whitespace-nowrap nkc-smooth text-white" style={{backgroundColor: 'transparent', border: `1px solid ${theme.border}`}}>Sign in</button>}
-              </div>
+      <header className="sticky top-0 z-40 overflow-hidden border-b" style={{backgroundColor: theme.header, borderColor: theme.border}}>
+        <div className="relative min-h-[150px] sm:min-h-[178px]">
+          <div className="absolute inset-x-0 bottom-0 h-24 sm:h-32 opacity-90 pointer-events-none" aria-hidden="true">
+            <svg viewBox="0 0 620 70" className="w-full h-full" preserveAspectRatio="none"><path d="M0 64h42V43h18v21h18V31h20v33h18V48h13V64h19V20h8v44h13V38h20v26h18V50h10v14h18V12h9v52h15V33h14v31h20V44h12v20h16V28h9v36h17V8h7v56h18V25h17v39h15V42h12v22h17V34h8v30h17V18h6v46h18V39h12v25h18V29h9v35h20V46h13v18h20V36h10v28h18V14h6v50h22V52h14v12h32v-8h-18v-11h-12V33h-10v23h-13V24h-12v32h-14V44h-13v12h-18V29h-10v27h-15V17h-8v39h-18V40h-12v16h-20V26h-9v30h-18V36h-10v20h-19V15h-7v41h-20V33h-12v23h-19V47h-11v9h-20V28h-8v28h-22V39h-12v17h-19V22h-8v34h-19V42h-13v14H0Z" fill="currentColor" className="text-white/25"/></svg>
+          </div>
+          <div className="max-w-6xl mx-auto px-3 sm:px-6 pt-3 sm:pt-4 relative z-10">
+            <div className="flex items-start justify-between gap-3">
+              <a href="/" className="group flex items-center gap-3 min-w-0"><img src="/neighborly-kc-logo.svg" alt="" aria-hidden="true" className="hidden" /><div className="min-w-0"><h1 className="font-black text-2xl sm:text-4xl tracking-tight text-white leading-none">Neighborly KC</h1><p className="text-[10px] sm:text-xs mt-1 text-white/65 tracking-[.08em] uppercase">Kansas City • 40 Mile Radius</p></div></a>
+              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0"><a href="/people" className="hidden sm:inline nkc-header-button px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>People</a><a href="/dms" aria-label="Messages" className="hidden sm:inline nkc-header-button px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>💬</a><a href="/notifications" aria-label="Notifications" className="hidden sm:inline nkc-header-button px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>🔔</a><button onClick={()=>setShowSettings(true)} aria-label="Themes" className="nkc-header-button w-8 h-8 rounded-full flex items-center justify-center nkc-smooth" style={{backgroundColor: theme.card, border: `1px solid ${theme.border}`}}>⚙️</button>{!authReady ? <span className="shrink-0 px-3 sm:px-4 py-2 text-xs sm:text-sm font-black opacity-50">Loading…</span> : profile ? <><span className="text-xs hidden lg:block opacity-60 max-w-28 truncate text-white">{profile.full_name}</span><a href="/profile" className="hidden sm:inline nkc-header-button px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>My Profile</a><button onClick={signOut} className="hidden sm:inline nkc-header-button px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>Sign out</button></> : <button onClick={()=>setShowJoin(true)} className="hidden sm:inline nkc-header-button shrink-0 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-black whitespace-nowrap nkc-smooth" style={{backgroundColor: theme.pillActive, color: theme.pillTextActive}}>Join</button>}</div>
             </div>
           </div>
-          <div className="nkc-header-skyline" aria-hidden="true">
-            <img src="/kc-skyline.png" alt="" draggable="false" />
-          </div>
         </div>
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2.5 flex gap-2 justify-center flex-wrap relative z-10 nkc-desktop-nav">
-          <button onClick={()=>setCat('All')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor: cat==='All'?theme.pillActive:theme.pillInactive,color:cat==='All'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Feed</button>
-          <button onClick={()=>setCat('Safety Alert')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor: cat==='Safety Alert'?theme.pillActive:theme.pillInactive,color:cat==='Safety Alert'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Safety</button>
-          <button onClick={()=>setCat('For Sale & Free')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:cat==='For Sale & Free'?theme.pillActive:theme.pillInactive,color:cat==='For Sale & Free'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>For Sale</button>
-          <button onClick={()=>setShowExplore(v=>!v)} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:showExplore?theme.pillActive:theme.pillInactive,color:showExplore?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Explore ▾</button>
+        <div className="max-w-6xl mx-auto px-6 pb-3 flex gap-2 justify-center flex-wrap relative z-10 nkc-desktop-nav">
+          <button onClick={()=>setCat('All')} className="nkc-nav-button px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor: cat==='All'?theme.pillActive:theme.pillInactive,color:cat==='All'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Feed</button>
+          <button onClick={()=>setCat('Safety Alert')} className="nkc-nav-button px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor: cat==='Safety Alert'?theme.pillActive:theme.pillInactive,color:cat==='Safety Alert'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Safety</button>
+          <button onClick={()=>setCat('For Sale & Free')} className="nkc-nav-button px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor: cat==='For Sale & Free'?theme.pillActive:theme.pillInactive,color:cat==='For Sale & Free'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>For Sale</button>
+          <button onClick={()=>setShowExplore(v=>!v)} className="nkc-nav-button px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:showExplore?theme.pillActive:theme.pillInactive,color:showExplore?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Explore ▾</button>
         </div>
-        {showExplore && <div className="max-w-6xl mx-auto px-3 sm:px-6 pb-3 flex gap-2 justify-center flex-wrap">
-          <a href="/people" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>👥 People</a>
-          <a href="/dms" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>💬 Messages</a>
-          <a href="/notifications" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>🔔 Notifications</a>
-          <button onClick={()=>setCat('Event')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>📅 Events</button>
-          <button onClick={()=>setCat('Lost & Found')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>🔎 Lost & Found</button>
+        {showExplore && <div className="max-w-6xl mx-auto px-6 pb-3 flex gap-2 justify-center flex-wrap">
+          <a href="/people" className="nkc-nav-button px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>👥 People</a>
+          <a href="/dms" className="nkc-nav-button px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>💬 Messages</a>
+          <a href="/notifications" className="nkc-nav-button px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>🔔 Notifications</a>
+          <button onClick={()=>setCat('Event')} className="nkc-nav-button px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>📅 Events</button>
+          <button onClick={()=>setCat('Lost & Found')} className="nkc-nav-button px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>🔎 Lost & Found</button>
         </div>}
       </header>
 
@@ -420,12 +389,12 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
           <div className="rounded-2xl p-4 border nkc-surface nkc-fade-in" style={{backgroundColor: theme.card, borderColor: theme.border}}>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
               <div><p className="text-xs font-black uppercase tracking-wider opacity-50">Neighborly KC Network</p><h2 className="text-xl font-black">{scope==='local'?cur?.name:'All Kansas City'}</h2><p className="text-xs opacity-55">{scope==='local'?'Your neighborhood and nearby local conversation':'Everyone inside the 40-mile Neighborly KC network'}</p></div>
-              <div className="nkc-scope-switch flex rounded-full p-0.5 gap-0.5" style={{backgroundColor:theme.input,border:`1px solid ${theme.border}`}}>
-                <button onClick={()=>setScope('local')} className="px-3 py-1.5 rounded-full text-xs font-black" style={{backgroundColor:scope==='local'?theme.pillActive:'transparent',color:scope==='local'?theme.pillTextActive:theme.text}}>📍 My Area</button>
-                <button onClick={()=>setScope('kc')} className="px-3 py-1.5 rounded-full text-xs font-black" style={{backgroundColor:scope==='kc'?theme.pillActive:'transparent',color:scope==='kc'?theme.pillTextActive:theme.text}}>🏙️ All KC</button>
+              <div className="flex rounded-full p-1 gap-1" style={{backgroundColor:theme.input,border:`1px solid ${theme.border}`}}>
+                <button onClick={()=>setScope('local')} className="px-4 py-2 rounded-full text-xs font-black" style={{backgroundColor:scope==='local'?theme.pillActive:'transparent',color:scope==='local'?theme.pillTextActive:theme.text}}>📍 My Area</button>
+                <button onClick={()=>setScope('kc')} className="px-4 py-2 rounded-full text-xs font-black" style={{backgroundColor:scope==='kc'?theme.pillActive:'transparent',color:scope==='kc'?theme.pillTextActive:theme.text}}>🏙️ All KC</button>
               </div>
             </div>
-            <textarea value={body} onChange={e=>setBody(e.target.value)} placeholder={profile?(scope==='kc'?'What should Kansas City know?':`What's up in ${cur?.name}?`):'Join Neighborly KC to post...'} className="w-full rounded-xl p-3 min-h-[80px] text-sm outline-none" style={{backgroundColor: theme.input, color: theme.text, border: `1px solid ${theme.border}`}} />
+            <textarea ref={composerRef} value={body} onChange={e=>setBody(e.target.value)} placeholder={profile?(scope==='kc'?'What should Kansas City know?':`What's up in ${cur?.name}?`):'Join Neighborly KC to post...'} className="w-full rounded-xl p-3 min-h-[80px] text-sm outline-none" style={{backgroundColor: theme.input, color: theme.text, border: `1px solid ${theme.border}`}} />
             <div className="flex items-center gap-2 mt-3 min-w-0">
   <label htmlFor="file-input" className="shrink-0 cursor-pointer rounded-full border px-3 py-1.5 text-xs font-bold" style={{borderColor:theme.border}}>Choose image</label>
   <input key={fileInputKey} ref={fileInputRef} id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="sr-only" />
@@ -458,7 +427,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
         <a href="/dms" aria-label="Messages" title="Messages" className="nkc-mobile-action">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A3.5 3.5 0 0 1 7.5 2h9A3.5 3.5 0 0 1 20 5.5v6A3.5 3.5 0 0 1 16.5 15H11l-4.5 4v-4.5A3.5 3.5 0 0 1 4 11.5z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M8 7.5h8M8 10.5h5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
         </a>
-        <button type="button" aria-label="Create post" title="Create post" className="nkc-mobile-action nkc-mobile-action-post" onClick={()=>{ document.querySelector<HTMLTextAreaElement>('textarea[placeholder*="What should Kansas City"], textarea[placeholder*="What’s up"], textarea[placeholder*="Join Neighborly"]')?.focus(); window.scrollTo({top:0,behavior:'smooth'}); }}>
+        <button type="button" aria-label="Create post" title="Create post" className="nkc-mobile-action nkc-mobile-action-post" onClick={openComposer}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
         </button>
         <a href="/notifications" aria-label="Notifications" title="Notifications" className="nkc-mobile-action">
@@ -478,7 +447,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
             <div className="grid grid-cols-2 gap-2">
               {['daylight','midnight','space','warm-sand','aim','pip-boy'].map(id=>{ const t=THEMES[id]; const active=themeId===id; return <button key={id} onClick={()=>setTheme(id)} className="rounded-2xl p-3 text-left border-2 text-sm font-bold min-h-16" style={{backgroundColor:t.card,borderColor:active?'#fff':t.border,color:t.text}}><span>{t.emoji} {t.name}</span>{active&&<span className="block text-[10px] mt-1 opacity-60">Active</span>}</button>})}
             </div>
-            {profile&&<a href={`/profile/${profile.user_id||profile.auth_user_id}`} onClick={()=>setShowSettings(false)} className="mt-4 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center">👤 My Profile</a>}<button onClick={()=>{if(!profile){setShowJoin(true);return;}setShowFeedback(true)}} className="mt-2 w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold">💬 Leave Feedback</button>{profile&&<button onClick={signOut} className="mt-2 w-full py-3 rounded-full border border-red-300/20 bg-red-500/10 text-red-200 font-bold">🚪 Sign out</button>}<button onClick={()=>setShowSettings(false)} className="mt-2 w-full py-3 rounded-full bg-white text-black font-bold">Done</button>
+            <button onClick={()=>{if(!profile){setShowJoin(true);return;}setShowFeedback(true)}} className="mt-4 w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold">💬 Leave Feedback</button>{profile&&<button onClick={signOut} className="mt-2 w-full py-3 rounded-full border border-red-300/20 bg-red-500/10 text-red-200 font-bold">🚪 Sign out</button>}<button onClick={()=>setShowSettings(false)} className="mt-2 w-full py-3 rounded-full bg-white text-black font-bold">Done</button>
           </div>
         </div>
       )}
