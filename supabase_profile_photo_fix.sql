@@ -15,3 +15,6 @@ create policy "profile photos update own" on storage.objects for update to authe
 
 drop policy if exists "profile photos delete own" on storage.objects;
 create policy "profile photos delete own" on storage.objects for delete to authenticated using (bucket_id = 'profile-photos' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "profile photos public read" on storage.objects;
+create policy "profile photos public read" on storage.objects for select using (bucket_id = 'profile-photos');

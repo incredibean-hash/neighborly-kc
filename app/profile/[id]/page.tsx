@@ -23,15 +23,19 @@ export default function ProfilePage(){
     setLoading(true);
     const {data:{user}}=await supabase.auth.getUser();
     setMe(user);
-    const {data:pr,error:prErr}=await supabase.from('profiles').select('id,auth_user_id,full_name,email,zip,street_address,avatar_url,is_verified,is_founder,is_admin').eq('auth_user_id',id).maybeSingle();
+    // Accept either the auth UUID or the profile row UUID in the public URL.
+    // Older Neighborly KC data used the profile id as the route id, while the
+    // current app normally uses auth_user_id.
+    const {data:pr,error:prErr}=await supabase.from('profiles').select('id,auth_user_id,full_name,email,zip,street_address,avatar_url,is_verified,is_founder,is_admin').or(`auth_user_id.eq.${id},id.eq.${id}`).maybeSingle();
     if(prErr) console.error(prErr);
     setP(pr);
     setName(pr?.full_name||'');
     setZip(pr?.zip||'');
-    const {data:po}=await supabase.from('posts').select('id,body,category,created_at,image_url,neighborhood_id').eq('user_id',id).order('created_at',{ascending:false}).limit(20);
+    const ownerId = pr?.auth_user_id || id;
+    const {data:po}=await supabase.from('posts').select('id,body,category,created_at,image_url,neighborhood_id').eq('user_id',ownerId).order('created_at',{ascending:false}).limit(20);
     setPosts(po||[]);
-    if(user&&user.id!==id){
-      const {data:c}=await supabase.from('connections').select('*').or(`and(requester_id.eq.${user.id},addressee_id.eq.${id}),and(requester_id.eq.${id},addressee_id.eq.${user.id})`).maybeSingle();
+    if(user&&user.id!==ownerId){
+      const {data:c}=await supabase.from('connections').select('*').or(`and(requester_id.eq.${user.id},addressee_id.eq.${ownerId}),and(requester_id.eq.${ownerId},addressee_id.eq.${user.id})`).maybeSingle();
       setConn(c);
     }
     setLoading(false);
@@ -46,9 +50,9 @@ export default function ProfilePage(){
   };
 
   const saveProfile=async()=>{
-    if(!me||me.id!==id||!name.trim())return;
+    if(!me||me.id!==(p?.auth_user_id || id)||!name.trim())return;
     setSaving(true);
-    const {data,error}=await supabase.from('profiles').update({full_name:name.trim(),zip:zip.trim()}).eq('auth_user_id',id).select('id,auth_user_id,full_name,email,zip,street_address,avatar_url,is_verified,is_founder,is_admin').single();
+    const {data,error}=await supabase.from('profiles').update({full_name:name.trim(),zip:zip.trim()}).eq('auth_user_id',p?.auth_user_id || id).select('id,auth_user_id,full_name,email,zip,street_address,avatar_url,is_verified,is_founder,is_admin').single();
     if(error){alert('Could not save profile: '+error.message);setSaving(false);return;}
     setP(data);setEditing(false);
     localStorage.setItem('nkc_profile',JSON.stringify({...data,user_id:id}));
@@ -60,7 +64,7 @@ export default function ProfilePage(){
   if(!p)return <main className="min-h-screen grid place-items-center p-6" style={{backgroundColor:theme.bg,color:theme.text}}><div className="text-center"><p className="font-bold">Neighbor not found.</p><Link href="/people" className="inline-flex mt-4 rounded-full px-5 py-2.5 font-bold" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>← Back to People</Link></div></main>;
 
   const status=conn?.status;
-  const isOwner=me?.id===id;
+  const isOwner=me?.id===(p?.auth_user_id || id);
   const border={borderColor:theme.border};
   return <main className="min-h-screen" style={{backgroundColor:theme.bg,color:theme.text}}>
     <header className="sticky top-0 z-20 overflow-hidden border-b" style={{backgroundColor:theme.header,borderColor:theme.border,color:'#fff'}}>

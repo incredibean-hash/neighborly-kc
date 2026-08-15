@@ -48,19 +48,44 @@ async function withTimeout<T>(promise: PromiseLike<T>, ms = 30000): Promise<T> {
 
 async function syncCommunityProfile(user:any, fallback?:any){
   if(!user) return null;
-  const profile = {
-    id: user.id,
-    auth_user_id: user.id,
-    full_name: user.user_metadata?.full_name || user.user_metadata?.name || fallback?.full_name || user.email?.split('@')[0] || 'Neighbor',
-    email: user.email || fallback?.email || '',
-    street_address: fallback?.street_address || '',
-    zip: fallback?.zip || '',
-  };
-  const { data: saved } = await supabase
+  const { data: existing } = await supabase
     .from('profiles')
-    .upsert(profile, { onConflict:'auth_user_id' })
-    .select('id,auth_user_id,full_name,email,street_address,zip,avatar_url,is_admin,is_founder')
-    .single();
+    .select('id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder')
+    .eq('auth_user_id', user.id)
+    .maybeSingle();
+
+  const profile = {
+    ...(existing?.id ? { id: existing.id } : {}),
+    auth_user_id: user.id,
+    full_name: existing?.full_name || user.user_metadata?.full_name || user.user_metadata?.name || fallback?.full_name || user.email?.split('@')[0] || 'Neighbor',
+    email: user.email || existing?.email || fallback?.email || '',
+    street_address: existing?.street_address ?? fallback?.street_address ?? '',
+    zip: existing?.zip ?? fallback?.zip ?? '',
+    neighborhood_id: existing?.neighborhood_id ?? fallback?.neighborhood_id ?? null,
+    avatar_url: existing?.avatar_url || null,
+  };
+
+  let saved:any = null;
+  let error:any = null;
+  if(existing?.id){
+    ({ data: saved, error } = await supabase
+      .from('profiles')
+      .update(profile)
+      .eq('id', existing.id)
+      .select('id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder')
+      .single());
+  } else {
+    const profileId = globalThis.crypto?.randomUUID?.() || `${user.id}-${Date.now()}`;
+    ({ data: saved, error } = await supabase
+      .from('profiles')
+      .insert({ id: profileId, ...profile })
+      .select('id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder')
+      .single());
+  }
+  if(error){
+    console.error('Could not sync community profile:', error);
+    return {...fallback, ...profile, ...(existing || {}), user_id:user.id};
+  }
   return {...fallback, ...profile, ...(saved || {}), user_id:user.id};
 }
 
@@ -78,7 +103,6 @@ export default function Page(){
   const [showExplore,setShowExplore]=useState(false);
   const [body,setBody]=useState('');
   const [profile,setProfile]=useState<any>(null);
-  const [keyboardOpen,setKeyboardOpen]=useState(false);
   const [showJoin,setShowJoin]=useState(false);
   const [showSettings,setShowSettings]=useState(false);
   const [showFeedback,setShowFeedback]=useState(false);
@@ -112,32 +136,30 @@ export default function Page(){
   const theme = THEMES[themeId] || THEMES['royals'];
 
   useEffect(()=>{
-    if (typeof window === 'undefined' || !window.visualViewport) return;
-    const vv = window.visualViewport;
-    const update = () => {
-      const keyboardHeight = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-      const open = keyboardHeight > 120;
-      setKeyboardOpen(open);
-      document.documentElement.style.setProperty('--nkc-keyboard-height', `${keyboardHeight}px`);
-      document.documentElement.classList.toggle('nkc-keyboard-open', open);
-    };
-    update();
-    vv.addEventListener('resize', update);
-    vv.addEventListener('scroll', update);
-    window.addEventListener('resize', update);
-    return () => {
-      vv.removeEventListener('resize', update);
-      vv.removeEventListener('scroll', update);
-      window.removeEventListener('resize', update);
-      document.documentElement.classList.remove('nkc-keyboard-open');
-      document.documentElement.style.removeProperty('--nkc-keyboard-height');
-    };
-  },[]);
-
-  useEffect(()=>{
     const meta=document.querySelector('meta[name="theme-color"]');
     if(meta) meta.setAttribute('content', theme.header);
   },[theme.header]);
+
+  useEffect(()=>{
+    const vv=window.visualViewport;
+    if(!vv) return;
+    const update=()=>{
+      const bottom=Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
+      const keyboardOpen = bottom > 120 || vv.height < window.innerHeight * 0.75;
+      document.documentElement.style.setProperty('--nkc-vv-bottom', `${bottom}px`);
+      document.documentElement.classList.toggle('nkc-keyboard-open', keyboardOpen);
+    };
+    update();
+    vv.addEventListener('resize',update);
+    vv.addEventListener('scroll',update);
+    window.addEventListener('resize',update);
+    return()=>{
+      vv.removeEventListener('resize',update);
+      vv.removeEventListener('scroll',update);
+      window.removeEventListener('resize',update);
+      document.documentElement.classList.remove('nkc-keyboard-open');
+    };
+  },[]);
 
   const loadAll = async (postIds:string[]) => {
     if(!postIds.length) return;
@@ -226,27 +248,6 @@ export default function Page(){
       }, 0);
     };
 
-    const loadPublicFeed = async () => {
-      const [hoodsResult, postsResult] = await Promise.all([
-        supabase.from('neighborhoods').select('*').order('member_count',{ascending:false}),
-        supabase.from('posts').select('*').order('created_at',{ascending:false}).limit(50),
-      ]);
-      if(!alive) return;
-      if(hoodsResult.data) setHoods(hoodsResult.data);
-      if(postsResult.data){
-        const rawPosts = postsResult.data;
-        const ids = [...new Set(rawPosts.map((x:any)=>x.user_id).filter(Boolean))];
-        let profileMap = new Map<string, any>();
-        if(ids.length){
-          const { data: postProfiles } = await supabase.from('profiles').select('auth_user_id,full_name,avatar_url').in('auth_user_id', ids);
-          profileMap = new Map((postProfiles||[]).map((x:any)=>[x.auth_user_id,x]));
-        }
-        const enrichedPosts = rawPosts.map((x:any)=>({...x, profiles: profileMap.get(x.user_id) || x.profiles || null}));
-        setPosts(enrichedPosts);
-        void loadAll(enrichedPosts.map((x:any)=>x.id));
-      }
-    };
-
     // Register the auth listener before restoring/exchanging a session so the
     // UI reacts immediately when Supabase establishes the authenticated user.
     const { data } = supabase.auth.onAuthStateChange((event, sess)=>{
@@ -254,10 +255,6 @@ export default function Page(){
       if(sess?.user){
         applySession(sess.user);
         setAuthReady(true);
-        // Re-load the public feed after Supabase finishes establishing the
-        // authenticated session. This prevents the first post query from
-        // racing session hydration after login; no manual refresh required.
-        void loadPublicFeed();
       } else if(event === 'SIGNED_OUT'){
         localStorage.removeItem('nkc_profile');
         setProfile(null);
@@ -301,27 +298,29 @@ export default function Page(){
         }
       }
 
-      // Load the public feed once immediately, and also re-load it from the
-      // auth listener above when login establishes a session.
-      await loadPublicFeed();
+      // Public feed data loads separately so a slow Supabase query can never
+      // leave the header stuck on "Loading…".
+      const [hoodsResult, postsResult] = await Promise.all([
+        supabase.from('neighborhoods').select('*').order('member_count',{ascending:false}),
+        supabase.from('posts').select('*').order('created_at',{ascending:false}).limit(50),
+      ]);
+      if(!alive) return;
+      if(hoodsResult.data) setHoods(hoodsResult.data);
+      if(postsResult.data){
+        const rawPosts = postsResult.data;
+        const ids = [...new Set(rawPosts.map((x:any)=>x.user_id).filter(Boolean))];
+        let profileMap = new Map<string, any>();
+        if(ids.length){
+          const { data: postProfiles } = await supabase.from('profiles').select('auth_user_id,full_name,avatar_url').in('auth_user_id', ids);
+          profileMap = new Map((postProfiles||[]).map((x:any)=>[x.auth_user_id,x]));
+        }
+        const enrichedPosts = rawPosts.map((x:any)=>({...x, profiles: profileMap.get(x.user_id) || x.profiles || null}));
+        setPosts(enrichedPosts);
+        void loadAll(enrichedPosts.map((x:any)=>x.id));
+      }
     })();
 
-    const refreshProfile = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-        const { data } = await supabase.from('profiles').select('id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder').eq('auth_user_id', user.id).maybeSingle();
-        if (alive && data) {
-          const fresh = { ...data, user_id: user.id };
-          localStorage.setItem('nkc_profile', JSON.stringify(fresh));
-          setProfile(fresh);
-        }
-      } catch {}
-    };
-    window.addEventListener('focus', refreshProfile);
-    document.addEventListener('visibilitychange', refreshProfile);
-
-    return ()=>{ alive=false; subscription?.unsubscribe(); window.removeEventListener('focus', refreshProfile); document.removeEventListener('visibilitychange', refreshProfile); };
+    return ()=>{ alive=false; subscription?.unsubscribe(); };
   },[]);
 
   const setTheme = (id:string)=>{ setThemeId(id); localStorage.setItem('nkc_theme', id); };
@@ -485,14 +484,6 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
           <button onClick={()=>setCat('For Sale & Free')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:cat==='For Sale & Free'?theme.pillActive:theme.pillInactive,color:cat==='For Sale & Free'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>For Sale</button>
           <button onClick={()=>setShowExplore(v=>!v)} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:showExplore?theme.pillActive:theme.pillInactive,color:showExplore?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Explore ▾</button>
         </div>
-        <div className="nkc-mobile-nav" aria-label="Main navigation">
-          <div className="nkc-mobile-nav-scroll">
-            <button onClick={()=>setCat('All')} className="nkc-mobile-nav-btn" style={{backgroundColor:cat==='All'?theme.pillActive:theme.pillInactive,color:cat==='All'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Feed</button>
-            <button onClick={()=>setCat('Safety Alert')} className="nkc-mobile-nav-btn" style={{backgroundColor:cat==='Safety Alert'?theme.pillActive:theme.pillInactive,color:cat==='Safety Alert'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Safety</button>
-            <button onClick={()=>setCat('For Sale & Free')} className="nkc-mobile-nav-btn" style={{backgroundColor:cat==='For Sale & Free'?theme.pillActive:theme.pillInactive,color:cat==='For Sale & Free'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>For Sale</button>
-            <button onClick={()=>setShowExplore(v=>!v)} className="nkc-mobile-nav-btn" style={{backgroundColor:showExplore?theme.pillActive:theme.pillInactive,color:showExplore?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Explore <span aria-hidden="true">▾</span></button>
-          </div>
-        </div>
         {showExplore && <div className="max-w-6xl mx-auto px-3 sm:px-6 pb-3 flex gap-2 justify-center flex-wrap">
           <a href="/people" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>👥 People</a>
           <a href="/dms" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>💬 Messages</a>
@@ -514,7 +505,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
                 <button onClick={()=>setScope('kc')} className="px-3 py-1.5 rounded-full text-xs font-black" style={{backgroundColor:scope==='kc'?theme.pillActive:'transparent',color:scope==='kc'?theme.pillTextActive:theme.text}}>🏙️ All KC</button>
               </div>
             </div>
-            <textarea ref={postComposerRef} value={body} onChange={e=>setBody(e.target.value)} onFocus={()=>{ if (window.innerWidth < 640) window.setTimeout(()=>postComposerRef.current?.scrollIntoView({behavior:'smooth',block:'start'}),180); }} placeholder={profile?(scope==='kc'?'What should Kansas City know?':`What's up in ${cur?.name}?`):'Join Neighborly KC to post...'} className="nkc-post-composer w-full rounded-xl p-3 min-h-[80px] text-sm outline-none" style={{backgroundColor: theme.input, color: theme.text, border: `1px solid ${theme.border}`}} />
+            <textarea ref={postComposerRef} value={body} onChange={e=>setBody(e.target.value)} onFocus={()=>window.setTimeout(()=>postComposerRef.current?.scrollIntoView({behavior:'smooth',block:'center'}),120)} placeholder={profile?(scope==='kc'?'What should Kansas City know?':`What's up in ${cur?.name}?`):'Join Neighborly KC to post...'} className="w-full rounded-xl p-3 min-h-[80px] text-sm outline-none" style={{backgroundColor: theme.input, color: theme.text, border: `1px solid ${theme.border}`, scrollMarginBottom:'180px' }} />
             <div className="flex items-center gap-2 mt-3 min-w-0">
   <label htmlFor="file-input" className="shrink-0 cursor-pointer rounded-full border px-3 py-1.5 text-xs font-bold" style={{borderColor:theme.border}}>Choose image</label>
   <input key={fileInputKey} ref={fileInputRef} id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="sr-only" />
@@ -527,7 +518,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
             const cList=comments[p.id]||[]; const isOpen=openComments[p.id]; const pLikes=likes[p.id]||[]; const liked=pLikes.some((l:any)=>l.author_id===profile?.user_id || l.author_name===profile?.full_name);
             const isOwner=Boolean(profile && ((p.user_id && p.user_id===profile.user_id) || (!p.user_id && p.author_name===profile.full_name))); const canManage=isOwner||isAdmin; const isEditing=editingPostId===p.id;
             return <div key={p.id} className="rounded-2xl p-4 border nkc-surface nkc-fade-in" style={{backgroundColor:theme.card,borderColor:theme.border}}>
-              <div className="flex justify-between gap-3"><div className="flex items-center gap-2 min-w-0"><div className="w-9 h-9 shrink-0 rounded-full overflow-hidden grid place-items-center font-black text-xs border" style={{backgroundColor:theme.input,borderColor:theme.border}}>{p.profiles?.avatar_url?<img key={p.profiles.avatar_url} src={p.profiles.avatar_url} alt="" className="w-full h-full object-cover"/>:(p.profiles?.full_name||p.author_name||'N').slice(0,1).toUpperCase()}</div><div><p className="text-xs font-bold opacity-60">{(p.user_id||p.author_id)?<a href={`/profile/${p.user_id||p.author_id}`} className="hover:underline">{p.profiles?.full_name||p.author_name||'Neighbor'}</a>:(p.profiles?.full_name||p.author_name||'Neighbor')} · {p.category}</p>{scope==='kc'&&<p className="text-[11px] font-bold mt-1 opacity-45">📍 {neighborhoodName(p.neighborhood_id)}</p>}</div></div>{canManage&&<div className="flex items-center gap-2"><button onClick={()=>beginEdit(p)} className="text-xs font-bold opacity-55 hover:opacity-100">✏️ Edit</button><button onClick={()=>deletePost(p.id,p.image_url)} className="text-xs opacity-40 hover:text-red-600">🗑️ Delete</button></div>}</div>
+              <div className="flex justify-between gap-3"><div className="flex items-center gap-2 min-w-0"><div className="w-9 h-9 shrink-0 rounded-full overflow-hidden grid place-items-center font-black text-xs border" style={{backgroundColor:theme.input,borderColor:theme.border}}>{p.profiles?.avatar_url?<img src={p.profiles.avatar_url} alt="" className="w-full h-full object-cover"/>:(p.profiles?.full_name||p.author_name||'N').slice(0,1).toUpperCase()}</div><div><p className="text-xs font-bold opacity-60">{(p.user_id||p.author_id)?<a href={`/profile/${p.user_id||p.author_id}`} className="hover:underline">{p.profiles?.full_name||p.author_name||'Neighbor'}</a>:(p.profiles?.full_name||p.author_name||'Neighbor')} · {p.category}</p>{scope==='kc'&&<p className="text-[11px] font-bold mt-1 opacity-45">📍 {neighborhoodName(p.neighborhood_id)}</p>}</div></div>{canManage&&<div className="flex items-center gap-2"><button onClick={()=>beginEdit(p)} className="text-xs font-bold opacity-55 hover:opacity-100">✏️ Edit</button><button onClick={()=>deletePost(p.id,p.image_url)} className="text-xs opacity-40 hover:text-red-600">🗑️ Delete</button></div>}</div>
               {isEditing?<div className="mt-3 rounded-2xl p-3 nkc-pop-in" style={{backgroundColor:theme.input}}><textarea value={editBody} onChange={e=>setEditBody(e.target.value)} className="w-full rounded-xl p-3 min-h-[120px] text-sm outline-none border" style={{backgroundColor:theme.card,color:theme.text,borderColor:theme.border}}/><div className="grid sm:grid-cols-2 gap-2 mt-2"><select value={editCategory} onChange={e=>setEditCategory(e.target.value)} className="rounded-xl px-3 py-2 text-sm border outline-none" style={{backgroundColor:theme.card,color:theme.text,borderColor:theme.border}}>{CATS.filter(c=>c!=='All').map(c=><option key={c}>{c}</option>)}</select><label className="rounded-xl px-3 py-2 text-sm border cursor-pointer" style={{backgroundColor:theme.card,borderColor:theme.border}}><span className="font-bold">📷 Replace image</span><input ref={editFileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setEditFile(e.target.files?.[0]||null)} className="sr-only"/>{editFile&&<span className="block text-xs opacity-60 truncate mt-1">{editFile.name}</span>}</label></div><div className="flex justify-end gap-2 mt-3"><button onClick={cancelEdit} className="px-4 py-2 rounded-full text-xs font-bold" style={{backgroundColor:theme.card,border:`1px solid ${theme.border}`}}>Cancel</button><button disabled={editSaving||!editBody.trim()} onClick={()=>savePostEdit(p)} className="px-4 py-2 rounded-full text-xs font-bold disabled:opacity-50" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{editSaving?'Saving...':'Save changes'}</button></div></div>:<>
                 <p className="mt-1 whitespace-pre-wrap">{p.body||p.content}</p>{p.image_url&&<img src={p.image_url} alt="post" className="mt-3 rounded-xl max-h-[400px] w-full object-cover border" style={{borderColor:theme.border}}/>}<p className="text-xs opacity-40 mt-2">{new Date(p.created_at).toLocaleString()}</p><div className="mt-3 pt-3 border-t flex gap-4" style={{borderColor:theme.border}}><button onClick={()=>togglePostLike(p.id)} className="text-xs font-bold">{liked?'❤️':'🤍'} {pLikes.length}</button><button onClick={()=>setOpenComments(prev=>({...prev,[p.id]:!prev[p.id]}))} className="text-xs font-bold opacity-60">💬 {cList.length} {isOpen?'▲':'▼'}</button></div>{isOpen&&<div className="mt-3 rounded-xl p-3 space-y-2" style={{backgroundColor:theme.input}}>{cList.map((c:any)=>{const cl=cLikes[c.id]||[];const cliked=cl.some((l:any)=>l.author_id===profile?.user_id||l.author_name===profile?.full_name);const canDelC=(profile&&c.author_name===profile.full_name)||isAdmin;return <div key={c.id} className="text-sm rounded-lg p-2 flex justify-between gap-2" style={{backgroundColor:theme.card}}><div><b className="text-xs">{c.author_name}:</b> {c.content||c.body}<button onClick={()=>toggleCommentLike(c.id)} className="ml-3 text-xs">{cliked?'❤️':'🤍'} {cl.length}</button></div>{canDelC&&<button onClick={()=>deleteComment(c.id,p.id)} className="text-[10px] opacity-30">🗑️</button>}</div>})}<div className="flex gap-2 pt-2"><input value={commentText[p.id]||''} onChange={e=>setCommentText(prev=>({...prev,[p.id]:e.target.value}))} placeholder="Add a comment..." className="flex-1 border rounded-full px-3 py-2 text-sm outline-none" style={{backgroundColor:theme.card,borderColor:theme.border,color:theme.text}}/><button onClick={()=>addComment(p.id)} className="px-4 py-2 rounded-full text-xs font-bold" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>Reply</button></div></div>}
               </>}
@@ -543,7 +534,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
         <span>© 2026 Neighborly KC</span><span className="mx-2">·</span><a href="/privacy" className="underline underline-offset-2">Privacy Policy</a><span className="mx-2">·</span><a href="/terms" className="underline underline-offset-2">Terms of Service</a>
       </footer>
 
-      <nav className={`nkc-mobile-actions ${keyboardOpen ? "nkc-keyboard-hidden" : ""}`} aria-label="Quick actions">
+      <nav className="nkc-mobile-actions" aria-label="Quick actions">
         <a href="/dms" aria-label="Messages" title="Messages" className="nkc-mobile-action">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A3.5 3.5 0 0 1 7.5 2h9A3.5 3.5 0 0 1 20 5.5v6A3.5 3.5 0 0 1 16.5 15H11l-4.5 4v-4.5A3.5 3.5 0 0 1 4 11.5z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M8 7.5h8M8 10.5h5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
         </a>

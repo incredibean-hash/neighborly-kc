@@ -18,14 +18,13 @@ html, body { min-height: 100%; }
 body { overscroll-behavior-y: none; }
 .nkc-app-shell { min-height: 100svh; min-height: 100dvh; }
 .nkc-mobile-actions { display:none; }
-.nkc-mobile-nav { display:none; }
 .nkc-kc-mark{display:grid;place-items:center;width:42px;height:42px;border:2px solid rgba(255,255,255,.72);border-radius:14px;background:rgba(255,255,255,.08);color:#fff;font-weight:950;letter-spacing:-.08em;font-size:15px;line-height:1;box-shadow:0 6px 20px rgba(0,0,0,.12);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 
 
 @media (max-width: 639px) {
   html, body { width:100%; overflow-x:hidden; overscroll-behavior-x:none; }
   body { padding-bottom: env(safe-area-inset-bottom); }
-  .nkc-app-shell { min-height: 100svh; min-height: 100dvh; padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
+  .nkc-app-shell { min-height: 100svh; min-height: 100dvh; padding-bottom: calc(78px + env(safe-area-inset-bottom)); }
   header.sticky { position: sticky; top:0; }
   header .relative.min-h-\[138px\] { min-height: 92px; }
   header .absolute.inset-x-0.bottom-0 { height: 52px; }
@@ -35,53 +34,25 @@ body { overscroll-behavior-y: none; }
   header .group h1 { font-size: 1.55rem; letter-spacing:-.035em; }
   header .group p { font-size: 8px; margin-top: 3px; }
   .nkc-desktop-nav { display:none; }
-  .nkc-mobile-nav {
-    display:block;
-    border-top:1px solid rgba(255,255,255,.10);
-    border-bottom:1px solid rgba(255,255,255,.10);
-    padding:4px 0;
-    background:rgba(7,25,51,.34);
-  }
-  .nkc-mobile-nav-scroll {
-    display:flex;
-    align-items:center;
-    gap:4px;
-    overflow-x:auto;
-    overscroll-behavior-x:contain;
-    scrollbar-width:none;
-    padding:0 6px;
-    -webkit-overflow-scrolling:touch;
-  }
-  .nkc-mobile-nav-scroll::-webkit-scrollbar { display:none; }
-  .nkc-mobile-nav-btn {
-    flex:0 0 auto;
-    min-height:32px;
-    padding:5px 9px;
-    border-radius:9999px;
-    font-size:11px;
-    font-weight:800;
-    white-space:nowrap;
-    -webkit-tap-highlight-color:transparent;
-  }
   header .flex.items-start.justify-between > div:last-child { gap: 4px; }
   .nkc-page-content { padding: 12px 12px 28px; }
   .nkc-mobile-actions {
     display:flex;
     position:fixed;
     left:50%;
-    bottom:calc(8px + env(safe-area-inset-bottom));
+    bottom:calc(10px + env(safe-area-inset-bottom) + var(--nkc-vv-bottom, 0px));
     transform:translate3d(-50%,0,0);
     z-index:70;
     align-items:center;
     justify-content:center;
-    gap:8px;
+    gap:12px;
     pointer-events:none;
     width:max-content;
   }
   .nkc-mobile-action {
     pointer-events:auto;
-    width:44px;
-    height:44px;
+    width:48px;
+    height:48px;
     display:flex;
     align-items:center;
     justify-content:center;
@@ -97,7 +68,7 @@ body { overscroll-behavior-y: none; }
     -webkit-tap-highlight-color:transparent;
     text-decoration:none;
   }
-  .nkc-mobile-action-post { width:50px; height:50px; font-size:28px; font-weight:800; background:rgba(255,255,255,.5); }
+  .nkc-mobile-action-post { width:54px; height:54px; font-size:30px; font-weight:800; background:rgba(255,255,255,.5); }
   .nkc-mobile-action svg { width:21px; height:21px; display:block; }
   .nkc-mobile-action-post svg { width:25px; height:25px; }
   .nkc-mobile-action:active { transform:scale(.94); }
@@ -139,12 +110,11 @@ body { overscroll-behavior-y: none; }
   .nkc-main-header .nkc-desktop-nav{display:none}
 }
 
-/* iPhone keyboard: the keyboard belongs to Safari/iOS and cannot be styled by the
-   webpage. We can, however, keep our floating controls out of its way and make
-   the composer scroll into a usable position when typing. */
+/* iOS keyboard: keep the composer usable and remove the floating quick-actions
+   from the keyboard's visual area while a text field is active. */
 @media (max-width:639px){
-  .nkc-post-composer{scroll-margin-top:18px;scroll-margin-bottom:calc(var(--nkc-keyboard-height,0px) + 24px);}
-  .nkc-mobile-actions.nkc-keyboard-hidden{display:none!important;}
-  html.nkc-keyboard-open .nkc-app-shell{padding-bottom:24px;}
-  html.nkc-keyboard-open .nkc-post-composer{min-height:96px;}
+  html.nkc-keyboard-open .nkc-mobile-actions{display:none!important}
+  html.nkc-keyboard-open .nkc-app-shell{padding-bottom:24px}
+  html.nkc-keyboard-open .nkc-page-content{padding-bottom:24px}
+  textarea:focus,input:focus,select:focus{scroll-margin-top:96px;scroll-margin-bottom:180px}
 }
