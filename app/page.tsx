@@ -216,6 +216,27 @@ export default function Page(){
       }, 0);
     };
 
+    const loadPublicFeed = async () => {
+      const [hoodsResult, postsResult] = await Promise.all([
+        supabase.from('neighborhoods').select('*').order('member_count',{ascending:false}),
+        supabase.from('posts').select('*').order('created_at',{ascending:false}).limit(50),
+      ]);
+      if(!alive) return;
+      if(hoodsResult.data) setHoods(hoodsResult.data);
+      if(postsResult.data){
+        const rawPosts = postsResult.data;
+        const ids = [...new Set(rawPosts.map((x:any)=>x.user_id).filter(Boolean))];
+        let profileMap = new Map<string, any>();
+        if(ids.length){
+          const { data: postProfiles } = await supabase.from('profiles').select('auth_user_id,full_name,avatar_url').in('auth_user_id', ids);
+          profileMap = new Map((postProfiles||[]).map((x:any)=>[x.auth_user_id,x]));
+        }
+        const enrichedPosts = rawPosts.map((x:any)=>({...x, profiles: profileMap.get(x.user_id) || x.profiles || null}));
+        setPosts(enrichedPosts);
+        void loadAll(enrichedPosts.map((x:any)=>x.id));
+      }
+    };
+
     // Register the auth listener before restoring/exchanging a session so the
     // UI reacts immediately when Supabase establishes the authenticated user.
     const { data } = supabase.auth.onAuthStateChange((event, sess)=>{
@@ -223,6 +244,10 @@ export default function Page(){
       if(sess?.user){
         applySession(sess.user);
         setAuthReady(true);
+        // Re-load the public feed after Supabase finishes establishing the
+        // authenticated session. This prevents the first post query from
+        // racing session hydration after login; no manual refresh required.
+        void loadPublicFeed();
       } else if(event === 'SIGNED_OUT'){
         localStorage.removeItem('nkc_profile');
         setProfile(null);
@@ -266,26 +291,9 @@ export default function Page(){
         }
       }
 
-      // Public feed data loads separately so a slow Supabase query can never
-      // leave the header stuck on "Loading…".
-      const [hoodsResult, postsResult] = await Promise.all([
-        supabase.from('neighborhoods').select('*').order('member_count',{ascending:false}),
-        supabase.from('posts').select('*').order('created_at',{ascending:false}).limit(50),
-      ]);
-      if(!alive) return;
-      if(hoodsResult.data) setHoods(hoodsResult.data);
-      if(postsResult.data){
-        const rawPosts = postsResult.data;
-        const ids = [...new Set(rawPosts.map((x:any)=>x.user_id).filter(Boolean))];
-        let profileMap = new Map<string, any>();
-        if(ids.length){
-          const { data: postProfiles } = await supabase.from('profiles').select('auth_user_id,full_name,avatar_url').in('auth_user_id', ids);
-          profileMap = new Map((postProfiles||[]).map((x:any)=>[x.auth_user_id,x]));
-        }
-        const enrichedPosts = rawPosts.map((x:any)=>({...x, profiles: profileMap.get(x.user_id) || x.profiles || null}));
-        setPosts(enrichedPosts);
-        void loadAll(enrichedPosts.map((x:any)=>x.id));
-      }
+      // Load the public feed once immediately, and also re-load it from the
+      // auth listener above when login establishes a session.
+      await loadPublicFeed();
     })();
 
     return ()=>{ alive=false; subscription?.unsubscribe(); };
