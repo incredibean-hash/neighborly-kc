@@ -132,6 +132,7 @@ export default function Page(){
   const [postSuccess,setPostSuccess]=useState(false);
   const [weather,setWeather]=useState<any>(null);
   const [weatherLoading,setWeatherLoading]=useState(true);
+  const [trendingIndex,setTrendingIndex]=useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const postComposerRef = useRef<HTMLTextAreaElement>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
@@ -487,6 +488,8 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
   const deleteComment = async (id:string, postId:string) => { if(!confirm('Delete comment?')) return; const {error}=await supabase.from('comments').delete().eq('id', id); if(error)return alert(error.message); setComments((prev)=>({...prev, [postId]: prev[postId].filter((c:any)=>c.id!==id)})); };
   const weatherLabel=(code:number)=>{ if(code===0) return 'Clear'; if([1,2,3].includes(code)) return 'Partly cloudy'; if([45,48].includes(code)) return 'Foggy'; if([51,53,55,56,57].includes(code)) return 'Drizzle'; if([61,63,65,66,67,80,81,82].includes(code)) return 'Rain'; if([71,73,75,77,85,86].includes(code)) return 'Snow'; if([95,96,99].includes(code)) return 'Storms'; return 'Weather'; };
   const trendingPosts=[...scopedPosts].sort((a:any,b:any)=>((likes[b.id]?.length||0)*3+(comments[b.id]?.length||0)*2)-((likes[a.id]?.length||0)*3+(comments[a.id]?.length||0)*2)).slice(0,3);
+  useEffect(()=>{ if(trendingIndex >= trendingPosts.length) setTrendingIndex(0); },[trendingPosts.length,trendingIndex]);
+  useEffect(()=>{ if(trendingPosts.length < 2) return; const t=window.setInterval(()=>setTrendingIndex(i=>(i+1)%trendingPosts.length),7000); return ()=>window.clearInterval(t); },[trendingPosts.length]);
   const jumpToPost=(id:string)=>document.getElementById(`post-${id}`)?.scrollIntoView({behavior:'smooth',block:'center'});
 
   return (
@@ -524,12 +527,16 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
       <div className="nkc-weather-bar" aria-label="Local weather">
         <div className="nkc-weather-track">{weatherLoading ? <span>📍 Local weather · locating you…</span> : weather ? <><span>📍 Local weather</span><strong>{Math.round(weather.temperature_2m)}°F</strong><span>Feels {Math.round(weather.apparent_temperature)}°</span><span>{weatherLabel(weather.weather_code)}</span><span>💨 {Math.round(weather.wind_speed_10m)} mph</span></> : <span>📍 Local weather unavailable</span>}</div>
       </div>
-      {trendingPosts.length>0 && <section className="nkc-top-trending" aria-label="Top trending posts">
-        <div className="nkc-top-trending-title"><span>🔥 Top 3 trending</span><span className="opacity-50">Tap a post to jump in</span></div>
-        <div className="nkc-top-trending-grid">{trendingPosts.map((p:any,i:number)=><button key={p.id} type="button" onClick={()=>jumpToPost(p.id)} className="nkc-trending-card">
-          <span className="nkc-trending-rank">#{i+1}</span><span className="nkc-trending-card-body"><b>{p.profiles?.full_name||p.author_name||'Neighbor'}</b><span>{String(p.body||p.content||'').slice(0,90)}{String(p.body||p.content||'').length>90?'…':''}</span></span><span className="nkc-trending-stats">❤️ {likes[p.id]?.length||0} · 💬 {comments[p.id]?.length||0}</span>
-        </button>)}</div>
-      </section>}
+      {trendingPosts.length>0 && (()=>{ const p=trendingPosts[trendingIndex] || trendingPosts[0]; const text=String(p.body||p.content||''); return <section className="nkc-top-trending" aria-label="Top trending posts">
+        <div className="nkc-top-trending-title"><span>🔥 Top 3 trending</span><span className="opacity-50">{trendingIndex+1} of {trendingPosts.length}</span></div>
+        <div className="nkc-trending-single-row">
+          <button type="button" aria-label="Previous trending post" className="nkc-trending-arrow" onClick={()=>setTrendingIndex(i=>(i-1+trendingPosts.length)%trendingPosts.length)}>‹</button>
+          <button key={p.id} type="button" onClick={()=>jumpToPost(p.id)} className="nkc-trending-card nkc-trending-card-single">
+            <span className="nkc-trending-rank">#{trendingIndex+1}</span><span className="nkc-trending-card-body"><b>{p.profiles?.full_name||p.author_name||'Neighbor'}</b><span>{text.slice(0,140)}{text.length>140?'…':''}</span></span><span className="nkc-trending-stats">❤️ {likes[p.id]?.length||0} · 💬 {comments[p.id]?.length||0}</span>
+          </button>
+          <button type="button" aria-label="Next trending post" className="nkc-trending-arrow" onClick={()=>setTrendingIndex(i=>(i+1)%trendingPosts.length)}>›</button>
+        </div>
+      </section>})()}
 
       <div className="max-w-6xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-[220px_1fr_300px] gap-6 nkc-page-content">
         <aside className="rounded-2xl p-3 h-fit border hidden lg:block" style={{backgroundColor: theme.card, borderColor: theme.border}}><p className="text-xs font-bold px-3 py-2 opacity-40">FILTER</p>{CATS.map(c=><button key={c} onClick={()=>setCat(c)} className="w-full text-left px-3 py-2.5 rounded-xl text-sm" style={{backgroundColor: cat===c? theme.accent : 'transparent', color: cat===c? theme.pillTextActive : theme.text}}>{c}</button>)}</aside>
