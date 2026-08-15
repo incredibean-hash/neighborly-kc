@@ -72,6 +72,11 @@ export default function MyProfilePage() {
         auth_user_id: user.id,
         full_name: name.trim(),
         email: user.email || profile?.email || '',
+        // Some older Neighborly KC Supabase schemas require street_address
+        // even though the app does not display or collect a street address.
+        // Keep it private and satisfy that legacy NOT NULL constraint with
+        // an empty value for new profiles; preserve an existing value if one exists.
+        street_address: profile?.street_address || '',
         zip: zip.trim(),
         neighborhood_id: selectedHood?.id || null,
         avatar_url: nextAvatarUrl,
