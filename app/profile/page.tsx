@@ -103,7 +103,7 @@ export default function MyProfilePage() {
             <h1 className="text-2xl sm:text-3xl font-black text-white mt-1">My Profile</h1>
             <p className="text-xs text-white/60">Create and edit how neighbors see you.</p>
           </div>
-          <Link href={`/profile/${user.id}`} className="rounded-full px-4 py-2 text-sm font-bold" style={{ backgroundColor: theme.card, color: theme.text }}>View profile</Link>
+          {profile ? <Link href={`/profile/${user.id}`} className="rounded-full px-4 py-2 text-sm font-bold" style={{ backgroundColor: theme.card, color: theme.text }}>View profile</Link> : <span className="rounded-full px-4 py-2 text-sm font-bold opacity-60" style={{ backgroundColor: theme.card, color: theme.text }}>Save profile to publish</span>}
         </div>
       </header>
 

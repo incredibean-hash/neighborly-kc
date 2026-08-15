@@ -56,6 +56,7 @@ export default function ProfilePage(){
   };
 
   if(loading)return <main className="min-h-screen grid place-items-center" style={{backgroundColor:theme.bg,color:theme.text}}>Loading…</main>;
+  if(!p && me?.id===id)return <main className="min-h-screen grid place-items-center p-6" style={{backgroundColor:theme.bg,color:theme.text}}><div className="w-full max-w-md rounded-3xl p-7 text-center border" style={{backgroundColor:theme.card,borderColor:theme.border}}><div className="mx-auto mb-4 w-16 h-16 rounded-full grid place-items-center text-2xl font-black" style={{backgroundColor:theme.input}}>KC</div><p className="text-xl font-black">Your profile isn't published yet.</p><p className="text-sm opacity-60 mt-2">Finish your Neighborly KC profile first, then you can view the public version here.</p><Link href="/profile" className="inline-flex mt-5 rounded-full px-5 py-3 font-bold" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>Create / Edit Profile</Link><Link href="/" className="block mt-3 text-sm font-bold opacity-60">← Back to Feed</Link></div></main>;
   if(!p)return <main className="min-h-screen grid place-items-center p-6" style={{backgroundColor:theme.bg,color:theme.text}}><div className="text-center"><p className="font-bold">Neighbor not found.</p><Link href="/people" className="inline-flex mt-4 rounded-full px-5 py-2.5 font-bold" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>← Back to People</Link></div></main>;
 
   const status=conn?.status;
