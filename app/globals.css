@@ -98,14 +98,14 @@ body { overscroll-behavior-y: none; }
 .nkc-main-header{isolation:isolate}
 .nkc-header-banner-wrap{position:relative;width:100%;background:#0b2b52}
 .nkc-header-banner-link{width:100%;line-height:0}
-.nkc-header-banner{display:block;width:100%;height:clamp(180px,19.1667vw,368px);object-fit:cover;object-position:center;user-select:none}
+.nkc-header-banner{display:block;width:100%;height:auto;aspect-ratio:1920/368;object-fit:cover;object-position:center;user-select:none}
 .nkc-header-controls{position:absolute;top:12px;right:16px;z-index:2}
 .nkc-header-control{color:#fff;background:rgba(7,25,51,.58);border:1px solid rgba(255,255,255,.42);box-shadow:0 4px 14px rgba(0,0,0,.18);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);text-decoration:none}
 .nkc-header-control:hover{background:rgba(7,25,51,.78);color:#fff}
 .nkc-main-header .nkc-desktop-nav{border-top:1px solid rgba(255,255,255,.10)}
 @media (max-width:639px){
-  .nkc-header-banner{height:126px;object-position:center}
-  .nkc-header-controls{top:8px;right:10px}
+  .nkc-header-banner{height:auto;aspect-ratio:1920/368;object-position:center}
+  .nkc-header-controls{top:6px;right:8px}
   .nkc-header-control{box-shadow:0 3px 10px rgba(0,0,0,.16)}
   .nkc-main-header .nkc-desktop-nav{display:none}
 }
