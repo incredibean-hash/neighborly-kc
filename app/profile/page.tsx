@@ -81,7 +81,16 @@ export default function MyProfilePage() {
       if (profile?.id) {
         ({ data, error } = await supabase.from('profiles').update(payload).eq('auth_user_id', user.id).select('id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder').single());
       } else {
-        ({ data, error } = await supabase.from('profiles').insert({ id: user.id, ...payload }).select('id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder').single());
+        // Some existing Neighborly KC Supabase projects have profiles.id defined
+        // as NOT NULL without a database default. Never depend on that default.
+        // Generate a fresh profile UUID client-side, while auth_user_id remains
+        // the signed-in user's Supabase Auth UUID.
+        const profileId = globalThis.crypto?.randomUUID?.() || `${user.id}-${Date.now()}`;
+        ({ data, error } = await supabase
+          .from('profiles')
+          .insert({ id: profileId, ...payload })
+          .select('id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder')
+          .single());
       }
       if (error) throw error;
       setAvatarUrl(nextAvatarUrl || '');
