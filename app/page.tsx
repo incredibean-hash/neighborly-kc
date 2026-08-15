@@ -115,20 +115,6 @@ export default function Page(){
     if(meta) meta.setAttribute('content', theme.header);
   },[theme.header]);
 
-  useEffect(()=>{
-    const vv=window.visualViewport;
-    if(!vv) return;
-    const update=()=>{
-      const bottom=Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
-      document.documentElement.style.setProperty('--nkc-vv-bottom', `${bottom}px`);
-    };
-    update();
-    vv.addEventListener('resize',update);
-    vv.addEventListener('scroll',update);
-    window.addEventListener('resize',update);
-    return()=>{ vv.removeEventListener('resize',update); vv.removeEventListener('scroll',update); window.removeEventListener('resize',update); };
-  },[]);
-
   const loadAll = async (postIds:string[]) => {
     if(!postIds.length) return;
     const {data:com}=await supabase.from('comments').select('*').in('post_id', postIds).order('created_at',{ascending:false});
