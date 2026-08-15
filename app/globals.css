@@ -33,7 +33,28 @@ body { overscroll-behavior-y: none; }
   .nkc-kc-mark { width:34px; height:34px; border-radius:11px; font-size:12px; }
   header .group h1 { font-size: 1.55rem; letter-spacing:-.035em; }
   header .group p { font-size: 8px; margin-top: 3px; }
-  .nkc-desktop-nav { display:none; }
+  /* Mobile navigation: keep the four primary destinations visible and compact. */
+  .nkc-desktop-nav {
+    display:flex;
+    flex-wrap:nowrap;
+    justify-content:flex-start;
+    align-items:center;
+    gap:6px;
+    width:100%;
+    overflow-x:auto;
+    overflow-y:hidden;
+    padding:8px 10px !important;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+  }
+  .nkc-desktop-nav::-webkit-scrollbar { display:none; }
+  .nkc-desktop-nav > button {
+    flex:0 0 auto;
+    padding:8px 12px !important;
+    font-size:13px !important;
+    line-height:1.1;
+    white-space:nowrap;
+  }
   header .flex.items-start.justify-between > div:last-child { gap: 4px; }
   .nkc-page-content { padding: 12px 12px 28px; }
   .nkc-mobile-actions {
@@ -107,7 +128,6 @@ body { overscroll-behavior-y: none; }
   .nkc-header-banner{height:auto;aspect-ratio:1920/368;object-position:center}
   .nkc-header-controls{top:6px;right:8px}
   .nkc-header-control{box-shadow:0 3px 10px rgba(0,0,0,.16)}
-  .nkc-main-header .nkc-desktop-nav{display:none}
 }
 
 /* iOS keyboard: keep the composer usable and remove the floating quick-actions
