@@ -39,26 +39,26 @@ body { overscroll-behavior-y: none; }
     display:block;
     border-top:1px solid rgba(255,255,255,.10);
     border-bottom:1px solid rgba(255,255,255,.10);
-    padding:7px 0;
+    padding:4px 0;
     background:rgba(7,25,51,.34);
   }
   .nkc-mobile-nav-scroll {
     display:flex;
     align-items:center;
-    gap:7px;
+    gap:4px;
     overflow-x:auto;
     overscroll-behavior-x:contain;
     scrollbar-width:none;
-    padding:0 10px;
+    padding:0 6px;
     -webkit-overflow-scrolling:touch;
   }
   .nkc-mobile-nav-scroll::-webkit-scrollbar { display:none; }
   .nkc-mobile-nav-btn {
     flex:0 0 auto;
-    min-height:38px;
-    padding:7px 15px;
+    min-height:32px;
+    padding:5px 9px;
     border-radius:9999px;
-    font-size:13px;
+    font-size:11px;
     font-weight:800;
     white-space:nowrap;
     -webkit-tap-highlight-color:transparent;
