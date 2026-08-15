@@ -97,6 +97,11 @@ export default function Page(){
   const [editSaving,setEditSaving]=useState(false);
   const editFileInputRef=useRef<HTMLInputElement>(null);
   const [googleLoading,setGoogleLoading]=useState(false);
+  const [emailCodeSent,setEmailCodeSent]=useState(false);
+  const [emailCode,setEmailCode]=useState('');
+  const [emailAuthLoading,setEmailAuthLoading]=useState(false);
+  const [emailAuthMessage,setEmailAuthMessage]=useState('');
+  const [showThemePicker,setShowThemePicker]=useState(false);
   const [authReady,setAuthReady]=useState(false);
   const [postSuccess,setPostSuccess]=useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -142,6 +147,46 @@ export default function Page(){
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? window.location.origin : 'https://neighborlykc.com');
     const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: siteUrl.replace(/\/$/, '') } });
     if(error){ alert('Google login failed: '+error.message); setGoogleLoading(false); }
+  };
+
+  const sendEmailLoginCode = async () => {
+    const target = email.trim().toLowerCase();
+    if(!target) return setEmailAuthMessage('Enter your email address first.');
+    setEmailAuthLoading(true);
+    setEmailAuthMessage('');
+    const { error } = await supabase.auth.signInWithOtp({
+      email: target,
+      options: {
+        shouldCreateUser: true,
+        data: { full_name: name.trim(), street_address: addr.trim(), zip: cur?.zip || '' },
+      },
+    });
+    if(error){
+      setEmailAuthMessage(error.message);
+    } else {
+      setEmailCodeSent(true);
+      setEmailAuthMessage(`We sent a 6-digit login code to ${target}.`);
+    }
+    setEmailAuthLoading(false);
+  };
+
+  const verifyEmailLoginCode = async () => {
+    const target = email.trim().toLowerCase();
+    const token = emailCode.replace(/\D/g, '').slice(0, 6);
+    if(token.length !== 6) return setEmailAuthMessage('Enter the 6-digit code from your email.');
+    setEmailAuthLoading(true);
+    setEmailAuthMessage('');
+    const { data, error } = await supabase.auth.verifyOtp({ email: target, token, type: 'email' });
+    if(error){
+      setEmailAuthMessage(error.message || 'That code is invalid or expired.');
+    } else if(data.user){
+      await syncCommunityProfile(data.user, { full_name: name.trim(), street_address: addr.trim(), zip: cur?.zip || '' });
+      setEmailCode('');
+      setEmailCodeSent(false);
+      setEmailAuthMessage('Signed in successfully.');
+      setShowJoin(false);
+    }
+    setEmailAuthLoading(false);
   };
 
   useEffect(()=>{
@@ -461,15 +506,18 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
       {showSettings && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 nkc-pop-in">
           <div className="rounded-[24px] w-full max-w-sm p-5 border max-h-[80vh] overflow-y-auto" style={{backgroundColor: '#15181f', borderColor: '#262a33'}}>
-            <div className="flex justify-between items-center mb-4"><h2 className="font-black text-white">Settings • Themes</h2><button onClick={()=>setShowSettings(false)} className="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center">✕</button></div>
-            <p className="text-[10px] font-black tracking-widest uppercase text-white/40 mb-2">KC themes</p>
-            <div className="grid grid-cols-2 gap-2 mb-4">
-              {['royals','chiefs','sporting','kc-night','kc-sunset','kc-heartland'].map(id=>{ const t=THEMES[id]; const active=themeId===id; return <button key={id} onClick={()=>setTheme(id)} className="rounded-2xl p-3 text-left border-2 text-sm font-bold min-h-16" style={{backgroundColor:t.card,borderColor:active?'#fff':t.border,color:t.text}}><span>{t.emoji} {t.name}</span>{active&&<span className="block text-[10px] mt-1 opacity-60">Active</span>}</button>})}
-            </div>
-            <p className="text-[10px] font-black tracking-widest uppercase text-white/40 mb-2">Other looks</p>
-            <div className="grid grid-cols-2 gap-2">
-              {['daylight','midnight','space','warm-sand','aim','pip-boy'].map(id=>{ const t=THEMES[id]; const active=themeId===id; return <button key={id} onClick={()=>setTheme(id)} className="rounded-2xl p-3 text-left border-2 text-sm font-bold min-h-16" style={{backgroundColor:t.card,borderColor:active?'#fff':t.border,color:t.text}}><span>{t.emoji} {t.name}</span>{active&&<span className="block text-[10px] mt-1 opacity-60">Active</span>}</button>})}
-            </div>
+            <div className="flex justify-between items-center mb-4"><h2 className="font-black text-white">Settings</h2><button onClick={()=>setShowSettings(false)} className="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center">✕</button></div>
+            <button type="button" onClick={()=>setShowThemePicker(v=>!v)} className="w-full flex items-center justify-between py-3 px-4 rounded-2xl border border-white/15 bg-white/10 text-white font-bold"><span>🎨 Themes</span><span className="text-white/60">{showThemePicker?'▲':'▼'}</span></button>
+            {showThemePicker && <div className="mt-3">
+              <p className="text-[10px] font-black tracking-widest uppercase text-white/40 mb-2">KC themes</p>
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                {['royals','chiefs','sporting','kc-night','kc-sunset','kc-heartland'].map(id=>{ const t=THEMES[id]; const active=themeId===id; return <button key={id} onClick={()=>setTheme(id)} className="rounded-2xl p-3 text-left border-2 text-sm font-bold min-h-16" style={{backgroundColor:t.card,borderColor:active?'#fff':t.border,color:t.text}}><span>{t.emoji} {t.name}</span>{active&&<span className="block text-[10px] mt-1 opacity-60">Active</span>}</button>})}
+              </div>
+              <p className="text-[10px] font-black tracking-widest uppercase text-white/40 mb-2">Other looks</p>
+              <div className="grid grid-cols-2 gap-2">
+                {['daylight','midnight','space','warm-sand','aim','pip-boy'].map(id=>{ const t=THEMES[id]; const active=themeId===id; return <button key={id} onClick={()=>setTheme(id)} className="rounded-2xl p-3 text-left border-2 text-sm font-bold min-h-16" style={{backgroundColor:t.card,borderColor:active?'#fff':t.border,color:t.text}}><span>{t.emoji} {t.name}</span>{active&&<span className="block text-[10px] mt-1 opacity-60">Active</span>}</button>})}
+              </div>
+            </div>}
             {profile&&<a href={`/profile/${profile.user_id||profile.auth_user_id}`} onClick={()=>setShowSettings(false)} className="mt-4 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center">👤 My Profile</a>}<button onClick={()=>{if(!profile){setShowJoin(true);return;}setShowFeedback(true)}} className="mt-2 w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold">💬 Leave Feedback</button>{profile&&<button onClick={signOut} className="mt-2 w-full py-3 rounded-full border border-red-300/20 bg-red-500/10 text-red-200 font-bold">🚪 Sign out</button>}<button onClick={()=>setShowSettings(false)} className="mt-2 w-full py-3 rounded-full bg-white text-black font-bold">Done</button>
           </div>
         </div>
@@ -500,13 +548,16 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
           <div className="rounded-[28px] w-full max-w-sm p-6 shadow-2xl border" style={{backgroundColor: theme.card, borderColor: theme.border}}>
             <h2 className="font-black text-xl">Join {cur?.name}</h2><p className="text-xs opacity-60">{theme.id==='royals'? 'THE K • 64155 • ROYALS BLUE & WHITE' : theme.id==='chiefs'? 'ARROWHEAD • CHIEFS KINGDOM' : '40 mile radius KC network'}</p>
             <button onClick={signInWithGoogle} disabled={googleLoading} className="mt-5 w-full bg-white border-2 border-black text-black py-3.5 rounded-full font-bold text-sm flex items-center justify-center gap-2">{googleLoading? 'Redirecting...' : 'Continue with Google'}</button>
-            <div className="flex items-center gap-3 my-5"><div className="h-px flex-1 bg-black/10"></div><span className="text-xs font-bold opacity-30">OR</span><div className="h-px flex-1 bg-black/10"></div></div>
-            <form onSubmit={e=>{e.preventDefault(); const pr={full_name:name,email,street_address:addr,zip:cur?.zip,neighborhood_id:cur?.id}; localStorage.setItem('nkc_profile',JSON.stringify(pr)); setProfile(pr); setShowJoin(false);}} className="space-y-3">
-              <input required value={name} onChange={e=>setName(e.target.value)} placeholder="Full name" className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-sm outline-none"/>
-              <input required value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-sm outline-none"/>
-              <input required value={addr} onChange={e=>setAddr(e.target.value)} placeholder={`Address in ${cur?.zip}`} className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-sm outline-none"/>
-              <div className="flex gap-2 pt-2"><button type="button" onClick={()=>setShowJoin(false)} className="flex-1 bg-[#f8f5ee] py-3.5 rounded-full font-bold text-sm">Cancel</button><button className="flex-1 text-white py-3.5 rounded-full font-bold text-sm" style={{backgroundColor: theme.accent}}>Join</button></div>
-            </form>
+            <div className="flex items-center gap-3 my-5"><div className="h-px flex-1 bg-black/10"></div><span className="text-xs font-bold opacity-30">OR EMAIL CODE</span><div className="h-px flex-1 bg-black/10"></div></div>
+            <div className="space-y-3">
+              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Full name (optional)" className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-sm outline-none"/>
+              <input value={email} onChange={e=>setEmail(e.target.value)} inputMode="email" autoComplete="email" placeholder="Email address" className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-sm outline-none"/>
+              {!emailCodeSent && <input value={addr} onChange={e=>setAddr(e.target.value)} placeholder={`Address in ${cur?.zip} (optional)`} className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-sm outline-none"/>}
+              {emailCodeSent && <input value={emailCode} onChange={e=>setEmailCode(e.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="6-digit login code" className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-center tracking-[0.45em] font-black text-lg outline-none"/>}
+              {emailAuthMessage && <p className="text-xs font-semibold text-center opacity-70">{emailAuthMessage}</p>}
+              <div className="flex gap-2 pt-2"><button type="button" onClick={()=>{setShowJoin(false);setEmailCodeSent(false);setEmailCode('');setEmailAuthMessage('')}} className="flex-1 bg-[#f8f5ee] py-3.5 rounded-full font-bold text-sm">Cancel</button>{emailCodeSent ? <button type="button" disabled={emailAuthLoading} onClick={verifyEmailLoginCode} className="flex-1 text-white py-3.5 rounded-full font-bold text-sm disabled:opacity-60" style={{backgroundColor: theme.accent}}>{emailAuthLoading?'Checking…':'Verify & Sign In'}</button> : <button type="button" disabled={emailAuthLoading||!email.trim()} onClick={sendEmailLoginCode} className="flex-1 text-white py-3.5 rounded-full font-bold text-sm disabled:opacity-60" style={{backgroundColor: theme.accent}}>{emailAuthLoading?'Sending…':'Send Login Code'}</button>}</div>
+              {emailCodeSent && <button type="button" disabled={emailAuthLoading} onClick={sendEmailLoginCode} className="w-full text-xs font-bold underline opacity-60">Send a new code</button>}
+            </div>
           </div>
         </div>
       )}
