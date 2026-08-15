@@ -18,6 +18,7 @@ html, body { min-height: 100%; }
 body { overscroll-behavior-y: none; }
 .nkc-app-shell { min-height: 100svh; min-height: 100dvh; }
 .nkc-mobile-actions { display:none; }
+.nkc-mobile-nav { display:none; }
 .nkc-kc-mark{display:grid;place-items:center;width:42px;height:42px;border:2px solid rgba(255,255,255,.72);border-radius:14px;background:rgba(255,255,255,.08);color:#fff;font-weight:950;letter-spacing:-.08em;font-size:15px;line-height:1;box-shadow:0 6px 20px rgba(0,0,0,.12);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 
 
@@ -34,6 +35,34 @@ body { overscroll-behavior-y: none; }
   header .group h1 { font-size: 1.55rem; letter-spacing:-.035em; }
   header .group p { font-size: 8px; margin-top: 3px; }
   .nkc-desktop-nav { display:none; }
+  .nkc-mobile-nav {
+    display:block;
+    border-top:1px solid rgba(255,255,255,.10);
+    border-bottom:1px solid rgba(255,255,255,.10);
+    padding:7px 0;
+    background:rgba(7,25,51,.34);
+  }
+  .nkc-mobile-nav-scroll {
+    display:flex;
+    align-items:center;
+    gap:7px;
+    overflow-x:auto;
+    overscroll-behavior-x:contain;
+    scrollbar-width:none;
+    padding:0 10px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .nkc-mobile-nav-scroll::-webkit-scrollbar { display:none; }
+  .nkc-mobile-nav-btn {
+    flex:0 0 auto;
+    min-height:38px;
+    padding:7px 15px;
+    border-radius:9999px;
+    font-size:13px;
+    font-weight:800;
+    white-space:nowrap;
+    -webkit-tap-highlight-color:transparent;
+  }
   header .flex.items-start.justify-between > div:last-child { gap: 4px; }
   .nkc-page-content { padding: 12px 12px 28px; }
   .nkc-mobile-actions {
