@@ -138,3 +138,13 @@ body { overscroll-behavior-y: none; }
   .nkc-header-control{box-shadow:0 3px 10px rgba(0,0,0,.16)}
   .nkc-main-header .nkc-desktop-nav{display:none}
 }
+
+/* iPhone keyboard: the keyboard belongs to Safari/iOS and cannot be styled by the
+   webpage. We can, however, keep our floating controls out of its way and make
+   the composer scroll into a usable position when typing. */
+@media (max-width:639px){
+  .nkc-post-composer{scroll-margin-top:18px;scroll-margin-bottom:calc(var(--nkc-keyboard-height,0px) + 24px);}
+  .nkc-mobile-actions.nkc-keyboard-hidden{display:none!important;}
+  html.nkc-keyboard-open .nkc-app-shell{padding-bottom:24px;}
+  html.nkc-keyboard-open .nkc-post-composer{min-height:96px;}
+}

@@ -19,6 +19,7 @@ export default function MyProfilePage() {
   const [avatarUrl, setAvatarUrl] = useState('');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarInputKey, setAvatarInputKey] = useState(0);
 
   const theme = THEMES[themeId] || THEMES.royals;
 
@@ -62,11 +63,19 @@ export default function MyProfilePage() {
       if (avatarFile) {
         setAvatarUploading(true);
         const ext = (avatarFile.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
-        const path = `${user.id}/avatar.${ext}`;
-        const { error: uploadError } = await supabase.storage.from('profile-photos').upload(path, avatarFile, { contentType: avatarFile.type || 'image/jpeg', upsert: true, cacheControl: '3600' });
+        // Use a new object name for every replacement. iPhone/Safari and the
+        // Supabase CDN can cache a reused public URL, making a newly uploaded
+        // profile photo look like the old one even though the database saved it.
+        const path = `${user.id}/avatar-${crypto.randomUUID()}.${ext}`;
+        const { error: uploadError } = await supabase.storage.from('profile-photos').upload(path, avatarFile, {
+          contentType: avatarFile.type || 'image/jpeg',
+          upsert: false,
+          cacheControl: '0',
+        });
         if (uploadError) throw uploadError;
         const { data: publicData } = supabase.storage.from('profile-photos').getPublicUrl(path);
-        nextAvatarUrl = publicData.publicUrl;
+        // Add a cache-buster as an extra safeguard for mobile browsers.
+        nextAvatarUrl = `${publicData.publicUrl}?v=${Date.now()}`;
       }
       const payload = {
         auth_user_id: user.id,
@@ -96,8 +105,9 @@ export default function MyProfilePage() {
           .single());
       }
       if (error) throw error;
-      setAvatarUrl(nextAvatarUrl || '');
+      setAvatarUrl(nextAvatarUrl ? `${nextAvatarUrl.split('?')[0]}?v=${Date.now()}` : '');
       setAvatarFile(null);
+      setAvatarInputKey(k => k + 1);
       setProfile(data);
       localStorage.setItem('nkc_profile', JSON.stringify({ ...data, user_id: user.id }));
       setSaved(true);
@@ -144,11 +154,11 @@ export default function MyProfilePage() {
           <div className="flex items-center gap-4 mb-7">
             <div className="relative shrink-0">
               <div className="w-20 h-20 rounded-full overflow-hidden grid place-items-center text-2xl font-black border-4" style={{ backgroundColor: theme.input, borderColor: theme.border }}>
-                {avatarUrl ? <img src={avatarUrl} alt="Your profile photo" className="w-full h-full object-cover" /> : initials}
+                {avatarUrl ? <img key={avatarUrl} src={avatarUrl} alt="Your profile photo" className="w-full h-full object-cover" /> : initials}
               </div>
               <label className="absolute -bottom-1 -right-1 rounded-full px-2 py-1 text-[10px] font-black cursor-pointer shadow-lg" style={{ backgroundColor: theme.accent, color: theme.pillTextActive }}>
                 📷
-                <input type="file" accept="image/*" className="hidden" onChange={e => { const f=e.target.files?.[0]; if(f){ if(f.size>8*1024*1024){alert('Profile photos must be 8 MB or smaller.'); return;} setAvatarFile(f); const r=new FileReader(); r.onload=()=>setAvatarUrl(String(r.result||'')); r.readAsDataURL(f); } }} />
+                <input key={avatarInputKey} type="file" accept="image/jpeg,image/png,image/webp,image/heic" className="hidden" onChange={e => { const f=e.target.files?.[0]; if(f){ if(f.size>8*1024*1024){alert('Profile photos must be 8 MB or smaller.'); e.currentTarget.value=''; return;} setAvatarFile(f); const r=new FileReader(); r.onload=()=>setAvatarUrl(String(r.result||'')); r.readAsDataURL(f); } }} />
               </label>
             </div>
             <div>
