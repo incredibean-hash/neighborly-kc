@@ -93,3 +93,18 @@ body { overscroll-behavior-y: none; }
   .nkc-header-skyline{height:58px}
   header.sticky{z-index:60}
 }
+
+/* v13 header: brand row, full skyline, then navigation. The skyline uses
+   contain rather than cover so the tops of the buildings are never clipped. */
+.nkc-main-header { isolation:isolate; }
+.nkc-header-hero { position:relative; }
+.nkc-header-brand-row { min-height:82px; padding-top:18px; padding-bottom:10px; }
+.nkc-header-skyline { height:126px; width:100%; overflow:hidden; display:flex; align-items:flex-end; justify-content:center; }
+.nkc-header-skyline img { display:block; width:100%; height:100%; object-fit:contain; object-position:center bottom; opacity:.96; }
+.nkc-main-header .nkc-desktop-nav { border-top:1px solid rgba(255,255,255,.10); }
+@media (max-width:639px){
+  .nkc-header-brand-row { min-height:66px; padding-top:12px; padding-bottom:8px; }
+  .nkc-header-skyline { height:88px; }
+  .nkc-header-skyline img { object-fit:contain; object-position:center bottom; }
+  .nkc-main-header .nkc-desktop-nav { display:none; }
+}

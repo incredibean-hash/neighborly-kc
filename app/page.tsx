@@ -374,33 +374,37 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden nkc-app-shell" style={{backgroundColor: theme.bg, color: theme.text}}>
-      <header className="sticky top-0 z-40 overflow-hidden border-b" style={{backgroundColor: theme.header, borderColor: theme.border}}>
-        <div className="relative min-h-[138px] sm:min-h-[170px]">
-          <div className="nkc-header-skyline absolute inset-x-0 bottom-0 pointer-events-none" aria-hidden="true">
-            <img
-              src="/kc-skyline.png"
-              alt=""
-              className="absolute inset-x-0 bottom-0 w-full h-full object-cover object-center opacity-95"
-              draggable="false"
-            />
-          </div>
-          <div className="max-w-6xl mx-auto px-3 sm:px-6 pt-3 sm:pt-4 relative z-10">
+      <header className="sticky top-0 z-40 overflow-hidden border-b nkc-main-header" style={{backgroundColor: theme.header, borderColor: theme.border}}>
+        <div className="nkc-header-hero">
+          <div className="max-w-6xl mx-auto px-3 sm:px-6 relative z-10">
             <div className="nkc-header-brand-row flex items-start justify-between gap-3">
               <a href="/" className="group flex items-center gap-3 min-w-0">
                 <span className="nkc-kc-mark" aria-hidden="true">KC</span>
-                <div className="min-w-0"><h1 className="font-black text-2xl sm:text-4xl tracking-tight text-white leading-none">Neighborly KC</h1><p className="text-[10px] sm:text-xs mt-1 text-white/70 tracking-[.08em] uppercase">Kansas City • 40 Mile Radius</p></div>
+                <div className="min-w-0">
+                  <h1 className="font-black text-2xl sm:text-4xl tracking-tight text-white leading-none">Neighborly KC</h1>
+                  <p className="text-[10px] sm:text-xs mt-1 text-white/70 tracking-[.08em] uppercase">Kansas City • 40 Mile Radius</p>
+                </div>
               </a>
-              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0"><a href="/people" className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>People</a><a href="/dms" aria-label="Messages" className="hidden sm:inline px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>💬</a><a href="/notifications" aria-label="Notifications" className="hidden sm:inline px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>🔔</a><button onClick={()=>setShowSettings(true)} aria-label="Themes and settings" className="w-8 h-8 rounded-full flex items-center justify-center nkc-smooth" style={{backgroundColor: theme.card, border: `1px solid ${theme.border}`}}>⚙️</button>{!authReady ? <span className="shrink-0 px-3 sm:px-4 py-2 text-xs sm:text-sm font-black opacity-50">Loading…</span> : profile ? <><span className="text-xs hidden lg:block opacity-60 max-w-28 truncate text-white">{profile.full_name}</span><button onClick={signOut} className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>Sign out</button></> : <button onClick={()=>setShowJoin(true)} className="shrink-0 px-2.5 sm:px-4 py-2 rounded-full text-[11px] sm:text-sm font-black whitespace-nowrap nkc-smooth" style={{backgroundColor: theme.pillActive, color: theme.pillTextActive}}>Sign in</button>}</div>
+              <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+                <a href="/people" className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: 'transparent', color: '#fff', border: `1px solid ${theme.border}`}}>People</a>
+                <a href="/dms" aria-label="Messages" className="hidden sm:inline w-9 h-8 rounded-full text-xs font-bold nkc-smooth grid place-items-center" style={{backgroundColor: 'transparent', color: '#fff', border: `1px solid ${theme.border}`}}>💬</a>
+                <a href="/notifications" aria-label="Notifications" className="hidden sm:inline w-9 h-8 rounded-full text-xs font-bold nkc-smooth grid place-items-center" style={{backgroundColor: 'transparent', color: '#fff', border: `1px solid ${theme.border}`}}>🔔</a>
+                <button onClick={()=>setShowSettings(true)} aria-label="Themes and settings" className="w-9 h-8 rounded-full flex items-center justify-center nkc-smooth" style={{backgroundColor: 'transparent', color:'#fff', border: `1px solid ${theme.border}`}}>⚙️</button>
+                {!authReady ? <span className="shrink-0 px-3 py-2 text-xs sm:text-sm font-black opacity-50 text-white">Loading…</span> : profile ? <><span className="text-xs hidden lg:block opacity-60 max-w-28 truncate text-white">{profile.full_name}</span><button onClick={signOut} className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth text-white" style={{backgroundColor: 'transparent', border: `1px solid ${theme.border}`}}>Sign out</button></> : <button onClick={()=>setShowJoin(true)} className="shrink-0 px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-black whitespace-nowrap nkc-smooth text-white" style={{backgroundColor: 'transparent', border: `1px solid ${theme.border}`}}>Sign in</button>}
+              </div>
             </div>
           </div>
+          <div className="nkc-header-skyline" aria-hidden="true">
+            <img src="/kc-skyline.png" alt="" draggable="false" />
+          </div>
         </div>
-        <div className="max-w-6xl mx-auto px-6 pb-3 flex gap-2 justify-center flex-wrap relative z-10 nkc-desktop-nav">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2.5 flex gap-2 justify-center flex-wrap relative z-10 nkc-desktop-nav">
           <button onClick={()=>setCat('All')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor: cat==='All'?theme.pillActive:theme.pillInactive,color:cat==='All'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Feed</button>
           <button onClick={()=>setCat('Safety Alert')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor: cat==='Safety Alert'?theme.pillActive:theme.pillInactive,color:cat==='Safety Alert'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Safety</button>
-          <button onClick={()=>setCat('For Sale & Free')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor: cat==='For Sale & Free'?theme.pillActive:theme.pillInactive,color:cat==='For Sale & Free'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>For Sale</button>
+          <button onClick={()=>setCat('For Sale & Free')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:cat==='For Sale & Free'?theme.pillActive:theme.pillInactive,color:cat==='For Sale & Free'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>For Sale</button>
           <button onClick={()=>setShowExplore(v=>!v)} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:showExplore?theme.pillActive:theme.pillInactive,color:showExplore?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Explore ▾</button>
         </div>
-        {showExplore && <div className="max-w-6xl mx-auto px-6 pb-3 flex gap-2 justify-center flex-wrap">
+        {showExplore && <div className="max-w-6xl mx-auto px-3 sm:px-6 pb-3 flex gap-2 justify-center flex-wrap">
           <a href="/people" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>👥 People</a>
           <a href="/dms" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>💬 Messages</a>
           <a href="/notifications" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>🔔 Notifications</a>
