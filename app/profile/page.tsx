@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/community';
 import { THEMES, DEFAULT_THEME_ID } from '../../lib/themes';
 
@@ -19,6 +20,7 @@ export default function MyProfilePage() {
   const [avatarUrl, setAvatarUrl] = useState('');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const router = useRouter();
 
   const theme = THEMES[themeId] || THEMES.royals;
 
@@ -101,7 +103,10 @@ export default function MyProfilePage() {
       setProfile(data);
       localStorage.setItem('nkc_profile', JSON.stringify({ ...data, user_id: user.id }));
       setSaved(true);
-      window.setTimeout(() => setSaved(false), 2500);
+      // Saving the profile is the end of this flow on mobile and desktop.
+      // Return the user directly to the feed so they don't have to scroll back
+      // to the top of the profile page to find the Feed link.
+      window.setTimeout(() => router.push('/'), 250);
     } catch (err: any) {
       alert(err.message || 'Could not save your profile.');
     } finally {

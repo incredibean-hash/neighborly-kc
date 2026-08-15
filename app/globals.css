@@ -150,3 +150,10 @@ body { overscroll-behavior-y: none; }
     backdrop-filter:blur(8px);
   }
 }
+
+.nkc-trending-ticker{width:100%;overflow:hidden;white-space:nowrap;background:rgba(5,31,67,.96);color:rgba(255,255,255,.82);border-bottom:1px solid rgba(255,255,255,.12);font-size:11px;font-weight:800;letter-spacing:.02em}
+.nkc-trending-track{display:inline-flex;align-items:center;gap:12px;min-width:max-content;padding:6px 0;animation:nkcTicker 28s linear infinite}
+@keyframes nkcTicker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.nkc-trending-track{animation:none}}
+.nkc-reply-btn{min-width:70px;padding:9px 15px;line-height:1}
+@media (max-width:639px){.nkc-trending-ticker{font-size:10px}.nkc-trending-track{gap:9px;padding:5px 0;animation-duration:24s}.nkc-reply-btn{min-width:68px;padding:10px 14px}.nkc-comment-input{min-height:40px}}

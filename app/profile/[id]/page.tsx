@@ -52,7 +52,7 @@ export default function ProfilePage(){
   const saveProfile=async()=>{
     if(!me||me.id!==(p?.auth_user_id || id)||!name.trim())return;
     setSaving(true);
-    const {data,error}=await supabase.from('profiles').update({full_name:name.trim(),zip:zip.trim()}).eq('auth_user_id',p?.auth_user_id || id).select('id,auth_user_id,full_name,email,zip,street_address,avatar_url,is_verified,is_founder,is_admin').single();
+    const {data,error}=await supabase.from('profiles').update({full_name:name.trim(),zip:zip.trim()}).eq('id',p.id).select('id,auth_user_id,full_name,email,zip,street_address,avatar_url,is_verified,is_founder,is_admin').single();
     if(error){alert('Could not save profile: '+error.message);setSaving(false);return;}
     setP(data);setEditing(false);
     localStorage.setItem('nkc_profile',JSON.stringify({...data,user_id:id}));
@@ -95,7 +95,7 @@ export default function ProfilePage(){
           <div className="flex items-center gap-4"><div className="w-16 h-16 rounded-full grid place-items-center text-2xl font-black" style={{backgroundColor:theme.input}}>{name.trim().slice(0,1).toUpperCase()||'N'}</div><div><h2 className="text-xl font-black">Edit your profile</h2><p className="text-xs opacity-60">Keep it simple. Your street address stays private.</p></div></div>
           <label className="block"><span className="text-xs font-black uppercase opacity-60">Name</span><input value={name} onChange={e=>setName(e.target.value)} className="mt-1 w-full rounded-xl border px-4 py-3 outline-none" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}} /></label>
           <label className="block"><span className="text-xs font-black uppercase opacity-60">ZIP code</span><input value={zip} onChange={e=>setZip(e.target.value)} inputMode="numeric" maxLength={10} className="mt-1 w-full rounded-xl border px-4 py-3 outline-none" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}} /></label>
-          <div className="flex gap-2 justify-end"><button onClick={()=>{setEditing(false);setName(p.full_name||'');setZip(p.zip||'')}} className="px-4 py-2.5 rounded-full font-bold" style={{backgroundColor:theme.input}}>Cancel</button><button disabled={saving||!name.trim()} onClick={saveProfile} className="px-5 py-2.5 rounded-full font-bold disabled:opacity-50" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{saving?'Saving…':'Save Profile'}</button></div>
+          <div className="flex gap-2 justify-end"><button onClick={()=>{setEditing(false);setName(p.full_name||'');setZip(p.zip||'')}} className="px-4 py-2.5 rounded-full font-bold" style={{backgroundColor:theme.input}}>Cancel</button><button type="button" disabled={saving||!name.trim()} onClick={saveProfile} className="px-5 py-2.5 rounded-full font-bold disabled:opacity-50" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{saving?'Saving…':'Save Profile'}</button></div>
         </div>}
         <div className="grid grid-cols-2 gap-3 mt-6"><div className="rounded-2xl p-4" style={{backgroundColor:theme.input}}><b className="text-xl">{posts.length}</b><p className="text-xs opacity-60">Posts</p></div><div className="rounded-2xl p-4" style={{backgroundColor:theme.input}}><b className="text-xl">{status==='accepted'?1:0}</b><p className="text-xs opacity-60">Connection</p></div></div>
       </section>
