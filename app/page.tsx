@@ -185,16 +185,14 @@ export default function Page(){
       }
     });
     subscription = data.subscription;
+    // Auth controls should never be held hostage by feed/profile network requests.
+    // Resolve the header state immediately; the async session hydration below can
+    // then upgrade the UI to the signed-in state when Supabase is ready.
+    setAuthReady(true);
 
     (async()=>{
-      // Load public feed data independently of authentication.
-      const {data:h}=await supabase.from('neighborhoods').select('*').order('member_count',{ascending:false});
-      if(h && alive) setHoods(h);
-      const {data:p}=await supabase.from('posts').select('*').order('created_at',{ascending:false}).limit(50);
-      if(p && alive){ setPosts(p); void loadAll(p.map((x:any)=>x.id)); }
-
-      // We handle the PKCE callback explicitly so the first Google login cannot
-      // render the app before the OAuth code has been exchanged for a session.
+      // Restore/exchange authentication independently of the public feed.
+      // We handle the PKCE callback explicitly for Google sign-in.
       const params = new URLSearchParams(window.location.search);
       const code = params.get('code');
       if(code){
@@ -221,7 +219,16 @@ export default function Page(){
           setProfile(null);
         }
       }
-      setAuthReady(true);
+
+      // Public feed data loads separately so a slow Supabase query can never
+      // leave the header stuck on "Loading…".
+      const [hoodsResult, postsResult] = await Promise.all([
+        supabase.from('neighborhoods').select('*').order('member_count',{ascending:false}),
+        supabase.from('posts').select('*').order('created_at',{ascending:false}).limit(50),
+      ]);
+      if(!alive) return;
+      if(hoodsResult.data) setHoods(hoodsResult.data);
+      if(postsResult.data){ setPosts(postsResult.data); void loadAll(postsResult.data.map((x:any)=>x.id)); }
     })();
 
     return ()=>{ alive=false; subscription?.unsubscribe(); };
@@ -369,7 +376,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
     <div className="min-h-screen w-full overflow-x-hidden nkc-app-shell" style={{backgroundColor: theme.bg, color: theme.text}}>
       <header className="sticky top-0 z-40 overflow-hidden border-b" style={{backgroundColor: theme.header, borderColor: theme.border}}>
         <div className="relative min-h-[138px] sm:min-h-[170px]">
-          <div className="absolute inset-x-0 bottom-0 h-[76px] sm:h-[112px] pointer-events-none" aria-hidden="true">
+          <div className="nkc-header-skyline absolute inset-x-0 bottom-0 pointer-events-none" aria-hidden="true">
             <img
               src="/kc-skyline.png"
               alt=""
@@ -378,7 +385,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
             />
           </div>
           <div className="max-w-6xl mx-auto px-3 sm:px-6 pt-3 sm:pt-4 relative z-10">
-            <div className="flex items-start justify-between gap-3">
+            <div className="nkc-header-brand-row flex items-start justify-between gap-3">
               <a href="/" className="group flex items-center gap-3 min-w-0">
                 <span className="nkc-kc-mark" aria-hidden="true">KC</span>
                 <div className="min-w-0"><h1 className="font-black text-2xl sm:text-4xl tracking-tight text-white leading-none">Neighborly KC</h1><p className="text-[10px] sm:text-xs mt-1 text-white/70 tracking-[.08em] uppercase">Kansas City • 40 Mile Radius</p></div>

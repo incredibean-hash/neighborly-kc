@@ -79,3 +79,17 @@ body { overscroll-behavior-y: none; }
   .nkc-scope-switch button { flex:1; white-space:nowrap; }
   header .nkc-mobile-signin { display:inline-flex; }
 }
+
+/* Header stability: keep the brand row clear of the skyline and prevent the
+   sticky header from visually collapsing while the browser restores scroll. */
+.nkc-header-brand-row{min-height:72px}
+.nkc-header-skyline{height:76px}
+@media (min-width:640px){
+  .nkc-header-brand-row{min-height:78px}
+  .nkc-header-skyline{height:112px}
+}
+@media (max-width:639px){
+  .nkc-header-brand-row{min-height:50px}
+  .nkc-header-skyline{height:58px}
+  header.sticky{z-index:60}
+}
