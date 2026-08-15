@@ -133,12 +133,12 @@ export default function MyProfilePage() {
 
   return (
     <main className="min-h-screen" style={{ backgroundColor: theme.bg, color: theme.text }}>
-      <header className="border-b" style={{ backgroundColor: theme.header, borderColor: theme.border }}>
+      <header className="border-b" style={{ backgroundColor: theme.header, borderColor: theme.border, color: theme.headerText }}>
         <div className="max-w-3xl mx-auto px-5 py-5 flex items-center justify-between gap-3">
           <div>
-            <Link href="/" className="text-xs text-white/70 hover:text-white">← Feed</Link>
-            <h1 className="text-2xl sm:text-3xl font-black text-white mt-1">My Profile</h1>
-            <p className="text-xs text-white/60">Create and edit how neighbors see you.</p>
+            <Link href="/" className="text-xs  hover:text-white">← Feed</Link>
+            <h1 className="text-2xl sm:text-3xl font-black mt-1">My Profile</h1>
+            <p className="text-xs ">Create and edit how neighbors see you.</p>
           </div>
           {profile ? <Link href={`/profile/${user.id}`} className="rounded-full px-4 py-2 text-sm font-bold" style={{ backgroundColor: theme.card, color: theme.text }}>View profile</Link> : <span className="rounded-full px-4 py-2 text-sm font-bold opacity-60" style={{ backgroundColor: theme.card, color: theme.text }}>Save profile to publish</span>}
         </div>

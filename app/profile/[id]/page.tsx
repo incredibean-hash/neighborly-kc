@@ -67,7 +67,7 @@ export default function ProfilePage(){
   const isOwner=me?.id===(p?.auth_user_id || id);
   const border={borderColor:theme.border};
   return <main className="min-h-screen" style={{backgroundColor:theme.bg,color:theme.text}}>
-    <header className="sticky top-0 z-20 overflow-hidden border-b" style={{backgroundColor:theme.header,borderColor:theme.border,color:'#fff'}}>
+    <header className="sticky top-0 z-20 overflow-hidden border-b" style={{backgroundColor:theme.header,borderColor:theme.border,color:theme.headerText}}>
       <div className="relative h-24 overflow-hidden">
         <div className="absolute inset-x-0 bottom-0 h-14 opacity-70 pointer-events-none" aria-hidden="true">
           <svg viewBox="0 0 900 100" className="w-full h-full" preserveAspectRatio="none"><path d="M0 78h55V52h22v26h38V34h18v44h40V62h22v16h34V48h20v30h37V22h13v56h34V39h25v39h32V15h14v63h35V44h20v34h40V28h12v50h33V55h22v23h35V35h16v43h38V50h19v28h41V20h12v58h36V42h23v36h42V60h18v18h44V37h20v41h34V52h22v26h54v-78H0Z" fill={theme.accent} opacity=".25"/></svg>

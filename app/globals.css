@@ -168,3 +168,16 @@ body { overscroll-behavior-y: none; }
 @media (max-width:639px){.nkc-weather-bar{min-height:46px;font-size:11px}.nkc-weather-track{justify-content:flex-start;gap:12px;padding:11px 12px;animation:nkcWeatherTicker 24s linear infinite}.nkc-weather-track strong{font-size:17px}.nkc-top-trending{padding:9px 12px 3px}.nkc-top-trending-title{font-size:10px}.nkc-trending-single-row{grid-template-columns:28px minmax(0,1fr) 28px;gap:5px}.nkc-trending-arrow{font-size:24px}.nkc-trending-card{grid-template-columns:auto 1fr auto;align-items:center;padding:8px 9px}.nkc-trending-stats{grid-column:auto;font-size:9px}.nkc-reply-btn{min-width:68px;padding:10px 14px}.nkc-comment-input{min-height:40px}}
 @keyframes nkcWeatherTicker{from{transform:translateX(0)}to{transform:translateX(-25%)}}
 @media (prefers-reduced-motion:reduce){.nkc-weather-track{animation:none}}
+
+
+/* Theme accessibility: every themed header uses its theme's readable text color.
+   Theme button labels are chosen to keep normal-size text at WCAG AA contrast. */
+.nkc-main-header, .nkc-main-header h1, .nkc-main-header p,
+.nkc-main-header a:not(.nkc-header-control), .nkc-main-header button:not(.nkc-header-control){
+  color:var(--nkc-header-text, inherit);
+}
+.nkc-header-control{color:var(--nkc-header-text,#fff)!important}
+
+
+/* Keyboard and pointer accessibility: never remove the visible focus indicator. */
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid currentColor;outline-offset:2px}
