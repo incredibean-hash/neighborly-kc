@@ -130,11 +130,23 @@ body { overscroll-behavior-y: none; }
   .nkc-header-control{box-shadow:0 3px 10px rgba(0,0,0,.16)}
 }
 
-/* iOS keyboard: keep the composer usable and remove the floating quick-actions
-   from the keyboard's visual area while a text field is active. */
+/* iOS keyboard: keep the composer usable and keep Neighborly's own floating
+   quick-action buttons completely out of the way while typing.
+   NOTE: the keyboard/autofill bar itself is drawn by iOS/Safari and cannot be
+   styled or made transparent by a website. */
 @media (max-width:639px){
-  html.nkc-keyboard-open .nkc-mobile-actions{display:none!important}
+  html.nkc-keyboard-open .nkc-mobile-actions,
+  body:has(input:focus) .nkc-mobile-actions,
+  body:has(textarea:focus) .nkc-mobile-actions,
+  body:has(select:focus) .nkc-mobile-actions{display:none!important}
   html.nkc-keyboard-open .nkc-app-shell{padding-bottom:24px}
   html.nkc-keyboard-open .nkc-page-content{padding-bottom:24px}
   textarea:focus,input:focus,select:focus{scroll-margin-top:96px;scroll-margin-bottom:180px}
+  /* Give the text field a clean, slightly translucent surface so the typing
+     area stays visually distinct when Safari shifts the page above the KB. */
+  .nkc-post-composer{
+    background-color:color-mix(in srgb, var(--nkc-composer-bg, #eef5ff) 88%, transparent)!important;
+    -webkit-backdrop-filter:blur(8px);
+    backdrop-filter:blur(8px);
+  }
 }
