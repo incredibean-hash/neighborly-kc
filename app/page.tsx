@@ -109,19 +109,7 @@ export default function Page(){
     if(meta) meta.setAttribute('content', theme.header);
   },[theme.header]);
 
-  useEffect(()=>{
-    const vv=window.visualViewport;
-    if(!vv) return;
-    const update=()=>{
-      const bottom=Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
-      document.documentElement.style.setProperty('--nkc-vv-bottom', `${bottom}px`);
-    };
-    update();
-    vv.addEventListener('resize',update);
-    vv.addEventListener('scroll',update);
-    window.addEventListener('resize',update);
-    return()=>{ vv.removeEventListener('resize',update); vv.removeEventListener('scroll',update); window.removeEventListener('resize',update); };
-  },[]);
+
 
   const loadAll = async (postIds:string[]) => {
     if(!postIds.length) return;
@@ -371,7 +359,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
         <div className="relative min-h-[138px] sm:min-h-[170px]">
           <div className="nkc-skyline absolute inset-x-0 bottom-0 h-[96px] sm:h-[126px] pointer-events-none" aria-hidden="true">
             <svg viewBox="0 0 1440 180" className="w-full h-full" preserveAspectRatio="none" focusable="false">
-              <g fill={theme.accent} opacity=".30">
+              <g fill={theme.skyline} opacity=".34">
                 <rect x="0" y="132" width="82" height="28" rx="1"/>
                 <rect x="74" y="105" width="42" height="55"/>
                 <rect x="126" y="122" width="58" height="38"/>
@@ -395,7 +383,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
                 <rect x="1300" y="100" width="62" height="60"/>
                 <rect x="1370" y="126" width="70" height="34"/>
               </g>
-              <g fill={theme.accent} opacity=".18">
+              <g fill={theme.skyline} opacity=".20">
                 <rect x="322" y="62" width="20" height="98"/>
                 <rect x="450" y="30" width="28" height="130"/>
                 <rect x="577" y="12" width="28" height="148"/>
@@ -403,8 +391,8 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
                 <rect x="920" y="25" width="40" height="135"/>
                 <rect x="1050" y="44" width="30" height="116"/>
               </g>
-              <path d="M0 160H1440V180H0Z" fill={theme.accent} opacity=".12"/>
-              <path d="M0 160H1440V164H0Z" fill={theme.accent} opacity=".34"/>
+              <path d="M0 160H1440V180H0Z" fill={theme.skyline} opacity=".14"/>
+              <path d="M0 160H1440V164H0Z" fill={theme.skyline} opacity=".42"/>
             </svg>
           </div>
           <div className="max-w-6xl mx-auto px-3 sm:px-6 pt-3 sm:pt-4 relative z-10">
@@ -413,7 +401,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
                 <span className="nkc-kc-mark" aria-hidden="true">KC</span>
                 <div className="min-w-0"><h1 className="font-black text-2xl sm:text-4xl tracking-tight text-white leading-none">Neighborly KC</h1><p className="text-[10px] sm:text-xs mt-1 text-white/70 tracking-[.08em] uppercase">Kansas City • 40 Mile Radius</p></div>
               </a>
-              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0"><a href="/people" className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>People</a><a href="/dms" aria-label="Messages" className="hidden sm:inline px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>💬</a><a href="/notifications" aria-label="Notifications" className="hidden sm:inline px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>🔔</a><button onClick={()=>setShowSettings(true)} aria-label="Themes and settings" className="w-8 h-8 rounded-full flex items-center justify-center nkc-smooth" style={{backgroundColor: theme.card, border: `1px solid ${theme.border}`}}>⚙️</button>{!authReady ? <span className="shrink-0 px-3 sm:px-4 py-2 text-xs sm:text-sm font-black opacity-50">Loading…</span> : profile ? <><span className="text-xs hidden lg:block opacity-60 max-w-28 truncate text-white">{profile.full_name}</span><button onClick={signOut} className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>Sign out</button></> : <button onClick={()=>setShowJoin(true)} className="shrink-0 px-2.5 sm:px-4 py-2 rounded-full text-[11px] sm:text-sm font-black whitespace-nowrap nkc-smooth" style={{backgroundColor: theme.pillActive, color: theme.pillTextActive}}>Sign in</button>}</div>
+              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0"><a href="/people" className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>People</a><a href="/dms" aria-label="Messages" className="hidden sm:inline px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>💬</a><a href="/notifications" aria-label="Notifications" className="hidden sm:inline px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>🔔</a><a href="/" aria-label="Neighborly KC home" className="nkc-header-appmark" title="Neighborly KC"><img src="/neighborly-kc-logo.svg" alt="KC" /></a><button onClick={()=>setShowSettings(true)} aria-label="Themes and settings" className="w-8 h-8 rounded-full flex items-center justify-center nkc-smooth" style={{backgroundColor: theme.card, border: `1px solid ${theme.border}`}}>⚙️</button>{!authReady ? <span className="shrink-0 px-3 sm:px-4 py-2 text-xs sm:text-sm font-black opacity-50">Loading…</span> : profile ? <><span className="text-xs hidden lg:block opacity-60 max-w-28 truncate text-white">{profile.full_name}</span><button onClick={signOut} className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold nkc-smooth" style={{backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`}}>Sign out</button></> : <button onClick={()=>setShowJoin(true)} className="shrink-0 px-2.5 sm:px-4 py-2 rounded-full text-[11px] sm:text-sm font-black whitespace-nowrap nkc-smooth" style={{backgroundColor: theme.pillActive, color: theme.pillTextActive}}>Sign in</button>}</div>
             </div>
           </div>
         </div>

@@ -18,6 +18,8 @@ html, body { min-height: 100%; }
 body { overscroll-behavior-y: none; }
 .nkc-app-shell { min-height: 100svh; min-height: 100dvh; }
 .nkc-mobile-actions { display:none; }
+.nkc-header-appmark{display:none; text-decoration:none;}
+.nkc-header-appmark img{display:block;width:32px;height:32px;border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.12);}
 .nkc-kc-mark{display:grid;place-items:center;width:42px;height:42px;border:2px solid rgba(255,255,255,.72);border-radius:14px;background:rgba(255,255,255,.08);color:#fff;font-weight:950;letter-spacing:-.08em;font-size:15px;line-height:1;box-shadow:0 6px 20px rgba(0,0,0,.12);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 
 
@@ -40,7 +42,7 @@ body { overscroll-behavior-y: none; }
     display:flex;
     position:fixed;
     left:50%;
-    bottom:calc(10px + env(safe-area-inset-bottom) + var(--nkc-vv-bottom, 0px));
+    bottom:calc(10px + env(safe-area-inset-bottom));
     transform:translate3d(-50%,0,0);
     z-index:70;
     align-items:center;
@@ -72,6 +74,8 @@ body { overscroll-behavior-y: none; }
   .nkc-mobile-action svg { width:21px; height:21px; display:block; }
   .nkc-mobile-action-post svg { width:25px; height:25px; }
   .nkc-mobile-action:active { transform:scale(.94); }
+  .nkc-header-appmark { display:inline-flex; align-items:center; justify-content:center; }
+  .nkc-header-appmark img { width:32px; height:32px; border-radius:10px; }
 }
 
 @media (max-width: 639px) {
