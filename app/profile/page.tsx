@@ -16,6 +16,9 @@ export default function MyProfilePage() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   const theme = THEMES[themeId] || THEMES.royals;
 
@@ -34,7 +37,7 @@ export default function MyProfilePage() {
 
       const { data: existing } = await supabase
         .from('profiles')
-        .select('auth_user_id,full_name,email,street_address,zip,neighborhood_id,is_admin,is_founder')
+        .select('id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder')
         .eq('auth_user_id', currentUser.id)
         .maybeSingle();
 
@@ -43,6 +46,7 @@ export default function MyProfilePage() {
       setName(existing?.full_name || fallbackName);
       setZip(existing?.zip || '');
       setNeighborhoodId(existing?.neighborhood_id || '');
+      setAvatarUrl(existing?.avatar_url || '');
       setLoading(false);
     })();
   }, []);
@@ -54,19 +58,34 @@ export default function MyProfilePage() {
     setSaved(false);
     try {
       const selectedHood = hoods.find(h => String(h.id) === String(neighborhoodId));
+      let nextAvatarUrl = avatarUrl || null;
+      if (avatarFile) {
+        setAvatarUploading(true);
+        const ext = (avatarFile.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+        const path = `${user.id}/avatar.${ext}`;
+        const { error: uploadError } = await supabase.storage.from('profile-photos').upload(path, avatarFile, { contentType: avatarFile.type || 'image/jpeg', upsert: true, cacheControl: '3600' });
+        if (uploadError) throw uploadError;
+        const { data: publicData } = supabase.storage.from('profile-photos').getPublicUrl(path);
+        nextAvatarUrl = publicData.publicUrl;
+      }
       const payload = {
         auth_user_id: user.id,
         full_name: name.trim(),
         email: user.email || profile?.email || '',
         zip: zip.trim(),
         neighborhood_id: selectedHood?.id || null,
+        avatar_url: nextAvatarUrl,
       };
-      const { data, error } = await supabase
-        .from('profiles')
-        .upsert(payload, { onConflict: 'auth_user_id' })
-        .select('auth_user_id,full_name,email,street_address,zip,neighborhood_id,is_admin,is_founder')
-        .single();
+      let data:any = null;
+      let error:any = null;
+      if (profile?.id) {
+        ({ data, error } = await supabase.from('profiles').update(payload).eq('auth_user_id', user.id).select('id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder').single());
+      } else {
+        ({ data, error } = await supabase.from('profiles').insert({ id: user.id, ...payload }).select('id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder').single());
+      }
       if (error) throw error;
+      setAvatarUrl(nextAvatarUrl || '');
+      setAvatarFile(null);
       setProfile(data);
       localStorage.setItem('nkc_profile', JSON.stringify({ ...data, user_id: user.id }));
       setSaved(true);
@@ -74,6 +93,7 @@ export default function MyProfilePage() {
     } catch (err: any) {
       alert(err.message || 'Could not save your profile.');
     } finally {
+      setAvatarUploading(false);
       setSaving(false);
     }
   };
@@ -110,11 +130,20 @@ export default function MyProfilePage() {
       <div className="max-w-3xl mx-auto p-5 sm:p-8">
         <section className="rounded-3xl border p-6 sm:p-8" style={{ backgroundColor: theme.card, borderColor: theme.border }}>
           <div className="flex items-center gap-4 mb-7">
-            <div className="w-20 h-20 rounded-full grid place-items-center text-2xl font-black border-4" style={{ backgroundColor: theme.input, borderColor: theme.border }}>{initials}</div>
+            <div className="relative shrink-0">
+              <div className="w-20 h-20 rounded-full overflow-hidden grid place-items-center text-2xl font-black border-4" style={{ backgroundColor: theme.input, borderColor: theme.border }}>
+                {avatarUrl ? <img src={avatarUrl} alt="Your profile photo" className="w-full h-full object-cover" /> : initials}
+              </div>
+              <label className="absolute -bottom-1 -right-1 rounded-full px-2 py-1 text-[10px] font-black cursor-pointer shadow-lg" style={{ backgroundColor: theme.accent, color: theme.pillTextActive }}>
+                📷
+                <input type="file" accept="image/*" className="hidden" onChange={e => { const f=e.target.files?.[0]; if(f){ if(f.size>8*1024*1024){alert('Profile photos must be 8 MB or smaller.'); return;} setAvatarFile(f); const r=new FileReader(); r.onload=()=>setAvatarUrl(String(r.result||'')); r.readAsDataURL(f); } }} />
+              </label>
+            </div>
             <div>
               <p className="text-xs uppercase tracking-widest font-black opacity-45">Neighborly KC member</p>
               <h2 className="text-xl font-black">{name || 'Your name'}</h2>
               <p className="text-sm opacity-55">{selectedHood?.name || 'Choose your neighborhood below'}</p>
+              <p className="text-xs opacity-45 mt-1">Tap 📷 to add your photo. It can appear next to your posts.</p>
             </div>
           </div>
 
@@ -152,7 +181,7 @@ export default function MyProfilePage() {
 
             <div className="flex flex-col sm:flex-row gap-3 pt-1">
               <Link href="/" className="flex-1 text-center rounded-full py-3.5 font-bold border" style={{ borderColor: theme.border, backgroundColor: theme.input }}>Cancel</Link>
-              <button disabled={saving} className="flex-1 rounded-full py-3.5 font-black disabled:opacity-50" style={{ backgroundColor: theme.accent, color: theme.pillTextActive }}>{saving ? 'Saving…' : 'Save Profile'}</button>
+              <button disabled={saving} className="flex-1 rounded-full py-3.5 font-black disabled:opacity-50" style={{ backgroundColor: theme.accent, color: theme.pillTextActive }}>{avatarUploading ? 'Uploading photo…' : saving ? 'Saving…' : 'Save Profile'}</button>
             </div>
           </form>
         </section>

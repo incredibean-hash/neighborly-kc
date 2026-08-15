@@ -1,0 +1,17 @@
+-- Neighborly KC: fix profile creation and add profile photos
+-- Run this once in Supabase SQL Editor.
+
+create extension if not exists pgcrypto;
+alter table public.profiles alter column id set default gen_random_uuid();
+alter table public.profiles add column if not exists avatar_url text;
+
+insert into storage.buckets (id, name, public) values ('profile-photos', 'profile-photos', true) on conflict (id) do update set public = true;
+
+drop policy if exists "profile photos insert own" on storage.objects;
+create policy "profile photos insert own" on storage.objects for insert to authenticated with check (bucket_id = 'profile-photos' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "profile photos update own" on storage.objects;
+create policy "profile photos update own" on storage.objects for update to authenticated using (bucket_id = 'profile-photos' and (storage.foldername(name))[1] = auth.uid()::text) with check (bucket_id = 'profile-photos' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "profile photos delete own" on storage.objects;
+create policy "profile photos delete own" on storage.objects for delete to authenticated using (bucket_id = 'profile-photos' and (storage.foldername(name))[1] = auth.uid()::text);

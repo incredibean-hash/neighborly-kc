@@ -23,7 +23,7 @@ export default function ProfilePage(){
     setLoading(true);
     const {data:{user}}=await supabase.auth.getUser();
     setMe(user);
-    const {data:pr,error:prErr}=await supabase.from('profiles').select('auth_user_id,full_name,email,zip,street_address,is_verified,is_founder,is_admin').eq('auth_user_id',id).maybeSingle();
+    const {data:pr,error:prErr}=await supabase.from('profiles').select('id,auth_user_id,full_name,email,zip,street_address,avatar_url,is_verified,is_founder,is_admin').eq('auth_user_id',id).maybeSingle();
     if(prErr) console.error(prErr);
     setP(pr);
     setName(pr?.full_name||'');
@@ -48,7 +48,7 @@ export default function ProfilePage(){
   const saveProfile=async()=>{
     if(!me||me.id!==id||!name.trim())return;
     setSaving(true);
-    const {data,error}=await supabase.from('profiles').update({full_name:name.trim(),zip:zip.trim()}).eq('auth_user_id',id).select('auth_user_id,full_name,email,zip,street_address,is_verified,is_founder,is_admin').single();
+    const {data,error}=await supabase.from('profiles').update({full_name:name.trim(),zip:zip.trim()}).eq('auth_user_id',id).select('id,auth_user_id,full_name,email,zip,street_address,avatar_url,is_verified,is_founder,is_admin').single();
     if(error){alert('Could not save profile: '+error.message);setSaving(false);return;}
     setP(data);setEditing(false);
     localStorage.setItem('nkc_profile',JSON.stringify({...data,user_id:id}));
@@ -78,7 +78,7 @@ export default function ProfilePage(){
     <div className="max-w-3xl mx-auto p-4 space-y-4">
       <section className="rounded-3xl p-6 border nkc-surface" style={{backgroundColor:theme.card,borderColor:theme.border}}>
         {!editing?<div className="flex flex-col sm:flex-row gap-5 items-start">
-          <div className="w-20 h-20 shrink-0 rounded-full grid place-items-center text-3xl font-black border-2" style={{backgroundColor:theme.input,borderColor:theme.border}}>{displayName(p).slice(0,1).toUpperCase()}</div>
+          <div className="w-20 h-20 shrink-0 rounded-full overflow-hidden grid place-items-center text-3xl font-black border-2" style={{backgroundColor:theme.input,borderColor:theme.border}}>{p.avatar_url?<img src={p.avatar_url} alt={displayName(p)} className="w-full h-full object-cover"/>:displayName(p).slice(0,1).toUpperCase()}</div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap"><h1 className="text-3xl font-black">{displayName(p)}</h1>{(p.is_admin||p.is_founder)&&<span className="rounded-full px-2.5 py-1 text-[10px] font-black uppercase" style={{backgroundColor:theme.input}}>Admin</span>}{p.is_verified&&<span className="rounded-full px-2.5 py-1 text-[10px] font-black uppercase" style={{backgroundColor:theme.input}}>Verified</span>}</div>
             <p className="opacity-60 mt-1">📍 Kansas City {p.zip?`• ${p.zip}`:''}</p>
