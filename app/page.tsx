@@ -497,7 +497,8 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
       <header className="sticky top-0 z-40 overflow-hidden border-b nkc-main-header" style={{backgroundColor: theme.header, borderColor: theme.border, color: theme.headerText}}>
         <div className="nkc-header-banner-wrap">
           <a href="/" className="block nkc-header-banner-link" aria-label="Neighborly KC home">
-            <img src="/neighborly-kc-header-banner.png" alt="Neighborly KC" className="nkc-header-banner" draggable="false" />
+            <img src="/neighborly-kc-header-banner.png" alt="Neighborly KC" className="nkc-header-banner" style={{filter:theme.headerImageFilter || 'none'}} draggable="false" />
+            <span aria-hidden="true" className="nkc-header-theme-overlay" style={{background:theme.headerOverlay || 'transparent'}} />
           </a>
           <div className="nkc-header-controls" aria-label="Account controls">
             <div className="flex items-center gap-1.5">
