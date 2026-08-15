@@ -369,13 +369,42 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
     <div className="min-h-screen w-full overflow-x-hidden nkc-app-shell" style={{backgroundColor: theme.bg, color: theme.text}}>
       <header className="sticky top-0 z-40 overflow-hidden border-b" style={{backgroundColor: theme.header, borderColor: theme.border}}>
         <div className="relative min-h-[138px] sm:min-h-[170px]">
-          <div className="absolute inset-x-0 bottom-0 h-[76px] sm:h-[112px] pointer-events-none" aria-hidden="true">
-            <svg viewBox="0 0 1200 170" className="w-full h-full" preserveAspectRatio="none">
-              <defs><linearGradient id="nkcSkylineFade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={theme.accent} stopOpacity=".30"/><stop offset="1" stopColor={theme.accent} stopOpacity=".12"/></linearGradient></defs>
-              <path d="M0 132h74v-30h34v30h34v-52h22v52h35V74h14v58h38V96h22v36h31V67h17v65h32V52h10v80h27V83h20v49h28V28h12v104h26V61h25v71h30V45h16v87h27V76h18v56h24V14h12v118h27V54h20v78h30V80h16v52h24V38h12v94h28V67h18v65h28V48h10v84h30V77h20v55h34V91h14v41h28V58h20v74h26V72h18v60h29V94h18v38h33V84h20v48h26V69h14v63h28V100h22v32h24V80h16v52h40v-18h28v18h80v38H0Z" fill="url(#nkcSkylineFade)"/>
-              <path d="M0 137h1200v33H0z" fill={theme.accent} opacity=".10"/>
-              <path d="M0 139h1200v2H0z" fill={theme.accent} opacity=".34"/>
-              <path d="M28 141h1144v23H28z" fill={theme.card} opacity=".08"/>
+          <div className="nkc-skyline absolute inset-x-0 bottom-0 h-[96px] sm:h-[126px] pointer-events-none" aria-hidden="true">
+            <svg viewBox="0 0 1440 180" className="w-full h-full" preserveAspectRatio="none" focusable="false">
+              <g fill={theme.accent} opacity=".30">
+                <rect x="0" y="132" width="82" height="28" rx="1"/>
+                <rect x="74" y="105" width="42" height="55"/>
+                <rect x="126" y="122" width="58" height="38"/>
+                <rect x="194" y="92" width="30" height="68"/>
+                <rect x="232" y="114" width="70" height="46"/>
+                <rect x="312" y="76" width="40" height="84"/>
+                <rect x="360" y="100" width="74" height="60"/>
+                <rect x="442" y="52" width="44" height="108"/>
+                <rect x="496" y="86" width="62" height="74"/>
+                <rect x="568" y="35" width="46" height="125"/>
+                <rect x="624" y="66" width="78" height="94"/>
+                <rect x="712" y="20" width="54" height="140"/>
+                <rect x="776" y="48" width="72" height="112"/>
+                <rect x="858" y="78" width="38" height="82"/>
+                <rect x="906" y="42" width="68" height="118"/>
+                <rect x="984" y="96" width="50" height="64"/>
+                <rect x="1044" y="60" width="44" height="100"/>
+                <rect x="1098" y="82" width="76" height="78"/>
+                <rect x="1184" y="112" width="58" height="48"/>
+                <rect x="1252" y="72" width="36" height="88"/>
+                <rect x="1300" y="100" width="62" height="60"/>
+                <rect x="1370" y="126" width="70" height="34"/>
+              </g>
+              <g fill={theme.accent} opacity=".18">
+                <rect x="322" y="62" width="20" height="98"/>
+                <rect x="450" y="30" width="28" height="130"/>
+                <rect x="577" y="12" width="28" height="148"/>
+                <rect x="724" y="0" width="30" height="160"/>
+                <rect x="920" y="25" width="40" height="135"/>
+                <rect x="1050" y="44" width="30" height="116"/>
+              </g>
+              <path d="M0 160H1440V180H0Z" fill={theme.accent} opacity=".12"/>
+              <path d="M0 160H1440V164H0Z" fill={theme.accent} opacity=".34"/>
             </svg>
           </div>
           <div className="max-w-6xl mx-auto px-3 sm:px-6 pt-3 sm:pt-4 relative z-10">
