@@ -534,16 +534,65 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
         <span>© 2026 Neighborly KC</span><span className="mx-2">·</span><a href="/privacy" className="underline underline-offset-2">Privacy Policy</a><span className="mx-2">·</span><a href="/terms" className="underline underline-offset-2">Terms of Service</a>
       </footer>
 
-      <nav className="nkc-mobile-actions" aria-label="Quick actions">
-        <a href="/dms" aria-label="Messages" title="Messages" className="nkc-mobile-action">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A3.5 3.5 0 0 1 7.5 2h9A3.5 3.5 0 0 1 20 5.5v6A3.5 3.5 0 0 1 16.5 15H11l-4.5 4v-4.5A3.5 3.5 0 0 1 4 11.5z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M8 7.5h8M8 10.5h5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-        </a>
-        <button type="button" aria-label="Create post" title="Create post" className="nkc-mobile-action nkc-mobile-action-post" onClick={()=>{ if(!profile){ setShowJoin(true); return; } postComposerRef.current?.focus(); postComposerRef.current?.scrollIntoView({behavior:'smooth',block:'center'}); }}>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+      <nav
+        className="nkc-mobile-actions nkc-mobile-bottom-nav"
+        aria-label="Mobile navigation"
+        style={{backgroundColor:theme.header,color:theme.text,borderColor:theme.border}}
+      >
+        <button
+          type="button"
+          aria-label="Feed"
+          className={`nkc-bottom-nav-item ${cat==='All'?'is-active':''}`}
+          onClick={()=>{setCat('All');setShowExplore(false);window.scrollTo({top:0,behavior:'smooth'});}}
+          style={cat==='All'?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{}}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>
+          <span>Feed</span>
         </button>
-        <a href="/notifications" aria-label="Notifications" title="Notifications" className="nkc-mobile-action">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 8.5h18C21 16 18 16 18 9Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M10 20h4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
-        </a>
+
+        <button
+          type="button"
+          aria-label="Safety"
+          className={`nkc-bottom-nav-item ${cat==='Safety Alert'?'is-active':''}`}
+          onClick={()=>{setCat('Safety Alert');setShowExplore(false);window.scrollTo({top:0,behavior:'smooth'});}}
+          style={cat==='Safety Alert'?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{}}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 6v5c0 5.2-3.4 8.5-8 10-4.6-1.5-8-4.8-8-10V6z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="m9 12 2 2 4-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          <span>Safety</span>
+        </button>
+
+        <button
+          type="button"
+          aria-label="Create post"
+          title="Create post"
+          className="nkc-bottom-nav-plus"
+          onClick={()=>{ if(!profile){ setShowJoin(true); return; } postComposerRef.current?.focus(); postComposerRef.current?.scrollIntoView({behavior:'smooth',block:'center'}); }}
+          style={{backgroundColor:theme.accent,color:theme.pillTextActive,borderColor:theme.header}}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/></svg>
+        </button>
+
+        <button
+          type="button"
+          aria-label="For Sale"
+          className={`nkc-bottom-nav-item ${cat==='For Sale & Free'?'is-active':''}`}
+          onClick={()=>{setCat('For Sale & Free');setShowExplore(false);window.scrollTo({top:0,behavior:'smooth'});}}
+          style={cat==='For Sale & Free'?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{}}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5 12 4l8 4.5v8L12 21l-8-4.5z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M9 11h6M9 14h4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
+          <span>For Sale</span>
+        </button>
+
+        <button
+          type="button"
+          aria-label="Explore"
+          className={`nkc-bottom-nav-item ${showExplore?'is-active':''}`}
+          onClick={()=>setShowExplore(v=>!v)}
+          style={showExplore?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{}}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="m15.8 8.2-2 5.6-5.6 2 2-5.6z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>
+          <span>Explore</span>
+        </button>
       </nav>
 
       {showSettings && (

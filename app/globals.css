@@ -130,6 +130,73 @@ body { overscroll-behavior-y: none; }
   .nkc-header-control{box-shadow:0 3px 10px rgba(0,0,0,.16)}
 }
 
+
+/* Theme-matched mobile bottom navigation. The bar uses the active theme's
+   header/accent colors and keeps the center + button floating above the bar. */
+.nkc-mobile-bottom-nav{
+  left:0;
+  right:0;
+  bottom:0;
+  transform:none;
+  width:100%;
+  height:68px;
+  padding:7px 10px calc(7px + env(safe-area-inset-bottom));
+  gap:6px;
+  border-top:1px solid;
+  border-radius:0;
+  box-shadow:0 -8px 24px rgba(0,0,0,.14);
+  backdrop-filter:blur(16px) saturate(145%);
+  -webkit-backdrop-filter:blur(16px) saturate(145%);
+  pointer-events:auto;
+  justify-content:space-around;
+}
+.nkc-bottom-nav-item{
+  flex:1 1 0;
+  min-width:0;
+  max-width:92px;
+  height:50px;
+  border:0;
+  border-radius:16px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:2px;
+  background:transparent;
+  color:inherit;
+  font-size:10px;
+  font-weight:900;
+  line-height:1;
+  -webkit-tap-highlight-color:transparent;
+}
+.nkc-bottom-nav-item svg{width:21px;height:21px;display:block}
+.nkc-bottom-nav-item.is-active{box-shadow:0 4px 14px rgba(0,0,0,.12)}
+.nkc-bottom-nav-plus{
+  flex:0 0 58px;
+  width:58px;
+  height:58px;
+  margin-top:-18px;
+  border-radius:9999px;
+  border:3px solid;
+  display:grid;
+  place-items:center;
+  box-shadow:0 8px 20px rgba(0,0,0,.22);
+  -webkit-tap-highlight-color:transparent;
+}
+.nkc-bottom-nav-plus svg{width:28px;height:28px}
+.nkc-bottom-nav-item:active,.nkc-bottom-nav-plus:active{transform:scale(.94)}
+@media (min-width:640px){.nkc-mobile-bottom-nav{display:none!important}}
+@media (max-width:639px){
+  .nkc-mobile-bottom-nav{
+    position:fixed;
+    z-index:75;
+  }
+  html.nkc-keyboard-open .nkc-mobile-bottom-nav,
+  body:has(input:focus) .nkc-mobile-bottom-nav,
+  body:has(textarea:focus) .nkc-mobile-bottom-nav,
+  body:has(select:focus) .nkc-mobile-bottom-nav{display:none!important}
+}
+
 /* iOS keyboard: keep the composer usable and keep Neighborly's own floating
    quick-action buttons completely out of the way while typing.
    NOTE: the keyboard/autofill bar itself is drawn by iOS/Safari and cannot be
