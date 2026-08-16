@@ -227,3 +227,40 @@ body { overscroll-behavior-y: none; }
 @media (max-width:639px){
   .nkc-post-image-frame{aspect-ratio:16/10;}
 }
+
+/* Theme picker cards supplied by Neighborly KC. */
+.nkc-theme-choice{
+  position:relative;
+  display:block;
+  width:100%;
+  padding:0;
+  overflow:hidden;
+  border:2px solid;
+  border-radius:16px;
+  background:#0b1020;
+  line-height:0;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.nkc-theme-choice img{display:block;width:100%;aspect-ratio:1.05/1;object-fit:cover;object-position:center}
+.nkc-theme-choice:hover{transform:translateY(-1px)}
+.nkc-theme-choice-check{position:absolute;right:7px;top:7px;width:26px;height:26px;border-radius:9999px;display:grid;place-items:center;font-weight:950;font-size:15px;line-height:1;box-shadow:0 4px 12px rgba(0,0,0,.3)}
+.nkc-theme-choice-fallback{aspect-ratio:1.05/1;display:grid;place-items:center;color:#fff;font-size:13px;padding:8px;line-height:1.1}
+
+/* Compact theme-matched weather strip below the header artwork. */
+.nkc-weather-ticker{position:relative;overflow:hidden;width:100%;border-top:1px solid;border-bottom:1px solid;white-space:nowrap;font-size:11px;font-weight:800;line-height:1;padding:7px 0}
+.nkc-weather-track{display:flex;width:max-content;align-items:center;gap:28px;animation:nkcWeatherSlide 24s linear infinite;padding-left:18px}
+.nkc-weather-track span{display:inline-flex;align-items:center;gap:4px}
+.nkc-weather-static{animation:none;justify-content:center;width:100%;padding:0}
+@keyframes nkcWeatherSlide{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.nkc-weather-track{animation:none;justify-content:center;width:100%;padding-left:0}}
+
+/* Prevent the clickable header artwork from carrying browser button chrome. */
+.nkc-header-banner-link{display:block;border:0;padding:0;margin:0;background:transparent;cursor:pointer}
+
+@media (max-width:639px){
+  .nkc-theme-choice{border-radius:13px}
+  .nkc-theme-choice img{aspect-ratio:1.05/1}
+  .nkc-weather-ticker{font-size:10px;padding:6px 0}
+  .nkc-weather-track{gap:20px;animation-duration:20s}
+}

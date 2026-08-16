@@ -99,6 +99,7 @@ export default function Page(){
   const [commentText,setCommentText]=useState<Record<string,string>>({});
   const [hood,setHood]=useState('Meadow Brooks Heights');
   const [cat,setCat]=useState('All');
+  const [postCategory,setPostCategory]=useState('General');
   const [scope,setScope]=useState<'local'|'kc'>('local');
   const [showExplore,setShowExplore]=useState(false);
   const [body,setBody]=useState('');
@@ -132,6 +133,7 @@ export default function Page(){
   const fileInputRef = useRef<HTMLInputElement>(null);
   const postComposerRef = useRef<HTMLTextAreaElement>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
+  const [weather,setWeather]=useState<{temp:number;feels:number;precip:number;code:number}|null>(null);
 
   const theme = THEMES[themeId] || THEMES['royals'];
   const headerImage = theme.headerImage || '/neighborly-kc-header-banner.png';
@@ -172,8 +174,8 @@ export default function Page(){
 
   const signInWithGoogle = async () => {
     setGoogleLoading(true);
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? window.location.origin : 'https://neighborlykc.com');
-    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: siteUrl.replace(/\/$/, '') } });
+    const siteUrl = window.location.origin;
+    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${siteUrl}/` } });
     if(error){ alert('Google login failed: '+error.message); setGoogleLoading(false); }
   };
 
@@ -221,6 +223,7 @@ export default function Page(){
     const saved = localStorage.getItem('nkc_theme');
     const migrated = saved === 'kc-sunset' ? 'kc-current' : saved;
     setThemeId(migrated && THEMES[migrated] ? migrated : DEFAULT_THEME_ID);
+    if(new URLSearchParams(window.location.search).get('signin')==='1') setShowJoin(true);
     let alive = true;
     let subscription: { unsubscribe: () => void } | null = null;
 
@@ -295,32 +298,57 @@ export default function Page(){
         }
       }
 
-      // Public feed data loads separately so a slow Supabase query can never
-      // leave the header stuck on "Loading…".
-      const [hoodsResult, postsResult] = await Promise.all([
-        supabase.from('neighborhoods').select('*').order('member_count',{ascending:false}),
-        supabase.from('posts').select('*').order('created_at',{ascending:false}).limit(50),
-      ]);
-      if(!alive) return;
-      if(hoodsResult.data) setHoods(hoodsResult.data);
-      if(postsResult.data){
-        const rawPosts = postsResult.data;
-        const ids = [...new Set(rawPosts.map((x:any)=>x.user_id).filter(Boolean))];
-        let profileMap = new Map<string, any>();
-        if(ids.length){
-          const { data: postProfiles } = await supabase.from('profiles').select('auth_user_id,full_name,avatar_url').in('auth_user_id', ids);
-          profileMap = new Map((postProfiles||[]).map((x:any)=>[x.auth_user_id,x]));
+      // Public feed data loads independently and retries briefly. This fixes the
+      // mobile/Safari case where the first Supabase request can race startup and
+      // leave the feed blank until a manual refresh.
+      const loadFeed=async(attempt=0):Promise<void>=>{
+        if(!alive) return;
+        const [hoodsResult, postsResult] = await Promise.all([
+          supabase.from('neighborhoods').select('*').order('member_count',{ascending:false}),
+          supabase.from('posts').select('*').order('created_at',{ascending:false}).limit(50),
+        ]);
+        if(!alive) return;
+        if(hoodsResult.data) setHoods(hoodsResult.data);
+        if(postsResult.error){
+          console.warn('Feed load retry', postsResult.error.message);
+          if(attempt<3) window.setTimeout(()=>void loadFeed(attempt+1),450*(attempt+1));
+          return;
         }
-        const enrichedPosts = rawPosts.map((x:any)=>({...x, profiles: profileMap.get(x.user_id) || x.profiles || null}));
+        const rawPosts=postsResult.data||[];
+        const ids=[...new Set(rawPosts.map((x:any)=>x.user_id).filter(Boolean))];
+        let profileMap=new Map<string,any>();
+        if(ids.length){
+          const {data:postProfiles}=await supabase.from('profiles').select('auth_user_id,full_name,avatar_url').in('auth_user_id',ids);
+          profileMap=new Map((postProfiles||[]).map((x:any)=>[x.auth_user_id,x]));
+        }
+        const enrichedPosts=rawPosts.map((x:any)=>({...x,profiles:profileMap.get(x.user_id)||x.profiles||null}));
         setPosts(enrichedPosts);
         void loadAll(enrichedPosts.map((x:any)=>x.id));
-      }
+        if(!enrichedPosts.length && attempt<2) window.setTimeout(()=>void loadFeed(attempt+1),650);
+      };
+      void loadFeed();
     })();
 
     return ()=>{ alive=false; subscription?.unsubscribe(); };
   },[]);
 
   const setTheme = (id:string)=>{ setThemeId(id); localStorage.setItem('nkc_theme', id); };
+
+  useEffect(()=>{
+    let alive=true;
+    const loadWeather=async()=>{
+      try{
+        const res=await fetch('https://api.open-meteo.com/v1/forecast?latitude=39.0997&longitude=-94.5786&current=temperature_2m,apparent_temperature,precipitation,weather_code&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=America%2FChicago',{cache:'no-store'});
+        if(!res.ok) throw new Error('weather request failed');
+        const data=await res.json();
+        const c=data?.current;
+        if(alive && c) setWeather({temp:Number(c.temperature_2m),feels:Number(c.apparent_temperature),precip:Number(c.precipitation),code:Number(c.weather_code)});
+      }catch{}
+    };
+    loadWeather();
+    const timer=window.setInterval(loadWeather,10*60*1000);
+    return()=>{alive=false;window.clearInterval(timer)};
+  },[]);
   const signOut = async () => { localStorage.removeItem('nkc_profile'); await supabase.auth.signOut(); setProfile(null); setShowSettings(false); };
   const submitFeedback = async () => {
     const text = feedbackText.trim();
@@ -380,7 +408,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
       const user = currentUser;
       const { data, error } = await supabase.from('posts').insert({
         body,
-        category: cat === 'All' ? 'General' : cat,
+        category: postCategory,
         user_id: user.id,
         author_id: user.id,
         neighborhood_id: realId,
@@ -391,6 +419,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
       if (error) throw error;
       setPosts([{ ...data, profiles: { full_name: profile.full_name, avatar_url: profile.avatar_url || null } }, ...posts]);
       setBody('');
+      setPostCategory('General');
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
       document.documentElement.classList.remove('nkc-keyboard-open');
@@ -465,9 +494,9 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
     <div className="min-h-screen w-full overflow-x-hidden nkc-app-shell" style={{backgroundColor: theme.bg, color: theme.text}}>
       <header className="sticky top-0 z-40 overflow-hidden border-b nkc-main-header" style={{backgroundColor: theme.header, borderColor: 'rgba(255,255,255,.12)'}}>
         <div className="nkc-header-banner-wrap">
-          <a href="/" className="block nkc-header-banner-link" aria-label="Neighborly KC home">
+          <button type="button" className="block nkc-header-banner-link" aria-label="Neighborly KC home" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})}>
             <img src={headerImage} alt="Neighborly KC" className="nkc-header-banner" draggable="false" />
-          </a>
+          </button>
           <div className="nkc-header-controls" aria-label="Account controls">
             <div className="flex items-center gap-1.5">
               <a href="/people" className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold nkc-header-control">People</a>
@@ -477,6 +506,12 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
               {!authReady ? <span className="shrink-0 px-3 py-2 text-xs font-black text-white/70">Loading…</span> : profile ? <><span className="text-xs hidden lg:block max-w-28 truncate text-white/80">{profile.full_name}</span><button type="button" onClick={signOut} className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold nkc-header-control">Sign out</button></> : <button type="button" onClick={()=>setShowJoin(true)} className="shrink-0 px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-black whitespace-nowrap nkc-header-control">Sign in</button>}
             </div>
           </div>
+        </div>
+        <div className="nkc-weather-ticker" aria-label="Kansas City current weather" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>
+          {weather ? <div className="nkc-weather-track">
+            <span>🌡️ <b>{Math.round(weather.temp)}°</b></span><span>💧 <b>{weather.precip.toFixed(2)} in</b> precip</span><span>🥵 <b>{Math.round(weather.feels)}°</b> feels like</span><span>📍 Kansas City</span>
+            <span>🌡️ <b>{Math.round(weather.temp)}°</b></span><span>💧 <b>{weather.precip.toFixed(2)} in</b> precip</span><span>🥵 <b>{Math.round(weather.feels)}°</b> feels like</span><span>📍 Kansas City</span>
+          </div> : <div className="nkc-weather-track nkc-weather-static"><span>🌤️ Kansas City weather loading…</span></div>}
         </div>
         <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2.5 flex gap-2 justify-center flex-wrap relative z-10 nkc-desktop-nav">
           <button onClick={()=>setCat('All')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor: cat==='All'?theme.pillActive:theme.pillInactive,color:cat==='All'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Feed</button>
@@ -511,6 +546,12 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
   <input key={fileInputKey} ref={fileInputRef} id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="sr-only" />
   {file && <div className="min-w-0 flex items-center gap-2 text-xs opacity-70"><span className="truncate max-w-[180px]" title={file.name}>{file.name}</span><button type="button" onClick={()=>{setFile(null); if(fileInputRef.current) fileInputRef.current.value=''; setFileInputKey(k=>k+1);}} className="shrink-0 font-black" aria-label="Remove selected image">✕</button></div>}
 </div>
+            <div className="mt-3 grid sm:grid-cols-[1fr_auto] gap-2 items-center">
+              <label className="text-xs font-black uppercase tracking-wide opacity-55" htmlFor="post-category">Category</label>
+              <select id="post-category" value={postCategory} onChange={e=>setPostCategory(e.target.value)} className="w-full sm:w-auto rounded-full px-4 py-2 text-sm font-bold border outline-none" style={{backgroundColor:theme.card,color:theme.text,borderColor:theme.border}}>
+                {CATS.filter(c=>c!=='All').map(c=><option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
             <div className="flex justify-end mt-2"><button disabled={uploading} onClick={handleBePost} className="px-5 py-2 rounded-full text-sm font-bold disabled:opacity-50" style={{backgroundColor: theme.accent, color: theme.pillTextActive}}>{uploading?'Uploading...':scope==='kc'?'Post to KC':'Post to neighbors'}</button></div>
           </div>
 
@@ -547,7 +588,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
           style={cat==='All'?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>
-          <span>Feed</span>
+          <span>{theme.emoji} Feed</span>
         </button>
 
         <button
@@ -558,7 +599,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
           style={cat==='Safety Alert'?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 6v5c0 5.2-3.4 8.5-8 10-4.6-1.5-8-4.8-8-10V6z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="m9 12 2 2 4-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          <span>Safety</span>
+          <span>{theme.emoji} Safety</span>
         </button>
 
         <button
@@ -567,7 +608,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
           title="Create post"
           className="nkc-bottom-nav-plus"
           onClick={()=>{ if(!profile){ setShowJoin(true); return; } postComposerRef.current?.focus(); postComposerRef.current?.scrollIntoView({behavior:'smooth',block:'center'}); }}
-          style={{backgroundColor:theme.accent,color:theme.pillTextActive,borderColor:theme.header}}
+          style={{backgroundColor:theme.accent,color:theme.pillTextActive,borderColor:theme.header,boxShadow:`0 8px 20px ${theme.accent}55`}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/></svg>
         </button>
@@ -580,7 +621,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
           style={cat==='For Sale & Free'?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5 12 4l8 4.5v8L12 21l-8-4.5z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M9 11h6M9 14h4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
-          <span>For Sale</span>
+          <span>{theme.emoji} For Sale</span>
         </button>
 
         <button
@@ -591,7 +632,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
           style={showExplore?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="m15.8 8.2-2 5.6-5.6 2 2-5.6z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>
-          <span>Explore</span>
+          <span>{theme.emoji} Explore</span>
         </button>
       </nav>
 
@@ -601,13 +642,9 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
             <div className="flex justify-between items-center mb-4"><h2 className="font-black text-white">Settings</h2><button onClick={()=>setShowSettings(false)} className="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center">✕</button></div>
             <button type="button" onClick={()=>setShowThemePicker(v=>!v)} className="w-full flex items-center justify-between py-3 px-4 rounded-2xl border border-white/15 bg-white/10 text-white font-bold"><span>🎨 Themes</span><span className="text-white/60">{showThemePicker?'▲':'▼'}</span></button>
             {showThemePicker && <div className="mt-3">
-              <p className="text-[10px] font-black tracking-widest uppercase text-white/40 mb-2">KC themes</p>
-              <div className="grid grid-cols-2 gap-2 mb-4">
-                {['royals','chiefs','sporting','kc-night','kc-current','kc-heartland'].map(id=>{ const t=THEMES[id]; const active=themeId===id; return <button key={id} onClick={()=>setTheme(id)} className="group relative overflow-hidden rounded-2xl border-2 text-left min-h-24 transition-transform active:scale-[.98]" style={{backgroundColor:t.card,borderColor:active?t.accent:t.border,color:t.text}}>{t.headerImage?<img src={t.headerImage} alt="" className="absolute inset-0 w-full h-full object-cover opacity-90 group-hover:opacity-100"/>:<div className="absolute inset-0" style={{background:`linear-gradient(135deg, ${t.header}, ${t.accent})`}}/>}<div className="absolute inset-0 bg-black/25"/><div className="relative z-10 h-full min-h-24 flex flex-col justify-end p-3 text-white"><span className="font-black drop-shadow">{t.emoji} {t.name}</span>{active&&<span className="text-[10px] mt-1 font-black opacity-90">✓ Active</span>}</div></button>})}
-              </div>
-              <p className="text-[10px] font-black tracking-widest uppercase text-white/40 mb-2">Other looks</p>
+              <p className="text-[10px] font-black tracking-widest uppercase text-white/40 mb-2">Choose your Neighborly KC look</p>
               <div className="grid grid-cols-2 gap-2">
-                {['daylight','midnight','space','warm-sand','aim','pip-boy'].map(id=>{ const t=THEMES[id]; const active=themeId===id; return <button key={id} onClick={()=>setTheme(id)} className="group relative overflow-hidden rounded-2xl border-2 text-left min-h-24 transition-transform active:scale-[.98]" style={{backgroundColor:t.card,borderColor:active?t.accent:t.border,color:t.text}}>{t.headerImage?<img src={t.headerImage} alt="" className="absolute inset-0 w-full h-full object-cover opacity-90 group-hover:opacity-100"/>:<div className="absolute inset-0" style={{background:`linear-gradient(135deg, ${t.header}, ${t.accent})`}}/>}<div className="absolute inset-0 bg-black/25"/><div className="relative z-10 h-full min-h-24 flex flex-col justify-end p-3 text-white"><span className="font-black drop-shadow">{t.emoji} {t.name}</span>{active&&<span className="text-[10px] mt-1 font-black opacity-90">✓ Active</span>}</div></button>})}
+                {['aim','sporting','royals','chiefs','pip-boy','space','kc-current'].map(id=>{ const t=THEMES[id]; const active=themeId===id; return <button key={id} type="button" aria-label={`Use ${t.name} theme`} onClick={()=>setTheme(id)} className={`nkc-theme-choice ${active?'is-active':''}`} style={{borderColor:active?t.accent:t.border,boxShadow:active?`0 0 0 2px ${t.accent}55`:undefined}}>{t.themeButtonImage?<img src={t.themeButtonImage} alt={t.name}/>:<div className="nkc-theme-choice-fallback" style={{background:`linear-gradient(135deg,${t.header},${t.accent})`}}><b>{t.name}</b></div>}{active&&<span className="nkc-theme-choice-check" style={{backgroundColor:t.accent,color:t.pillTextActive}}>✓</span>}</button>})}
               </div>
             </div>}
             {profile&&<a href="/profile" onClick={()=>setShowSettings(false)} className="mt-4 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center">👤 My Profile</a>}<button onClick={()=>{if(!profile){setShowJoin(true);return;}setShowFeedback(true)}} className="mt-2 w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold">💬 Leave Feedback</button>{profile&&<button onClick={signOut} className="mt-2 w-full py-3 rounded-full border border-red-300/20 bg-red-500/10 text-red-200 font-bold">🚪 Sign out</button>}<button onClick={()=>setShowSettings(false)} className="mt-2 w-full py-3 rounded-full bg-white text-black font-bold">Done</button>
@@ -626,7 +663,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
 
       {feedbackSent && <div className="fixed left-1/2 -translate-x-1/2 bottom-24 z-[80] rounded-full px-5 py-3 shadow-xl font-bold text-sm nkc-pop-in" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>✓ Feedback sent — thank you!</div>}
 
-      {postSuccess && <div role="status" aria-live="polite" className="fixed left-1/2 -translate-x-1/2 top-[calc(76px+env(safe-area-inset-top))] z-[80] rounded-full px-5 py-3 shadow-xl font-bold text-sm nkc-pop-in whitespace-nowrap" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>✓ Post published</div>}
+      {postSuccess && <div role="status" aria-live="polite" className="fixed left-1/2 -translate-x-1/2 bottom-[calc(88px+env(safe-area-inset-bottom))] z-[100] rounded-full px-5 py-3 shadow-xl font-bold text-sm nkc-pop-in whitespace-nowrap" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>✓ Post published</div>}
 
       {showJoin && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 nkc-pop-in">

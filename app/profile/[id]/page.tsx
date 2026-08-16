@@ -43,7 +43,7 @@ export default function ProfilePage(){
   useEffect(()=>{load()},[id]);
 
   const connect=async()=>{
-    if(!me)return window.location.href='/';
+    if(!me)return window.location.href='/?signin=1';
     const {error}=await supabase.from('connections').insert({requester_id:me.id,addressee_id:id,status:'pending'});
     if(error)alert(error.message);
     await load();
@@ -89,7 +89,7 @@ export default function ProfilePage(){
             <p className="text-sm mt-3 opacity-70">Neighborly KC member</p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            {isOwner?<button onClick={()=>setEditing(true)} className="rounded-full px-4 py-2 font-bold" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>✏️ Edit Profile</button>:<>{status==='accepted'?<span className="rounded-full border px-4 py-2 font-bold" style={border}>Connected</span>:status==='pending'&&conn?.requester_id===me?.id?<span className="rounded-full px-4 py-2 font-bold" style={{backgroundColor:theme.input}}>Pending</span>:status==='pending'?<Link href="/connections" className="rounded-full px-4 py-2 font-bold" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>Respond</Link>:<button onClick={connect} className="rounded-full px-4 py-2 font-bold" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>Connect</button>}<Link href={`/dms?user=${id}`} className="rounded-full border px-4 py-2 font-bold" style={border}>Message</Link></>}
+            {isOwner?<button onClick={()=>setEditing(true)} className="rounded-full px-4 py-2 font-bold" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>✏️ Edit Profile</button>:!me?<Link href="/?signin=1" className="rounded-full px-4 py-2 font-bold" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>Sign in to Connect</Link>:<>{status==='accepted'?<span className="rounded-full border px-4 py-2 font-bold" style={border}>Connected</span>:status==='pending'&&conn?.requester_id===me?.id?<span className="rounded-full px-4 py-2 font-bold" style={{backgroundColor:theme.input}}>Pending</span>:status==='pending'?<Link href="/connections" className="rounded-full px-4 py-2 font-bold" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>Respond</Link>:<button onClick={connect} className="rounded-full px-4 py-2 font-bold" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>Connect</button>}<Link href={`/dms?user=${id}`} className="rounded-full border px-4 py-2 font-bold" style={border}>Message</Link></>}
           </div>
         </div>:<div className="space-y-4">
           <div className="flex items-center gap-4"><div className="w-16 h-16 rounded-full grid place-items-center text-2xl font-black" style={{backgroundColor:theme.input}}>{name.trim().slice(0,1).toUpperCase()||'N'}</div><div><h2 className="text-xl font-black">Edit your profile</h2><p className="text-xs opacity-60">Keep it simple. Your street address stays private.</p></div></div>
