@@ -134,6 +134,7 @@ export default function Page(){
   const [fileInputKey, setFileInputKey] = useState(0);
 
   const theme = THEMES[themeId] || THEMES['royals'];
+  const headerImage = theme.headerImage || '/neighborly-kc-header-banner.png';
 
   useEffect(()=>{
     const vv=window.visualViewport;
@@ -218,7 +219,8 @@ export default function Page(){
 
   useEffect(()=>{
     const saved = localStorage.getItem('nkc_theme');
-    setThemeId(saved && THEMES[saved] ? saved : DEFAULT_THEME_ID);
+    const migrated = saved === 'kc-sunset' ? 'kc-current' : saved;
+    setThemeId(migrated && THEMES[migrated] ? migrated : DEFAULT_THEME_ID);
     let alive = true;
     let subscription: { unsubscribe: () => void } | null = null;
 
@@ -461,10 +463,10 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden nkc-app-shell" style={{backgroundColor: theme.bg, color: theme.text}}>
-      <header className="sticky top-0 z-40 overflow-hidden border-b nkc-main-header" style={{backgroundColor: '#0b2b52', borderColor: 'rgba(255,255,255,.12)'}}>
+      <header className="sticky top-0 z-40 overflow-hidden border-b nkc-main-header" style={{backgroundColor: theme.header, borderColor: 'rgba(255,255,255,.12)'}}>
         <div className="nkc-header-banner-wrap">
           <a href="/" className="block nkc-header-banner-link" aria-label="Neighborly KC home">
-            <img src="/neighborly-kc-header-banner.png" alt="Neighborly KC" className="nkc-header-banner" draggable="false" />
+            <img src={headerImage} alt="Neighborly KC" className="nkc-header-banner" draggable="false" />
           </a>
           <div className="nkc-header-controls" aria-label="Account controls">
             <div className="flex items-center gap-1.5">
@@ -552,7 +554,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
             {showThemePicker && <div className="mt-3">
               <p className="text-[10px] font-black tracking-widest uppercase text-white/40 mb-2">KC themes</p>
               <div className="grid grid-cols-2 gap-2 mb-4">
-                {['royals','chiefs','sporting','kc-night','kc-sunset','kc-heartland'].map(id=>{ const t=THEMES[id]; const active=themeId===id; return <button key={id} onClick={()=>setTheme(id)} className="rounded-2xl p-3 text-left border-2 text-sm font-bold min-h-16" style={{backgroundColor:t.card,borderColor:active?'#fff':t.border,color:t.text}}><span>{t.emoji} {t.name}</span>{active&&<span className="block text-[10px] mt-1 opacity-60">Active</span>}</button>})}
+                {['royals','chiefs','sporting','kc-night','kc-current','kc-heartland'].map(id=>{ const t=THEMES[id]; const active=themeId===id; return <button key={id} onClick={()=>setTheme(id)} className="rounded-2xl p-3 text-left border-2 text-sm font-bold min-h-16" style={{backgroundColor:t.card,borderColor:active?'#fff':t.border,color:t.text}}><span>{t.emoji} {t.name}</span>{active&&<span className="block text-[10px] mt-1 opacity-60">Active</span>}</button>})}
               </div>
               <p className="text-[10px] font-black tracking-widest uppercase text-white/40 mb-2">Other looks</p>
               <div className="grid grid-cols-2 gap-2">

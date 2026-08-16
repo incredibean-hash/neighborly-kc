@@ -13,7 +13,7 @@ This source includes the current UI/code fixes plus a **safe Supabase migration 
 7. KC Royals is the default theme.
 8. Likes use authenticated user IDs; RLS and unique indexes are included.
 9. Mobile header/action sizing is constrained to keep Join and other controls on screen.
-10. Themes are grouped into KC and Other Looks, with a fifth KC theme: KC Sunset.
+10. Themes are grouped into KC and Other Looks, with themed headers for AIM, Sporting KC, KC Royals, KC Chiefs, KC Current, and Pip-Boy 3000.
 11. Successful posts show a centered confirmation popup.
 12. Auth uses persistent Supabase sessions and no longer treats a stale local profile as proof of authentication on refresh.
 
