@@ -1,13 +1,19 @@
-# Neighborly KC tester login checklist
+# Neighborly KC — tester login repair
 
-The app now uses the current browser origin for Google OAuth unless `NEXT_PUBLIC_SITE_URL` is explicitly set.
+## Email login
 
-For the Vercel tester URL, add the exact URL to:
+Supabase documents `Database error saving new user` as commonly caused by a custom trigger on `auth.users`. The earlier migration only removed a few expected trigger names. The FINAL `supabase_auth_login_fix.sql` now removes **all user-created triggers on `auth.users`** while leaving internal PostgreSQL/Supabase triggers alone.
 
-Supabase → Authentication → URL Configuration → Redirect URLs
+Run that SQL once. The verification query at the bottom should return **zero rows**.
 
-Examples:
-- `https://neighborlykc.com/**`
-- `https://YOUR-VERCEL-DOMAIN.vercel.app/**`
+Neighborly KC creates/repairs the public `profiles` row after authentication succeeds, so an Auth trigger is unnecessary.
 
-For email OTP, if Supabase says **Database error saving new user**, run `supabase_auth_login_fix.sql` once in the Supabase SQL Editor. That error occurs while Supabase Auth is creating the Auth user, before the app can save the Neighborly KC profile.
+## Google login
+
+The app now uses the exact browser origin that started OAuth as `redirectTo`, and Supabase is configured to automatically process the PKCE callback. This is important for a tester phone using a Vercel preview because the PKCE verifier is stored in the browser origin that started the login.
+
+Supabase Authentication → URL Configuration must allow the tester URL. Supabase supports wildcard redirect patterns for Vercel previews.
+
+Google Provider configuration must also contain the **Supabase callback URL shown on the Google provider page**. That callback is separate from the NeighborlyKC redirect URL.
+
+If Google still fails, the app now displays the OAuth error returned by Supabase instead of silently dropping the tester back onto the feed.

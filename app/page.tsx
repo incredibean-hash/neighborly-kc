@@ -178,9 +178,18 @@ export default function Page(){
 
   const signInWithGoogle = async () => {
     setGoogleLoading(true);
-    const siteUrl = window.location.origin;
-    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${siteUrl}/` } });
-    if(error){ alert('Google login failed: '+error.message); setGoogleLoading(false); }
+    setEmailAuthMessage('');
+    // Return to the exact browser origin that started OAuth. This preserves
+    // the PKCE verifier on Vercel preview/test URLs and on mobile Safari.
+    const redirectTo = `${window.location.origin}/`;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo }
+    });
+    if(error){
+      setEmailAuthMessage(error.message || 'Google login could not start.');
+      setGoogleLoading(false);
+    }
   };
 
   const sendEmailLoginCode = async () => {
@@ -274,36 +283,28 @@ export default function Page(){
     setAuthReady(true);
 
     (async()=>{
-      // Restore/exchange authentication independently of the public feed.
-      // We handle the PKCE callback explicitly for Google sign-in.
-      const params = new URLSearchParams(window.location.search);
-      const code = params.get('code');
-      if(code){
-        const { data: exchanged, error } = await supabase.auth.exchangeCodeForSession(code);
-        if(!alive) return;
-        if(error){
-          console.error('OAuth callback error:', error);
-          localStorage.removeItem('nkc_profile');
-          setProfile(null);
-          setAuthReady(true);
-          return;
-        }
-        window.history.replaceState({}, '', window.location.pathname);
-        if(exchanged?.user){
-          applySession(exchanged.user);
-        }
+      // Supabase handles the PKCE callback automatically because the client
+      // uses detectSessionInUrl:true. Restore any existing session here.
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if(!alive) return;
+      if(error) console.warn('Auth session restore warning:', error.message);
+      if(session?.user){
+        applySession(session.user);
       } else {
-        const { data: { session } } = await supabase.auth.getSession();
-        if(!alive) return;
-        if(session?.user){
-          applySession(session.user);
-        } else {
-          localStorage.removeItem('nkc_profile');
-          setProfile(null);
-        }
+        localStorage.removeItem('nkc_profile');
+        setProfile(null);
       }
-
     })();
+
+    // OAuth failures are returned in the URL hash. Surface them instead of
+    // silently sending the tester back to the feed.
+    const authHash = new URLSearchParams(window.location.hash.replace(/^#/,''));
+    const authError = authHash.get('error_description') || authHash.get('error');
+    if(authError){
+      setShowJoin(true);
+      setEmailAuthMessage(authError.replace(/\+/g,' '));
+      window.history.replaceState({}, '', window.location.pathname);
+    }
 
     return ()=>{ alive=false; subscription?.unsubscribe(); };
   },[]);
