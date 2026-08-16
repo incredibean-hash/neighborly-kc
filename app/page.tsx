@@ -48,14 +48,17 @@ async function withTimeout<T>(promise: PromiseLike<T>, ms = 30000): Promise<T> {
 
 async function syncCommunityProfile(user:any, fallback?:any){
   if(!user) return null;
-  const { data: existing } = await supabase
+  const selectCols='id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder';
+  const { data: existingRows, error: lookupError } = await supabase
     .from('profiles')
-    .select('id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder')
+    .select(selectCols)
     .eq('auth_user_id', user.id)
-    .maybeSingle();
+    .order('id', { ascending:true })
+    .limit(1);
+  const existing = existingRows?.[0] || null;
+  if(lookupError) console.warn('Profile lookup warning:', lookupError.message);
 
   const profile = {
-    ...(existing?.id ? { id: existing.id } : {}),
     auth_user_id: user.id,
     full_name: existing?.full_name || user.user_metadata?.full_name || user.user_metadata?.name || fallback?.full_name || user.email?.split('@')[0] || 'Neighbor',
     email: user.email || existing?.email || fallback?.email || '',
@@ -68,19 +71,20 @@ async function syncCommunityProfile(user:any, fallback?:any){
   let saved:any = null;
   let error:any = null;
   if(existing?.id){
-    ({ data: saved, error } = await supabase
-      .from('profiles')
-      .update(profile)
-      .eq('id', existing.id)
-      .select('id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder')
-      .single());
+    ({ data: saved, error } = await supabase.from('profiles').update(profile).eq('id', existing.id).select(selectCols).single());
   } else {
     const profileId = globalThis.crypto?.randomUUID?.() || `${user.id}-${Date.now()}`;
-    ({ data: saved, error } = await supabase
-      .from('profiles')
-      .insert({ id: profileId, ...profile })
-      .select('id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder')
-      .single());
+    ({ data: saved, error } = await supabase.from('profiles').insert({ id: profileId, ...profile }).select(selectCols).single());
+    // A duplicate auth_user_id can happen when an older profile row exists but
+    // the initial lookup raced another request. Recover by updating the existing row.
+    if(error && (error.code === '23505' || /duplicate/i.test(error.message || ''))){
+      const retry = await supabase.from('profiles').select(selectCols).eq('auth_user_id', user.id).order('id',{ascending:true}).limit(1);
+      const row = retry.data?.[0];
+      if(row?.id){
+        const updated = await supabase.from('profiles').update(profile).eq('id', row.id).select(selectCols).single();
+        saved = updated.data; error = updated.error;
+      }
+    }
   }
   if(error){
     console.error('Could not sync community profile:', error);
@@ -192,7 +196,8 @@ export default function Page(){
       },
     });
     if(error){
-      setEmailAuthMessage(error.message);
+      const msg = error.message || 'Could not start email sign in.';
+      setEmailAuthMessage(/database error saving new user/i.test(msg) ? 'Supabase is blocking new accounts right now. Run the included Supabase auth login fix, then try again.' : msg);
     } else {
       setEmailCodeSent(true);
       setEmailAuthMessage(`We sent a 6-digit login code to ${target}.`);
@@ -298,41 +303,52 @@ export default function Page(){
         }
       }
 
-      // Public feed data loads independently and retries briefly. This fixes the
-      // mobile/Safari case where the first Supabase request can race startup and
-      // leave the feed blank until a manual refresh.
-      const loadFeed=async(attempt=0):Promise<void>=>{
-        if(!alive) return;
-        const [hoodsResult, postsResult] = await Promise.all([
-          supabase.from('neighborhoods').select('*').order('member_count',{ascending:false}),
-          supabase.from('posts').select('*').order('created_at',{ascending:false}).limit(50),
-        ]);
-        if(!alive) return;
-        if(hoodsResult.data) setHoods(hoodsResult.data);
-        if(postsResult.error){
-          console.warn('Feed load retry', postsResult.error.message);
-          if(attempt<3) window.setTimeout(()=>void loadFeed(attempt+1),450*(attempt+1));
-          return;
-        }
-        const rawPosts=postsResult.data||[];
-        const ids=[...new Set(rawPosts.map((x:any)=>x.user_id).filter(Boolean))];
-        let profileMap=new Map<string,any>();
-        if(ids.length){
-          const {data:postProfiles}=await supabase.from('profiles').select('auth_user_id,full_name,avatar_url').in('auth_user_id',ids);
-          profileMap=new Map((postProfiles||[]).map((x:any)=>[x.auth_user_id,x]));
-        }
-        const enrichedPosts=rawPosts.map((x:any)=>({...x,profiles:profileMap.get(x.user_id)||x.profiles||null}));
-        setPosts(enrichedPosts);
-        void loadAll(enrichedPosts.map((x:any)=>x.id));
-        if(!enrichedPosts.length && attempt<2) window.setTimeout(()=>void loadFeed(attempt+1),650);
-      };
-      void loadFeed();
     })();
 
     return ()=>{ alive=false; subscription?.unsubscribe(); };
   },[]);
 
-  const setTheme = (id:string)=>{ setThemeId(id); localStorage.setItem('nkc_theme', id); };
+  const loadPublicFeed = async (attempt=0): Promise<void> => {
+    const [hoodsResult, postsResult] = await Promise.all([
+      supabase.from('neighborhoods').select('*').order('member_count',{ascending:false}),
+      supabase.from('posts').select('*').order('created_at',{ascending:false}).limit(50),
+    ]);
+    if(hoodsResult.data) setHoods(hoodsResult.data);
+    if(postsResult.error){
+      console.warn('Feed load retry', postsResult.error.message);
+      if(attempt < 5) window.setTimeout(()=>void loadPublicFeed(attempt+1), 500 + attempt*500);
+      return;
+    }
+    const rawPosts=postsResult.data || [];
+    const ids=[...new Set(rawPosts.map((x:any)=>x.user_id || x.author_id).filter(Boolean))];
+    let profileMap=new Map<string,any>();
+    if(ids.length){
+      const {data:postProfiles}=await supabase.from('profiles').select('auth_user_id,full_name,avatar_url').in('auth_user_id',ids);
+      profileMap=new Map((postProfiles||[]).map((x:any)=>[x.auth_user_id,x]));
+    }
+    const enrichedPosts=rawPosts.map((x:any)=>({...x,profiles:profileMap.get(x.user_id || x.author_id)||x.profiles||null}));
+    setPosts(enrichedPosts);
+    void loadAll(enrichedPosts.map((x:any)=>x.id));
+    if(!enrichedPosts.length && attempt < 4) window.setTimeout(()=>void loadPublicFeed(attempt+1), 700 + attempt*500);
+  };
+
+  // Load the public feed separately from authentication. A slow OAuth/session
+  // restore on Safari must never block the feed.
+  useEffect(()=>{
+    let cancelled=false;
+    void loadPublicFeed();
+    const onFocus=()=>{ if(!cancelled && posts.length===0) void loadPublicFeed(); };
+    window.addEventListener('focus',onFocus);
+    return()=>{ cancelled=true; window.removeEventListener('focus',onFocus); };
+  },[]);
+
+  const setTheme = (id:string)=>{
+    const next=THEMES[id] ? id : DEFAULT_THEME_ID;
+    setThemeId(next);
+    localStorage.setItem('nkc_theme', next);
+    setShowThemePicker(false);
+    setShowSettings(false);
+  };
 
   useEffect(()=>{
     let alive=true;
@@ -367,7 +383,7 @@ export default function Page(){
   };
 const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brooks Heights', zip:'64155', id: '5fb249cb-1667-475b-ab8c-43e1df245ace', slug:'meadow-brooks-heights'};
   const scopedPosts = scope==='local'
-    ? posts.filter((p:any)=>!p.neighborhood_id || String(p.neighborhood_id)===String(cur?.id||''))
+    ? (hoods.length===0 ? posts : posts.filter((p:any)=>!p.neighborhood_id || String(p.neighborhood_id)===String(cur?.id||'')))
     : posts;
   const filtered = cat==='All'? scopedPosts : scopedPosts.filter((p:any)=>p.category===cat);
   const neighborhoodName = (id:any) => hoods.find((h:any)=>String(h.id)===String(id))?.name || cur?.name || 'Kansas City';
@@ -588,7 +604,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
           style={cat==='All'?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>
-          <span>{theme.emoji} Feed</span>
+          <span>Feed</span>
         </button>
 
         <button
@@ -599,7 +615,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
           style={cat==='Safety Alert'?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 6v5c0 5.2-3.4 8.5-8 10-4.6-1.5-8-4.8-8-10V6z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="m9 12 2 2 4-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          <span>{theme.emoji} Safety</span>
+          <span>Safety</span>
         </button>
 
         <button
@@ -621,7 +637,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
           style={cat==='For Sale & Free'?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5 12 4l8 4.5v8L12 21l-8-4.5z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M9 11h6M9 14h4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
-          <span>{theme.emoji} For Sale</span>
+          <span>For Sale</span>
         </button>
 
         <button
@@ -632,7 +648,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
           style={showExplore?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="m15.8 8.2-2 5.6-5.6 2 2-5.6z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>
-          <span>{theme.emoji} Explore</span>
+          <span>Explore</span>
         </button>
       </nav>
 
@@ -642,9 +658,9 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
             <div className="flex justify-between items-center mb-4"><h2 className="font-black text-white">Settings</h2><button onClick={()=>setShowSettings(false)} className="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center">✕</button></div>
             <button type="button" onClick={()=>setShowThemePicker(v=>!v)} className="w-full flex items-center justify-between py-3 px-4 rounded-2xl border border-white/15 bg-white/10 text-white font-bold"><span>🎨 Themes</span><span className="text-white/60">{showThemePicker?'▲':'▼'}</span></button>
             {showThemePicker && <div className="mt-3">
-              <p className="text-[10px] font-black tracking-widest uppercase text-white/40 mb-2">Choose your Neighborly KC look</p>
+              <p className="text-[10px] font-black tracking-widest uppercase text-white/40 mb-2">Choose your Neighborly KC look · tap a theme to apply & close</p>
               <div className="grid grid-cols-2 gap-2">
-                {['aim','sporting','royals','chiefs','pip-boy','space','kc-current'].map(id=>{ const t=THEMES[id]; const active=themeId===id; return <button key={id} type="button" aria-label={`Use ${t.name} theme`} onClick={()=>setTheme(id)} className={`nkc-theme-choice ${active?'is-active':''}`} style={{borderColor:active?t.accent:t.border,boxShadow:active?`0 0 0 2px ${t.accent}55`:undefined}}>{t.themeButtonImage?<img src={t.themeButtonImage} alt={t.name}/>:<div className="nkc-theme-choice-fallback" style={{background:`linear-gradient(135deg,${t.header},${t.accent})`}}><b>{t.name}</b></div>}{active&&<span className="nkc-theme-choice-check" style={{backgroundColor:t.accent,color:t.pillTextActive}}>✓</span>}</button>})}
+                {['aim','sporting','royals','chiefs','pip-boy','space','kc-current','kcpd','kcfd'].map(id=>{ const t=THEMES[id]; const active=themeId===id; return <button key={id} type="button" aria-label={`Use ${t.name} theme`} onClick={()=>setTheme(id)} className={`nkc-theme-choice ${active?'is-active':''}`} style={{borderColor:active?t.accent:t.border,boxShadow:active?`0 0 0 2px ${t.accent}55`:undefined}}>{t.themeButtonImage?<img src={t.themeButtonImage} alt={t.name}/>:<div className="nkc-theme-choice-fallback" style={{background:`linear-gradient(135deg,${t.header},${t.accent})`}}><b>{t.name}</b></div>}{active&&<span className="nkc-theme-choice-check" style={{backgroundColor:t.accent,color:t.pillTextActive}}>✓</span>}</button>})}
               </div>
             </div>}
             {profile&&<a href="/profile" onClick={()=>setShowSettings(false)} className="mt-4 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center">👤 My Profile</a>}<button onClick={()=>{if(!profile){setShowJoin(true);return;}setShowFeedback(true)}} className="mt-2 w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold">💬 Leave Feedback</button>{profile&&<button onClick={signOut} className="mt-2 w-full py-3 rounded-full border border-red-300/20 bg-red-500/10 text-red-200 font-bold">🚪 Sign out</button>}<button onClick={()=>setShowSettings(false)} className="mt-2 w-full py-3 rounded-full bg-white text-black font-bold">Done</button>

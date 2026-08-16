@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/community';
 import { THEMES, DEFAULT_THEME_ID } from '../../lib/themes';
 
@@ -21,6 +22,7 @@ export default function MyProfilePage() {
   const [avatarUploading, setAvatarUploading] = useState(false);
 
   const theme = THEMES[themeId] || THEMES.royals;
+  const router = useRouter();
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('nkc_theme');
@@ -35,11 +37,13 @@ export default function MyProfilePage() {
       if (!currentUser) { setLoading(false); return; }
       setUser(currentUser);
 
-      const { data: existing } = await supabase
+      const { data: existingRows } = await supabase
         .from('profiles')
         .select('id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder')
         .eq('auth_user_id', currentUser.id)
-        .maybeSingle();
+        .order('id',{ascending:true})
+        .limit(1);
+      const existing = existingRows?.[0] || null;
 
       const fallbackName = currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || '';
       setProfile(existing || null);
@@ -86,14 +90,20 @@ export default function MyProfilePage() {
       if (profile?.id) {
         ({ data, error } = await supabase.from('profiles').update(payload).eq('id', profile.id).select('id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder').single());
       } else {
-        // Create the row explicitly. This works even on older production schemas
-        // where profiles.id did not have a database default.
         const profileId = globalThis.crypto?.randomUUID?.() || `${user.id}-${Date.now()}`;
         ({ data, error } = await supabase
           .from('profiles')
           .insert({ id: profileId, ...payload })
           .select('id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder')
           .single());
+        if(error && (error.code === '23505' || /duplicate/i.test(error.message || ''))){
+          const retry = await supabase.from('profiles').select('id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder').eq('auth_user_id',user.id).order('id',{ascending:true}).limit(1);
+          const row = retry.data?.[0];
+          if(row?.id){
+            const updated = await supabase.from('profiles').update(payload).eq('id',row.id).select('id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder').single();
+            data = updated.data; error = updated.error;
+          }
+        }
       }
       if (error) throw error;
       setAvatarUrl(nextAvatarUrl || '');
@@ -101,7 +111,7 @@ export default function MyProfilePage() {
       setProfile(data);
       localStorage.setItem('nkc_profile', JSON.stringify({ ...data, user_id: user.id }));
       setSaved(true);
-      window.setTimeout(() => setSaved(false), 2500);
+      window.setTimeout(() => router.push('/'), 700);
     } catch (err: any) {
       alert(err.message || 'Could not save your profile.');
     } finally {

@@ -33,27 +33,26 @@ body { overscroll-behavior-y: none; }
   .nkc-kc-mark { width:34px; height:34px; border-radius:11px; font-size:12px; }
   header .group h1 { font-size: 1.55rem; letter-spacing:-.035em; }
   header .group p { font-size: 8px; margin-top: 3px; }
-  /* Mobile navigation: keep the four primary destinations visible and compact. */
+  /* Mobile top navigation: all four controls stay centered and fit the viewport. */
   .nkc-desktop-nav {
     display:flex;
     flex-wrap:nowrap;
-    justify-content:flex-start;
+    justify-content:center;
     align-items:center;
-    gap:6px;
+    gap:4px;
     width:100%;
-    overflow-x:auto;
-    overflow-y:hidden;
-    padding:8px 10px !important;
-    -webkit-overflow-scrolling:touch;
-    scrollbar-width:none;
+    overflow:hidden;
+    padding:6px 6px !important;
   }
-  .nkc-desktop-nav::-webkit-scrollbar { display:none; }
   .nkc-desktop-nav > button {
-    flex:0 0 auto;
-    padding:8px 12px !important;
-    font-size:13px !important;
-    line-height:1.1;
+    flex:1 1 0;
+    min-width:0;
+    max-width:none;
+    padding:8px 4px !important;
+    font-size:11px !important;
+    line-height:1.05;
     white-space:nowrap;
+    text-align:center;
   }
   header .flex.items-start.justify-between > div:last-child { gap: 4px; }
   .nkc-page-content { padding: 12px 12px 28px; }
@@ -165,7 +164,7 @@ body { overscroll-behavior-y: none; }
   background:transparent;
   color:inherit;
   font-size:10px;
-  font-weight:900;
+  font-weight:950;
   line-height:1;
   -webkit-tap-highlight-color:transparent;
 }
