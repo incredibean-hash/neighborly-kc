@@ -15,7 +15,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="icon" href="/favicon-64.png" type="image/png" sizes="64x64" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        <meta name="theme-color" content="#004687" />
+        <meta name="theme-color" content="#0b2b52" />
       </head>
       <body className="bg-[#f0f6ff]">{children}</body>
     </html>

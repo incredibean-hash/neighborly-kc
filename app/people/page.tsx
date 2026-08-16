@@ -33,7 +33,7 @@ export default function PeoplePage(){
   const filtered=useMemo(()=>profiles.filter(p=>p.auth_user_id!==me?.id && displayName(p).toLowerCase().includes(search.toLowerCase())),[profiles,search,me]);
   const border={borderColor:theme.border};
   return <main className="min-h-screen" style={{backgroundColor:theme.bg,color:theme.text}}>
-    <header className="sticky top-0 z-20 p-4 shadow-sm" style={{backgroundColor:theme.header,color:theme.headerText}}>
+    <header className="sticky top-0 z-20 p-4 shadow-sm" style={{backgroundColor:theme.header,color:'#fff'}}>
       <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
         <div className="min-w-0"><Link href="/" className="text-xs opacity-70">← Back to Feed</Link><h1 className="font-black text-2xl">People across KC</h1><p className="text-xs opacity-70">Find neighbors. Connect. Talk.</p></div>
         <Link href="/connections" className="shrink-0 rounded-full px-4 py-2 text-sm font-bold" style={{backgroundColor:theme.card,color:theme.accent,border:`1px solid ${theme.border}`}}>Connections</Link>

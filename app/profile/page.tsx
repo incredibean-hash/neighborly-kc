@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/community';
 import { THEMES, DEFAULT_THEME_ID } from '../../lib/themes';
 
@@ -20,7 +19,6 @@ export default function MyProfilePage() {
   const [avatarUrl, setAvatarUrl] = useState('');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
-  const router = useRouter();
 
   const theme = THEMES[themeId] || THEMES.royals;
 
@@ -103,10 +101,7 @@ export default function MyProfilePage() {
       setProfile(data);
       localStorage.setItem('nkc_profile', JSON.stringify({ ...data, user_id: user.id }));
       setSaved(true);
-      // Saving the profile is the end of this flow on mobile and desktop.
-      // Return the user directly to the feed so they don't have to scroll back
-      // to the top of the profile page to find the Feed link.
-      window.setTimeout(() => router.push('/'), 250);
+      window.setTimeout(() => setSaved(false), 2500);
     } catch (err: any) {
       alert(err.message || 'Could not save your profile.');
     } finally {
@@ -133,12 +128,12 @@ export default function MyProfilePage() {
 
   return (
     <main className="min-h-screen" style={{ backgroundColor: theme.bg, color: theme.text }}>
-      <header className="border-b" style={{ backgroundColor: theme.header, borderColor: theme.border, color: theme.headerText }}>
+      <header className="border-b" style={{ backgroundColor: theme.header, borderColor: theme.border }}>
         <div className="max-w-3xl mx-auto px-5 py-5 flex items-center justify-between gap-3">
           <div>
-            <Link href="/" className="text-xs  hover:text-white">← Feed</Link>
-            <h1 className="text-2xl sm:text-3xl font-black mt-1">My Profile</h1>
-            <p className="text-xs ">Create and edit how neighbors see you.</p>
+            <Link href="/" className="text-xs text-white/70 hover:text-white">← Feed</Link>
+            <h1 className="text-2xl sm:text-3xl font-black text-white mt-1">My Profile</h1>
+            <p className="text-xs text-white/60">Create and edit how neighbors see you.</p>
           </div>
           {profile ? <Link href={`/profile/${user.id}`} className="rounded-full px-4 py-2 text-sm font-bold" style={{ backgroundColor: theme.card, color: theme.text }}>View profile</Link> : <span className="rounded-full px-4 py-2 text-sm font-bold opacity-60" style={{ backgroundColor: theme.card, color: theme.text }}>Save profile to publish</span>}
         </div>

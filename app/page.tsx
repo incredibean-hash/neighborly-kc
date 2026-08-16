@@ -123,26 +123,17 @@ export default function Page(){
   const editFileInputRef=useRef<HTMLInputElement>(null);
   const [googleLoading,setGoogleLoading]=useState(false);
   const [emailCodeSent,setEmailCodeSent]=useState(false);
-  const [showEmailLogin,setShowEmailLogin]=useState(false);
   const [emailCode,setEmailCode]=useState('');
   const [emailAuthLoading,setEmailAuthLoading]=useState(false);
   const [emailAuthMessage,setEmailAuthMessage]=useState('');
   const [showThemePicker,setShowThemePicker]=useState(false);
   const [authReady,setAuthReady]=useState(false);
   const [postSuccess,setPostSuccess]=useState(false);
-  const [weather,setWeather]=useState<any>(null);
-  const [weatherLoading,setWeatherLoading]=useState(true);
-  const [trendingIndex,setTrendingIndex]=useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const postComposerRef = useRef<HTMLTextAreaElement>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
 
   const theme = THEMES[themeId] || THEMES['royals'];
-
-  useEffect(()=>{
-    const meta=document.querySelector('meta[name="theme-color"]');
-    if(meta) meta.setAttribute('content', theme.header);
-  },[theme.header]);
 
   useEffect(()=>{
     const vv=window.visualViewport;
@@ -224,26 +215,6 @@ export default function Page(){
     }
     setEmailAuthLoading(false);
   };
-
-  useEffect(()=>{
-    let alive=true;
-    const loadWeather=async(lat:number,lon:number)=>{
-      try{
-        const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto`);
-        const d=await r.json();
-        if(alive && d?.current) setWeather(d.current);
-      }catch(e){ console.warn('Weather unavailable',e); }
-      finally{ if(alive) setWeatherLoading(false); }
-    };
-    const fallback=()=>loadWeather(39.0997,-94.5786);
-    if(!navigator.geolocation){ fallback(); return ()=>{alive=false}; }
-    navigator.geolocation.getCurrentPosition(
-      pos=>loadWeather(pos.coords.latitude,pos.coords.longitude),
-      ()=>fallback(),
-      {enableHighAccuracy:false,timeout:7000,maximumAge:15*60*1000}
-    );
-    return ()=>{alive=false};
-  },[]);
 
   useEffect(()=>{
     const saved = localStorage.getItem('nkc_theme');
@@ -420,10 +391,11 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
       setBody('');
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
+      document.documentElement.classList.remove('nkc-keyboard-open');
       postComposerRef.current?.blur();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       setPostSuccess(true);
-      window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 120);
-      window.setTimeout(() => setPostSuccess(false), 3500);
+      window.setTimeout(() => setPostSuccess(false), 2600);
     } catch (e: any) {
       alert('Could not save: ' + (e.message || e));
     } finally {
@@ -486,19 +458,13 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
   };
   const deletePost = async (id:string, image_url:string|null) => { if(!confirm('Delete this post?')) return; if(image_url){ const path = image_url.split('/post-images/')[1]; if(path) await supabase.storage.from('post-images').remove([path]); } const {error}=await supabase.from('posts').delete().eq('id', id); if(error) return alert('Could not delete post: '+error.message); setPosts(prev=>prev.filter((p:any)=>p.id!==id)); };
   const deleteComment = async (id:string, postId:string) => { if(!confirm('Delete comment?')) return; const {error}=await supabase.from('comments').delete().eq('id', id); if(error)return alert(error.message); setComments((prev)=>({...prev, [postId]: prev[postId].filter((c:any)=>c.id!==id)})); };
-  const weatherLabel=(code:number)=>{ if(code===0) return 'Clear'; if([1,2,3].includes(code)) return 'Partly cloudy'; if([45,48].includes(code)) return 'Foggy'; if([51,53,55,56,57].includes(code)) return 'Drizzle'; if([61,63,65,66,67,80,81,82].includes(code)) return 'Rain'; if([71,73,75,77,85,86].includes(code)) return 'Snow'; if([95,96,99].includes(code)) return 'Storms'; return 'Weather'; };
-  const trendingPosts=[...scopedPosts].sort((a:any,b:any)=>((likes[b.id]?.length||0)*3+(comments[b.id]?.length||0)*2)-((likes[a.id]?.length||0)*3+(comments[a.id]?.length||0)*2)).slice(0,3);
-  useEffect(()=>{ if(trendingIndex >= trendingPosts.length) setTrendingIndex(0); },[trendingPosts.length,trendingIndex]);
-  useEffect(()=>{ if(trendingPosts.length < 2) return; const t=window.setInterval(()=>setTrendingIndex(i=>(i+1)%trendingPosts.length),7000); return ()=>window.clearInterval(t); },[trendingPosts.length]);
-  const jumpToPost=(id:string)=>document.getElementById(`post-${id}`)?.scrollIntoView({behavior:'smooth',block:'center'});
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden nkc-app-shell" style={{backgroundColor: theme.bg, color: theme.text}}>
-      <header className="sticky top-0 z-40 overflow-hidden border-b nkc-main-header" style={{backgroundColor: theme.header, borderColor: theme.border, color: theme.headerText}}>
+      <header className="sticky top-0 z-40 overflow-hidden border-b nkc-main-header" style={{backgroundColor: '#0b2b52', borderColor: 'rgba(255,255,255,.12)'}}>
         <div className="nkc-header-banner-wrap">
           <a href="/" className="block nkc-header-banner-link" aria-label="Neighborly KC home">
-            <img src="/neighborly-kc-header-banner.png" alt="Neighborly KC" className="nkc-header-banner" style={{filter:theme.headerImageFilter || 'none'}} draggable="false" />
-            <span aria-hidden="true" className="nkc-header-theme-overlay" style={{background:theme.headerOverlay || 'transparent'}} />
+            <img src="/neighborly-kc-header-banner.png" alt="Neighborly KC" className="nkc-header-banner" draggable="false" />
           </a>
           <div className="nkc-header-controls" aria-label="Account controls">
             <div className="flex items-center gap-1.5">
@@ -506,7 +472,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
               <a href="/dms" aria-label="Messages" className="hidden sm:grid w-9 h-8 rounded-full text-xs font-bold place-items-center nkc-header-control">💬</a>
               <a href="/notifications" aria-label="Notifications" className="hidden sm:grid w-9 h-8 rounded-full text-xs font-bold place-items-center nkc-header-control">🔔</a>
               <button type="button" onClick={()=>setShowSettings(true)} aria-label="Themes and settings" className="w-9 h-8 rounded-full flex items-center justify-center nkc-header-control">⚙️</button>
-              {!authReady ? <span className="shrink-0 px-3 py-2 text-xs font-black" style={{color:theme.headerText}}>Loading…</span> : profile ? <><span className="text-xs hidden lg:block max-w-28 truncate" style={{color:theme.headerText}}>{profile.full_name}</span><button type="button" onClick={signOut} className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold nkc-header-control">Sign out</button></> : <button type="button" onClick={()=>setShowJoin(true)} className="shrink-0 px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-black whitespace-nowrap nkc-header-control">Sign in</button>}
+              {!authReady ? <span className="shrink-0 px-3 py-2 text-xs font-black text-white/70">Loading…</span> : profile ? <><span className="text-xs hidden lg:block max-w-28 truncate text-white/80">{profile.full_name}</span><button type="button" onClick={signOut} className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold nkc-header-control">Sign out</button></> : <button type="button" onClick={()=>setShowJoin(true)} className="shrink-0 px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-black whitespace-nowrap nkc-header-control">Sign in</button>}
             </div>
           </div>
         </div>
@@ -524,20 +490,6 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
           <button onClick={()=>setCat('Lost & Found')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>🔎 Lost & Found</button>
         </div>}
       </header>
-
-      <div className="nkc-weather-bar" aria-label="Local weather">
-        <div className="nkc-weather-track">{weatherLoading ? <span>📍 Local weather · locating you…</span> : weather ? <><span>📍 Local weather</span><strong>{Math.round(weather.temperature_2m)}°F</strong><span>Feels {Math.round(weather.apparent_temperature)}°</span><span>{weatherLabel(weather.weather_code)}</span><span>💨 {Math.round(weather.wind_speed_10m)} mph</span></> : <span>📍 Local weather unavailable</span>}</div>
-      </div>
-      {trendingPosts.length>0 && (()=>{ const p=trendingPosts[trendingIndex] || trendingPosts[0]; const text=String(p.body||p.content||''); return <section className="nkc-top-trending" aria-label="Top trending posts">
-        <div className="nkc-top-trending-title"><span>🔥 Top 3 trending</span><span className="opacity-50">{trendingIndex+1} of {trendingPosts.length}</span></div>
-        <div className="nkc-trending-single-row">
-          <button type="button" aria-label="Previous trending post" className="nkc-trending-arrow" onClick={()=>setTrendingIndex(i=>(i-1+trendingPosts.length)%trendingPosts.length)}>‹</button>
-          <button key={p.id} type="button" onClick={()=>jumpToPost(p.id)} className="nkc-trending-card nkc-trending-card-single">
-            <span className="nkc-trending-rank">#{trendingIndex+1}</span><span className="nkc-trending-card-body"><b>{p.profiles?.full_name||p.author_name||'Neighbor'}</b><span>{text.slice(0,140)}{text.length>140?'…':''}</span></span><span className="nkc-trending-stats">❤️ {likes[p.id]?.length||0} · 💬 {comments[p.id]?.length||0}</span>
-          </button>
-          <button type="button" aria-label="Next trending post" className="nkc-trending-arrow" onClick={()=>setTrendingIndex(i=>(i+1)%trendingPosts.length)}>›</button>
-        </div>
-      </section>})()}
 
       <div className="max-w-6xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-[220px_1fr_300px] gap-6 nkc-page-content">
         <aside className="rounded-2xl p-3 h-fit border hidden lg:block" style={{backgroundColor: theme.card, borderColor: theme.border}}><p className="text-xs font-bold px-3 py-2 opacity-40">FILTER</p>{CATS.map(c=><button key={c} onClick={()=>setCat(c)} className="w-full text-left px-3 py-2.5 rounded-xl text-sm" style={{backgroundColor: cat===c? theme.accent : 'transparent', color: cat===c? theme.pillTextActive : theme.text}}>{c}</button>)}</aside>
@@ -563,10 +515,10 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
           {filtered.map((p:any)=>{
             const cList=comments[p.id]||[]; const isOpen=openComments[p.id]; const pLikes=likes[p.id]||[]; const liked=pLikes.some((l:any)=>l.author_id===profile?.user_id || l.author_name===profile?.full_name);
             const isOwner=Boolean(profile && ((p.user_id && p.user_id===profile.user_id) || (!p.user_id && p.author_name===profile.full_name))); const canManage=isOwner||isAdmin; const isEditing=editingPostId===p.id;
-            return <div id={`post-${p.id}`} key={p.id} className="rounded-2xl p-4 border nkc-surface nkc-fade-in scroll-mt-40" style={{backgroundColor:theme.card,borderColor:theme.border}}>
+            return <div key={p.id} className="rounded-2xl p-4 border nkc-surface nkc-fade-in nkc-post-card" style={{backgroundColor:theme.card,borderColor:theme.border}}>
               <div className="flex justify-between gap-3"><div className="flex items-center gap-2 min-w-0"><div className="w-9 h-9 shrink-0 rounded-full overflow-hidden grid place-items-center font-black text-xs border" style={{backgroundColor:theme.input,borderColor:theme.border}}>{p.profiles?.avatar_url?<img src={p.profiles.avatar_url} alt="" className="w-full h-full object-cover"/>:(p.profiles?.full_name||p.author_name||'N').slice(0,1).toUpperCase()}</div><div><p className="text-xs font-bold opacity-60">{(p.user_id||p.author_id)?<a href={`/profile/${p.user_id||p.author_id}`} className="hover:underline">{p.profiles?.full_name||p.author_name||'Neighbor'}</a>:(p.profiles?.full_name||p.author_name||'Neighbor')} · {p.category}</p>{scope==='kc'&&<p className="text-[11px] font-bold mt-1 opacity-45">📍 {neighborhoodName(p.neighborhood_id)}</p>}</div></div>{canManage&&<div className="flex items-center gap-2"><button onClick={()=>beginEdit(p)} className="text-xs font-bold opacity-55 hover:opacity-100">✏️ Edit</button><button onClick={()=>deletePost(p.id,p.image_url)} className="text-xs opacity-40 hover:text-red-600">🗑️ Delete</button></div>}</div>
               {isEditing?<div className="mt-3 rounded-2xl p-3 nkc-pop-in" style={{backgroundColor:theme.input}}><textarea value={editBody} onChange={e=>setEditBody(e.target.value)} className="w-full rounded-xl p-3 min-h-[120px] text-sm outline-none border" style={{backgroundColor:theme.card,color:theme.text,borderColor:theme.border}}/><div className="grid sm:grid-cols-2 gap-2 mt-2"><select value={editCategory} onChange={e=>setEditCategory(e.target.value)} className="rounded-xl px-3 py-2 text-sm border outline-none" style={{backgroundColor:theme.card,color:theme.text,borderColor:theme.border}}>{CATS.filter(c=>c!=='All').map(c=><option key={c}>{c}</option>)}</select><label className="rounded-xl px-3 py-2 text-sm border cursor-pointer" style={{backgroundColor:theme.card,borderColor:theme.border}}><span className="font-bold">📷 Replace image</span><input ref={editFileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setEditFile(e.target.files?.[0]||null)} className="sr-only"/>{editFile&&<span className="block text-xs opacity-60 truncate mt-1">{editFile.name}</span>}</label></div><div className="flex justify-end gap-2 mt-3"><button onClick={cancelEdit} className="px-4 py-2 rounded-full text-xs font-bold" style={{backgroundColor:theme.card,border:`1px solid ${theme.border}`}}>Cancel</button><button disabled={editSaving||!editBody.trim()} onClick={()=>savePostEdit(p)} className="px-4 py-2 rounded-full text-xs font-bold disabled:opacity-50" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{editSaving?'Saving...':'Save changes'}</button></div></div>:<>
-                <p className="mt-1 whitespace-pre-wrap">{p.body||p.content}</p>{p.image_url&&<img src={p.image_url} alt="post" className="mt-3 rounded-xl max-h-[400px] w-full object-cover border" style={{borderColor:theme.border}}/>}<p className="text-xs opacity-40 mt-2">{new Date(p.created_at).toLocaleString()}</p><div className="mt-3 pt-3 border-t flex gap-4" style={{borderColor:theme.border}}><button onClick={()=>togglePostLike(p.id)} className="text-xs font-bold">{liked?'❤️':'🤍'} {pLikes.length}</button><button onClick={()=>setOpenComments(prev=>({...prev,[p.id]:!prev[p.id]}))} className="text-xs font-bold opacity-60">💬 {cList.length} {isOpen?'▲':'▼'}</button></div>{isOpen&&<div className="mt-3 rounded-xl p-3 space-y-2" style={{backgroundColor:theme.input}}>{cList.map((c:any)=>{const cl=cLikes[c.id]||[];const cliked=cl.some((l:any)=>l.author_id===profile?.user_id||l.author_name===profile?.full_name);const canDelC=(profile&&c.author_name===profile.full_name)||isAdmin;return <div key={c.id} className="text-sm rounded-lg p-2 flex justify-between gap-2" style={{backgroundColor:theme.card}}><div><b className="text-xs">{c.author_name}:</b> {c.content||c.body}<button onClick={()=>toggleCommentLike(c.id)} className="ml-3 text-xs">{cliked?'❤️':'🤍'} {cl.length}</button></div>{canDelC&&<button onClick={()=>deleteComment(c.id,p.id)} className="text-[10px] opacity-30">🗑️</button>}</div>})}<div className="flex gap-2 pt-2 items-center"><input value={commentText[p.id]||''} onChange={e=>setCommentText(prev=>({...prev,[p.id]:e.target.value}))} placeholder="Add a comment..." className="nkc-comment-input flex-1 min-w-0 border rounded-full px-3 py-2.5 text-sm outline-none" style={{backgroundColor:theme.card,borderColor:theme.border,color:theme.text}}/><button type="button" onClick={()=>addComment(p.id)} className="nkc-reply-btn shrink-0 rounded-full text-xs font-black" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>Reply</button></div></div>}
+                <p className="mt-1 whitespace-pre-wrap">{p.body||p.content}</p>{p.image_url&&<div className="mt-3 nkc-post-image-frame rounded-xl overflow-hidden border" style={{borderColor:theme.border}}><img src={p.image_url} alt="post" className="nkc-post-image w-full h-full object-cover" /></div>}<p className="text-xs opacity-40 mt-2">{new Date(p.created_at).toLocaleString()}</p><div className="mt-3 pt-3 border-t flex gap-4" style={{borderColor:theme.border}}><button onClick={()=>togglePostLike(p.id)} className="text-xs font-bold">{liked?'❤️':'🤍'} {pLikes.length}</button><button onClick={()=>setOpenComments(prev=>({...prev,[p.id]:!prev[p.id]}))} className="text-xs font-bold opacity-60">💬 {cList.length} {isOpen?'▲':'▼'}</button></div>{isOpen&&<div className="mt-3 rounded-xl p-3 space-y-2" style={{backgroundColor:theme.input}}>{cList.map((c:any)=>{const cl=cLikes[c.id]||[];const cliked=cl.some((l:any)=>l.author_id===profile?.user_id||l.author_name===profile?.full_name);const canDelC=(profile&&c.author_name===profile.full_name)||isAdmin;return <div key={c.id} className="text-sm rounded-lg p-2 flex justify-between gap-2" style={{backgroundColor:theme.card}}><div><b className="text-xs">{c.author_name}:</b> {c.content||c.body}<button onClick={()=>toggleCommentLike(c.id)} className="ml-3 text-xs">{cliked?'❤️':'🤍'} {cl.length}</button></div>{canDelC&&<button onClick={()=>deleteComment(c.id,p.id)} className="text-[10px] opacity-30">🗑️</button>}</div>})}<div className="flex gap-2 pt-2"><input value={commentText[p.id]||''} onChange={e=>setCommentText(prev=>({...prev,[p.id]:e.target.value}))} placeholder="Add a comment..." className="flex-1 border rounded-full px-3 py-2 text-sm outline-none" style={{backgroundColor:theme.card,borderColor:theme.border,color:theme.text}}/><button onClick={()=>addComment(p.id)} className="px-4 py-2 rounded-full text-xs font-bold" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>Reply</button></div></div>}
               </>}
             </div>
           })}
@@ -600,11 +552,11 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
             {showThemePicker && <div className="mt-3">
               <p className="text-[10px] font-black tracking-widest uppercase text-white/40 mb-2">KC themes</p>
               <div className="grid grid-cols-2 gap-2 mb-4">
-                {['royals','chiefs','sporting','kc-night','kc-sunset','kc-heartland'].map(id=>{ const t=THEMES[id]; const active=themeId===id; return <button key={id} onClick={()=>setTheme(id)} className="rounded-2xl p-3 text-left border-2 text-sm font-bold min-h-16" style={{backgroundColor:t.card,borderColor:active?'#fff':t.border,color:t.text}}><span>{t.emoji} {t.name}</span>{active&&<span className="block text-[10px] mt-1" style={{color:t.text}}>Active</span>}</button>})}
+                {['royals','chiefs','sporting','kc-night','kc-sunset','kc-heartland'].map(id=>{ const t=THEMES[id]; const active=themeId===id; return <button key={id} onClick={()=>setTheme(id)} className="rounded-2xl p-3 text-left border-2 text-sm font-bold min-h-16" style={{backgroundColor:t.card,borderColor:active?'#fff':t.border,color:t.text}}><span>{t.emoji} {t.name}</span>{active&&<span className="block text-[10px] mt-1 opacity-60">Active</span>}</button>})}
               </div>
               <p className="text-[10px] font-black tracking-widest uppercase text-white/40 mb-2">Other looks</p>
               <div className="grid grid-cols-2 gap-2">
-                {['daylight','midnight','space','warm-sand','aim','pip-boy'].map(id=>{ const t=THEMES[id]; const active=themeId===id; return <button key={id} onClick={()=>setTheme(id)} className="rounded-2xl p-3 text-left border-2 text-sm font-bold min-h-16" style={{backgroundColor:t.card,borderColor:active?'#fff':t.border,color:t.text}}><span>{t.emoji} {t.name}</span>{active&&<span className="block text-[10px] mt-1" style={{color:t.text}}>Active</span>}</button>})}
+                {['daylight','midnight','space','warm-sand','aim','pip-boy'].map(id=>{ const t=THEMES[id]; const active=themeId===id; return <button key={id} onClick={()=>setTheme(id)} className="rounded-2xl p-3 text-left border-2 text-sm font-bold min-h-16" style={{backgroundColor:t.card,borderColor:active?'#fff':t.border,color:t.text}}><span>{t.emoji} {t.name}</span>{active&&<span className="block text-[10px] mt-1 opacity-60">Active</span>}</button>})}
               </div>
             </div>}
             {profile&&<a href="/profile" onClick={()=>setShowSettings(false)} className="mt-4 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center">👤 My Profile</a>}<button onClick={()=>{if(!profile){setShowJoin(true);return;}setShowFeedback(true)}} className="mt-2 w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold">💬 Leave Feedback</button>{profile&&<button onClick={signOut} className="mt-2 w-full py-3 rounded-full border border-red-300/20 bg-red-500/10 text-red-200 font-bold">🚪 Sign out</button>}<button onClick={()=>setShowSettings(false)} className="mt-2 w-full py-3 rounded-full bg-white text-black font-bold">Done</button>
@@ -623,30 +575,23 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
 
       {feedbackSent && <div className="fixed left-1/2 -translate-x-1/2 bottom-24 z-[80] rounded-full px-5 py-3 shadow-xl font-bold text-sm nkc-pop-in" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>✓ Feedback sent — thank you!</div>}
 
-      {postSuccess && <div role="dialog" aria-modal="true" aria-label="Post published" className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4 nkc-pop-in">
-  <div className="w-full max-w-xs rounded-3xl p-6 shadow-2xl border text-center" style={{backgroundColor:theme.card,color:theme.text,borderColor:theme.border}}>
-    <div className="text-4xl mb-2">✓</div>
-    <h2 className="font-black text-xl">Post published</h2>
-    <p className="text-sm opacity-60 mt-1">Your post is now on Neighborly KC.</p>
-    <button onClick={()=>setPostSuccess(false)} className="mt-5 w-full rounded-full py-3 font-bold" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>Done</button>
-  </div>
-</div>}
+      {postSuccess && <div role="status" aria-live="polite" className="fixed left-1/2 -translate-x-1/2 top-[calc(76px+env(safe-area-inset-top))] z-[80] rounded-full px-5 py-3 shadow-xl font-bold text-sm nkc-pop-in whitespace-nowrap" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>✓ Post published</div>}
 
       {showJoin && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 nkc-pop-in">
           <div className="rounded-[28px] w-full max-w-sm p-6 shadow-2xl border" style={{backgroundColor: theme.card, borderColor: theme.border}}>
             <h2 className="font-black text-xl">Join {cur?.name}</h2><p className="text-xs opacity-60">{theme.id==='royals'? 'THE K • 64155 • ROYALS BLUE & WHITE' : theme.id==='chiefs'? 'ARROWHEAD • CHIEFS KINGDOM' : '40 mile radius KC network'}</p>
             <button onClick={signInWithGoogle} disabled={googleLoading} className="mt-5 w-full bg-white border-2 border-black text-black py-3.5 rounded-full font-bold text-sm flex items-center justify-center gap-2">{googleLoading? 'Redirecting...' : 'Continue with Google'}</button>
-            <a href="/about" className="mt-4 block text-center text-sm font-bold underline underline-offset-4 opacity-70">ℹ️ About Neighborly KC</a><div className="mt-5 rounded-2xl border p-3" style={{borderColor:theme.border,backgroundColor:theme.input}}><p className="text-xs font-bold">Prefer email?</p><p className="text-[11px] opacity-60 mt-1">Use a secure email sign-in if you prefer not to use Google.</p><button type="button" onClick={()=>setShowEmailLogin(true)} className="mt-2 text-xs font-black underline">Continue with email</button></div>
-            {showEmailLogin &&             <div className="space-y-3">
+            <div className="flex items-center gap-3 my-5"><div className="h-px flex-1 bg-black/10"></div><span className="text-xs font-bold opacity-30">OR EMAIL CODE</span><div className="h-px flex-1 bg-black/10"></div></div>
+            <div className="space-y-3">
               <input value={name} onChange={e=>setName(e.target.value)} placeholder="Full name (optional)" className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-sm outline-none"/>
               <input value={email} onChange={e=>setEmail(e.target.value)} inputMode="email" autoComplete="email" placeholder="Email address" className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-sm outline-none"/>
               {!emailCodeSent && <input value={addr} onChange={e=>setAddr(e.target.value)} placeholder={`Address in ${cur?.zip} (optional)`} className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-sm outline-none"/>}
               {emailCodeSent && <input value={emailCode} onChange={e=>setEmailCode(e.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="6-digit login code" className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-center tracking-[0.45em] font-black text-lg outline-none"/>}
               {emailAuthMessage && <p className="text-xs font-semibold text-center opacity-70">{emailAuthMessage}</p>}
-              <div className="flex gap-2 pt-2"><button type="button" onClick={()=>{setShowJoin(false);setShowEmailLogin(false);setEmailCodeSent(false);setEmailCode('');setEmailAuthMessage('')}} className="flex-1 bg-[#f8f5ee] py-3.5 rounded-full font-bold text-sm">Cancel</button>{emailCodeSent ? <button type="button" disabled={emailAuthLoading} onClick={verifyEmailLoginCode} className="flex-1 text-white py-3.5 rounded-full font-bold text-sm disabled:opacity-60" style={{backgroundColor: theme.accent}}>{emailAuthLoading?'Checking…':'Verify & Sign In'}</button> : <button type="button" disabled={emailAuthLoading||!email.trim()} onClick={sendEmailLoginCode} className="flex-1 text-white py-3.5 rounded-full font-bold text-sm disabled:opacity-60" style={{backgroundColor: theme.accent}}>{emailAuthLoading?'Sending…':'Send Login Code'}</button>}</div>
+              <div className="flex gap-2 pt-2"><button type="button" onClick={()=>{setShowJoin(false);setEmailCodeSent(false);setEmailCode('');setEmailAuthMessage('')}} className="flex-1 bg-[#f8f5ee] py-3.5 rounded-full font-bold text-sm">Cancel</button>{emailCodeSent ? <button type="button" disabled={emailAuthLoading} onClick={verifyEmailLoginCode} className="flex-1 text-white py-3.5 rounded-full font-bold text-sm disabled:opacity-60" style={{backgroundColor: theme.accent}}>{emailAuthLoading?'Checking…':'Verify & Sign In'}</button> : <button type="button" disabled={emailAuthLoading||!email.trim()} onClick={sendEmailLoginCode} className="flex-1 text-white py-3.5 rounded-full font-bold text-sm disabled:opacity-60" style={{backgroundColor: theme.accent}}>{emailAuthLoading?'Sending…':'Send Login Code'}</button>}</div>
               {emailCodeSent && <button type="button" disabled={emailAuthLoading} onClick={sendEmailLoginCode} className="w-full text-xs font-bold underline opacity-60">Send a new code</button>}
-            </div>}
+            </div>
           </div>
         </div>
       )}
