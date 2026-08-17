@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/community';
 import { THEMES, DEFAULT_THEME_ID } from '../lib/themes';
 
@@ -143,26 +143,34 @@ export default function Page(){
   const [forecast,setForecast]=useState<{date:string;high:number;low:number;code:number}[]>([]);
   const [neighborCount,setNeighborCount]=useState<number|null>(null);
   const [blockedUsers,setBlockedUsers]=useState<Set<string>>(new Set());
+  const [isLoading,setIsLoading]=useState(true);
+  const [commenting,setCommenting]=useState<Record<string,boolean>>({});
 
   const theme = THEMES[themeId] || THEMES['royals'];
   const headerImage = theme.headerImage || '/neighborly-kc-header-banner.png';
   const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brooks Heights', zip:'64155', id: '5fb249cb-1667-475b-ab8c-43e1df245ace', slug:'meadow-brooks-heights'};
   const bottomInactiveColor = theme.id==='aim' ? '#111111' : theme.id==='pip-boy' ? theme.text : '#ffffff';
 
+  // Optimized viewport handler with debounce
   useEffect(()=>{
+    let timeoutId: NodeJS.Timeout;
     const vv=window.visualViewport;
     if(!vv) return;
     const update=()=>{
-      const bottom=Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
-      const keyboardOpen = bottom > 120 || vv.height < window.innerHeight * 0.75;
-      document.documentElement.style.setProperty('--nkc-vv-bottom', `${bottom}px`);
-      document.documentElement.classList.toggle('nkc-keyboard-open', keyboardOpen);
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        const bottom=Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
+        const keyboardOpen = bottom > 120 || vv.height < window.innerHeight * 0.75;
+        document.documentElement.style.setProperty('--nkc-vv-bottom', `${bottom}px`);
+        document.documentElement.classList.toggle('nkc-keyboard-open', keyboardOpen);
+      }, 100);
     };
     update();
     vv.addEventListener('resize',update);
     vv.addEventListener('scroll',update);
     window.addEventListener('resize',update);
     return()=>{
+      clearTimeout(timeoutId);
       vv.removeEventListener('resize',update);
       vv.removeEventListener('scroll',update);
       window.removeEventListener('resize',update);
@@ -170,7 +178,7 @@ export default function Page(){
     };
   },[]);
 
-  const loadAll = async (postIds:string[]) => {
+  const loadAll = useCallback(async (postIds:string[]) => {
     if(!postIds.length) return;
     const {data:com}=await supabase.from('comments').select('*').in('post_id', postIds).order('created_at',{ascending:false});
     if(com){
@@ -181,7 +189,7 @@ export default function Page(){
     }
     const {data:lk}=await supabase.from('likes').select('*').in('post_id', postIds).is('comment_id', null);
     if(lk){ const lg: Record<string,any[]> = {}; lk.forEach((l:any)=>{ if(!lg[l.post_id]) lg[l.post_id]=[]; lg[l.post_id].push(l); }); setLikes(lg); }
-  };
+  }, []);
 
   const signInWithGoogle = async () => {
     setGoogleLoading(true);
@@ -234,10 +242,17 @@ export default function Page(){
       setEmailCodeSent(false);
       setEmailAuthMessage('Signed in successfully.');
       setShowJoin(false);
+      // Force profile refresh
+      const { data: { user: refreshedUser } } = await supabase.auth.getUser();
+      if(refreshedUser) {
+        const profile = await syncCommunityProfile(refreshedUser);
+        setProfile(profile);
+      }
     }
     setEmailAuthLoading(false);
   };
 
+  // Fixed auth with single login
   useEffect(()=>{
     const saved = localStorage.getItem('nkc_theme');
     const migrated = saved === 'kc-sunset' ? 'kc-current' : saved;
@@ -246,26 +261,29 @@ export default function Page(){
 
     let alive = true;
     let subscription: { unsubscribe: () => void } | null = null;
+    let authInitialized = false;
 
-    const applySession = (user:any) => {
+    const applySession = async (user:any) => {
       if(!user || !alive) return;
       setGoogleLoading(false);
       setShowJoin(false);
+      
+      // Check if we already have this user to prevent duplicate updates
+      if(profile?.user_id === user.id) return;
+      
       const quickProfile = {
         user_id:user.id,
         auth_user_id:user.id,
         full_name:user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Neighbor',
         email:user.email || ''
       };
-      setProfile((current:any)=>current?.user_id===user.id ? current : quickProfile);
-      window.setTimeout(() => {
-        void syncCommunityProfile(user).then(pr=>{
-          if(alive && pr){
-            localStorage.setItem('nkc_profile', JSON.stringify(pr));
-            setProfile(pr);
-          }
-        });
-      }, 0);
+      setProfile(quickProfile);
+      
+      const pr = await syncCommunityProfile(user);
+      if(alive && pr){
+        localStorage.setItem('nkc_profile', JSON.stringify(pr));
+        setProfile(pr);
+      }
     };
 
     const { data } = supabase.auth.onAuthStateChange((event, sess)=>{
@@ -273,11 +291,13 @@ export default function Page(){
       if(sess?.user){
         applySession(sess.user);
         setAuthReady(true);
+        setIsLoading(false);
       } else if(event === 'SIGNED_OUT'){
         localStorage.removeItem('nkc_profile');
         setProfile(null);
         setShowJoin(false);
         setAuthReady(true);
+        setIsLoading(false);
       }
     });
     subscription = data.subscription;
@@ -318,9 +338,17 @@ export default function Page(){
         const { data: { session }, error } = await supabase.auth.getSession();
         if(!alive) return;
         if(error) console.warn('Auth session restore warning:', error.message);
-        if(session?.user) applySession(session.user);
+        if(session?.user && !authInitialized) {
+          authInitialized = true;
+          await applySession(session.user);
+        }
+      } catch(e) {
+        console.warn('Auth initialization warning:', e);
       } finally {
-        if(alive) setAuthReady(true);
+        if(alive) {
+          setAuthReady(true);
+          setIsLoading(false);
+        }
       }
     })();
 
@@ -333,11 +361,11 @@ export default function Page(){
     }
 
     return ()=>{ alive=false; subscription?.unsubscribe(); };
-  },[]);
+  }, [profile?.user_id]);
 
   const postCountRef = useRef(0);
 
-  const loadPublicFeed = async (attempt=0): Promise<void> => {
+  const loadPublicFeed = useCallback(async (attempt=0): Promise<void> => {
     const [hoodsResult, postsResult] = await Promise.all([
       supabase.from('neighborhoods').select('*').order('member_count',{ascending:false}),
       supabase.from('posts').select('*').order('created_at',{ascending:false}).limit(50),
@@ -358,9 +386,9 @@ export default function Page(){
     const enrichedPosts=rawPosts.map((x:any)=>({...x,profiles:profileMap.get(x.user_id || x.author_id)||x.profiles||null}));
     postCountRef.current=enrichedPosts.length;
     setPosts(enrichedPosts);
-    void loadAll(enrichedPosts.map((x:any)=>x.id));
+    await loadAll(enrichedPosts.map((x:any)=>x.id));
     if(!enrichedPosts.length && attempt < 1) window.setTimeout(()=>void loadPublicFeed(attempt+1), 700);
-  };
+  }, [loadAll]);
 
   useEffect(()=>{
     let cancelled=false;
@@ -368,7 +396,7 @@ export default function Page(){
     const onFocus=()=>{ if(!cancelled && postCountRef.current===0) void loadPublicFeed(); };
     window.addEventListener('focus',onFocus);
     return()=>{ cancelled=true; window.removeEventListener('focus',onFocus); };
-  },[]);
+  },[loadPublicFeed]);
 
   useEffect(()=>{
     let cancelled=false;
@@ -398,7 +426,7 @@ export default function Page(){
     return()=>{cancelled=true};
   },[cur?.id,cur?.member_count]);
 
-  const setTheme = (id:string)=>{
+  const setTheme = useCallback((id:string)=>{
     const next=THEMES[id] ? id : DEFAULT_THEME_ID;
     setThemeId(next);
     localStorage.setItem('nkc_theme', next);
@@ -407,7 +435,7 @@ export default function Page(){
     setShowThemePicker(false);
     setShowSettings(false);
     void loadPublicFeed();
-  };
+  }, [loadPublicFeed]);
 
   useEffect(()=>{
     let alive=true;
@@ -432,7 +460,14 @@ export default function Page(){
     return()=>{alive=false;window.clearInterval(timer)};
   },[]);
   
-  const signOut = async () => { localStorage.removeItem('nkc_profile'); await supabase.auth.signOut(); setProfile(null); setShowSettings(false); };
+  const signOut = async () => { 
+    localStorage.removeItem('nkc_profile'); 
+    await supabase.auth.signOut(); 
+    setProfile(null); 
+    setShowSettings(false);
+    // Clear any cached auth state
+    sessionStorage.clear();
+  };
   
   const submitFeedback = async () => {
     const text = feedbackText.trim();
@@ -450,22 +485,35 @@ export default function Page(){
     finally { setFeedbackSending(false); }
   };
 
-  const scopedPosts = scope==='local'
-    ? (hoods.length===0 ? posts : posts.filter((p:any)=>!p.neighborhood_id || String(p.neighborhood_id)===String(cur?.id||'')))
-    : posts;
-  const visiblePosts = scopedPosts.filter((p:any)=>{ const id=p.user_id||p.author_id; return !id || !blockedUsers.has(id); });
-  const filtered = cat==='All'? visiblePosts : visiblePosts.filter((p:any)=>p.category===cat);
-  const neighborhoodName = (id:any) => hoods.find((h:any)=>String(h.id)===String(id))?.name || cur?.name || 'Kansas City';
-  const contributorCounts = posts.reduce((acc:any,p:any)=>{
-    const id=p.user_id||p.author_id;
-    if(id) acc[id]=(acc[id]||0)+1;
-    return acc;
-  },{});
-  const topContributorIds = new Set(Object.entries(contributorCounts)
-    .sort((a:any,b:any)=>Number(b[1])-Number(a[1]))
-    .slice(0,3)
-    .filter(([,count]:any)=>Number(count)>=3)
-    .map(([id])=>id));
+  const scopedPosts = useMemo(() => {
+    const filtered = scope==='local'
+      ? (hoods.length===0 ? posts : posts.filter((p:any)=>!p.neighborhood_id || String(p.neighborhood_id)===String(cur?.id||'')))
+      : posts;
+    return filtered.filter((p:any)=>{ const id=p.user_id||p.author_id; return !id || !blockedUsers.has(id); });
+  }, [scope, posts, hoods, cur?.id, blockedUsers]);
+
+  const filtered = useMemo(() => {
+    return cat==='All'? scopedPosts : scopedPosts.filter((p:any)=>p.category===cat);
+  }, [cat, scopedPosts]);
+
+  const neighborhoodName = useCallback((id:any) => hoods.find((h:any)=>String(h.id)===String(id))?.name || cur?.name || 'Kansas City', [hoods, cur?.name]);
+  
+  const contributorCounts = useMemo(() => {
+    return posts.reduce((acc:any,p:any)=>{
+      const id=p.user_id||p.author_id;
+      if(id) acc[id]=(acc[id]||0)+1;
+      return acc;
+    },{});
+  }, [posts]);
+  
+  const topContributorIds = useMemo(() => {
+    return new Set(Object.entries(contributorCounts)
+      .sort((a:any,b:any)=>Number(b[1])-Number(a[1]))
+      .slice(0,3)
+      .filter(([,count]:any)=>Number(count)>=3)
+      .map(([id])=>id));
+  }, [contributorCounts]);
+
   const weatherEmoji = (code:number) => code===0?'☀️':code<=3?'🌤️':code<=48?'🌫️':code<=67?'🌧️':code<=77?'❄️':code<=82?'🌦️':'⛈️';
   const forecastDay = (date:string,i:number) => i===0?'Today':new Date(`${date}T12:00:00`).toLocaleDateString('en-US',{weekday:'short'});
   const isAdmin = Boolean(profile?.is_admin || profile?.is_founder);
@@ -533,19 +581,52 @@ export default function Page(){
     }
   };
 
+  // FIXED: Comments now work properly
   const addComment = async (postId:string) => { 
-    if(!profile) return setShowJoin(true); 
+    if(!profile) {
+      setShowJoin(true);
+      return;
+    }
     const text=commentText[postId]?.trim(); 
-    if(!text) return; 
-    const {data, error}=await supabase.from('comments').insert({ 
-      post_id: postId, 
-      content:text,
-      author_name:profile.full_name, 
-      author_id:profile.user_id 
-    }).select().single(); 
-    if(error) return alert(error.message); 
-    setComments((prev)=> ({...prev, [postId]: [data,...(prev[postId]||[])]})); 
-    setCommentText((prev)=>({...prev,[postId]:''})); 
+    if(!text) return;
+    
+    // Prevent duplicate submissions
+    if(commenting[postId]) return;
+    setCommenting(prev => ({...prev, [postId]: true}));
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if(!user) {
+        setShowJoin(true);
+        return;
+      }
+      
+      const { data, error } = await supabase.from('comments').insert({ 
+        post_id: postId, 
+        content: text,
+        body: text, // Add both for compatibility
+        author_name: profile.full_name, 
+        author_id: user.id
+      }).select().single(); 
+      
+      if(error) {
+        console.error('Comment error:', error);
+        alert('Could not post comment: ' + error.message);
+        return;
+      }
+      
+      if(data) {
+        setComments(prev => ({ 
+          ...prev, 
+          [postId]: [data, ...(prev[postId] || [])]
+        }));
+        setCommentText(prev => ({...prev, [postId]: ''}));
+      }
+    } catch(e: any) {
+      alert('Could not post comment: ' + (e.message || 'Unknown error'));
+    } finally {
+      setCommenting(prev => ({...prev, [postId]: false}));
+    }
   };
 
   const togglePostLike = async (postId:string) => {
@@ -660,6 +741,18 @@ export default function Page(){
     setComments((prev)=>({...prev, [postId]: prev[postId].filter((c:any)=>c.id!==id)})); 
   };
 
+  // Loading state
+  if(isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{backgroundColor: theme.bg}}>
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin mx-auto mb-4" style={{borderColor: theme.accent, borderTopColor: 'transparent'}}></div>
+          <p style={{color: theme.text}}>Loading Neighborly KC...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen w-full overflow-x-hidden nkc-app-shell" style={{backgroundColor: theme.bg, color: theme.text}}>
       <header className="relative z-40 overflow-hidden border-b nkc-main-header sm:hidden" style={{backgroundColor: theme.header, borderColor: theme.border}}>
@@ -715,10 +808,10 @@ export default function Page(){
         </div>
       </section>
 
-      <div className="max-w-6xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-[220px_1fr_300px] gap-6 nkc-page-content">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-8 grid grid-cols-1 lg:grid-cols-[220px_1fr_300px] gap-4 sm:gap-6 nkc-page-content">
         <aside className="rounded-2xl p-3 h-fit border hidden lg:block" style={{backgroundColor: theme.card, borderColor: theme.border}}>
           <p className="text-xs font-bold px-3 py-2 opacity-40">FILTER</p>
-          {CATS.map(c=><button key={c} onClick={()=>setCat(c)} className="w-full text-left px-3 py-2.5 rounded-xl text-sm" style={{backgroundColor: cat===c? theme.accent : 'transparent', color: cat===c? theme.pillTextActive : theme.text}}>{c}</button>)}
+          {CATS.map(c=><button key={c} onClick={()=>setCat(c)} className="w-full text-left px-3 py-2.5 rounded-xl text-sm transition-colors" style={{backgroundColor: cat===c? theme.accent : 'transparent', color: cat===c? theme.pillTextActive : theme.text}}>{c}</button>)}
         </aside>
 
         <main className="space-y-3">
@@ -726,25 +819,26 @@ export default function Page(){
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
               <div><p className="text-xs font-black uppercase tracking-wider opacity-50">Neighborly KC Network</p><h2 className="text-xl font-black">{scope==='local'?cur?.name:'All Kansas City'}</h2><p className="text-xs opacity-55">{scope==='local'?'Your neighborhood and nearby local conversation':'Everyone inside the 40-mile Neighborly KC network'}</p></div>
               <div className="nkc-scope-switch flex rounded-full p-0.5 gap-0.5" style={{backgroundColor:theme.input,border:`1px solid ${theme.border}`}}>
-                <button onClick={()=>setScope('local')} className="px-3 py-1.5 rounded-full text-xs font-black" style={{backgroundColor:scope==='local'?theme.pillActive:'transparent',color:scope==='local'?theme.pillTextActive:theme.text}}>📍 My Area</button>
-                <button onClick={()=>setScope('kc')} className="px-3 py-1.5 rounded-full text-xs font-black" style={{backgroundColor:scope==='kc'?theme.pillActive:'transparent',color:scope==='kc'?theme.pillTextActive:theme.text}}>🏙️ All KC</button>
+                <button onClick={()=>setScope('local')} className="px-3 py-1.5 rounded-full text-xs font-black transition-colors" style={{backgroundColor:scope==='local'?theme.pillActive:'transparent',color:scope==='local'?theme.pillTextActive:theme.text}}>📍 My Area</button>
+                <button onClick={()=>setScope('kc')} className="px-3 py-1.5 rounded-full text-xs font-black transition-colors" style={{backgroundColor:scope==='kc'?theme.pillActive:'transparent',color:scope==='kc'?theme.pillTextActive:theme.text}}>🏙️ All KC</button>
               </div>
             </div>
             <div className="mb-2 rounded-xl px-3 py-2 text-xs font-bold border" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>📍 Posting to: <span style={{color:theme.accent}}>{scope==='kc'?'All Kansas City':cur?.name || 'your neighborhood'}</span></div>
             <textarea ref={postComposerRef} value={body} onChange={e=>setBody(e.target.value)} onFocus={()=>window.setTimeout(()=>postComposerRef.current?.scrollIntoView({behavior:'smooth',block:'center'}),120)} autoComplete="off" autoCorrect="on" autoCapitalize="sentences" spellCheck={true} inputMode="text" name="neighborly-post" data-lpignore="true" placeholder={profile?(scope==='kc'?'What should Kansas City know?':`What's up in ${cur?.name}?`):'Join Neighborly KC to post...'} className="nkc-post-composer w-full rounded-xl p-3 min-h-[80px] text-sm outline-none" data-theme={theme.id} style={{backgroundColor: theme.input, color: theme.text, border: `1px solid ${theme.border}`, scrollMarginBottom:'180px', caretColor: theme.accent, boxShadow: theme.id==='pip-boy' ? `inset 0 0 14px ${theme.accent}22, 0 0 8px ${theme.accent}22` : theme.id==='space' ? `inset 0 0 14px ${theme.accent}16` : undefined }} />
             <div className="flex items-center gap-2 mt-3 min-w-0">
-              <label htmlFor="file-input" className="shrink-0 cursor-pointer rounded-full border px-3 py-1.5 text-xs font-bold" style={{borderColor:theme.border}}>Choose image</label>
+              <label htmlFor="file-input" className="shrink-0 cursor-pointer rounded-full border px-3 py-1.5 text-xs font-bold transition-colors hover:opacity-80" style={{borderColor:theme.border}}>Choose image</label>
               <input key={fileInputKey} ref={fileInputRef} id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="sr-only" />
               {file && <div className="min-w-0 flex items-center gap-2 text-xs opacity-70"><span className="truncate max-w-[180px]" title={file.name}>{file.name}</span><button type="button" onClick={()=>{setFile(null); if(fileInputRef.current) fileInputRef.current.value=''; setFileInputKey(k=>k+1);}} className="shrink-0 font-black" aria-label="Remove selected image">✕</button></div>}
             </div>
             <div className="flex justify-end mt-2">
-              <button disabled={uploading} onClick={handleBePost} className="px-5 py-2 rounded-full text-sm font-bold disabled:opacity-50" style={{backgroundColor: theme.accent, color: theme.pillTextActive}}>{uploading?'Uploading...':scope==='kc'?'Post to KC':'Post to neighbors'}</button>
+              <button disabled={uploading} onClick={handleBePost} className="px-5 py-2 rounded-full text-sm font-bold disabled:opacity-50 transition-opacity" style={{backgroundColor: theme.accent, color: theme.pillTextActive}}>{uploading?'Uploading...':scope==='kc'?'Post to KC':'Post to neighbors'}</button>
             </div>
           </div>
 
           {filtered.map((p:any)=>{
             const cList=comments[p.id]||[]; const isOpen=openComments[p.id]; const pLikes=likes[p.id]||[]; const liked=pLikes.some((l:any)=>l.author_id===profile?.user_id || l.author_name===profile?.full_name);
             const isOwner=Boolean(profile && ((p.user_id && p.user_id===profile.user_id) || (!p.user_id && p.author_name===profile.full_name))); const canManage=isOwner||isAdmin; const isEditing=editingPostId===p.id;
+            const isCommenting = commenting[p.id] || false;
             return <div key={p.id} className="rounded-2xl p-4 border nkc-surface nkc-fade-in nkc-post-card" style={{backgroundColor:theme.card,borderColor:theme.border}}>
               <div className="flex justify-between gap-3"><div className="flex items-center gap-2 min-w-0"><div className="w-9 h-9 shrink-0 rounded-full overflow-hidden grid place-items-center font-black text-xs border" style={{backgroundColor:theme.input,borderColor:theme.border}}>{p.profiles?.avatar_url?<img src={p.profiles.avatar_url} alt="" className="w-full h-full object-cover"/>:(p.profiles?.full_name||p.author_name||'N').slice(0,1).toUpperCase()}</div><div><div className="flex items-center gap-1.5 flex-wrap"><p className="text-xs font-bold opacity-60">{(p.user_id||p.author_id)?<a href={`/dms?user=${p.user_id||p.author_id}`} className="hover:underline">{p.profiles?.full_name||p.author_name||'Neighbor'}</a>:(p.profiles?.full_name||p.author_name||'Neighbor')} · {p.category}</p>
                   <div className="nkc-badges">
@@ -752,9 +846,9 @@ export default function Page(){
                     {p.profiles?.is_admin&&<span className="nkc-badge moderator">🛡️ Moderator</span>}
                     {topContributorIds.has(p.user_id||p.author_id)&&<span className="nkc-badge contributor">🔥 Top Contributor</span>}
                     {p.profiles?.is_verified&&<span className="nkc-badge verified">✓ Verified</span>}
-                  </div></div>{scope==='kc'&&<p className="text-[11px] font-bold mt-1 opacity-45">📍 {neighborhoodName(p.neighborhood_id)}</p>}</div></div>{canManage&&<div className="flex items-center gap-2"><button onClick={()=>beginEdit(p)} className="text-xs font-bold opacity-55 hover:opacity-100">✏️ Edit</button><button onClick={()=>deletePost(p.id,p.image_url)} className="text-xs opacity-40 hover:text-red-600">🗑️ Delete</button>{isAdmin&&!isOwner&&<button onClick={()=>blockUser(p.user_id||p.author_id,p.profiles?.full_name||p.author_name||'Neighbor')} className="text-xs opacity-50 hover:text-red-600">🚫 Block</button>}</div>}</div>
-              {isEditing?<div className="mt-3 rounded-2xl p-3 nkc-pop-in" style={{backgroundColor:theme.input}}><textarea value={editBody} onChange={e=>setEditBody(e.target.value)} className="w-full rounded-xl p-3 min-h-[120px] text-sm outline-none border" style={{backgroundColor:theme.card,color:theme.text,borderColor:theme.border}}/><div className="grid sm:grid-cols-2 gap-2 mt-2"><select value={editCategory} onChange={e=>setEditCategory(e.target.value)} className="rounded-xl px-3 py-2 text-sm border outline-none" style={{backgroundColor:theme.card,color:theme.text,borderColor:theme.border}}>{CATS.filter(c=>c!=='All').map(c=><option key={c}>{c}</option>)}</select><label className="rounded-xl px-3 py-2 text-sm border cursor-pointer" style={{backgroundColor:theme.card,borderColor:theme.border}}><span className="font-bold">📷 Replace image</span><input ref={editFileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setEditFile(e.target.files?.[0]||null)} className="sr-only"/>{editFile&&<span className="block text-xs opacity-60 truncate mt-1">{editFile.name}</span>}</label></div><div className="flex justify-end gap-2 mt-3"><button onClick={cancelEdit} className="px-4 py-2 rounded-full text-xs font-bold" style={{backgroundColor:theme.card,border:`1px solid ${theme.border}`}}>Cancel</button><button disabled={editSaving||!editBody.trim()} onClick={()=>savePostEdit(p)} className="px-4 py-2 rounded-full text-xs font-bold disabled:opacity-50" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{editSaving?'Saving...':'Save changes'}</button></div></div>:<>
-                <p className="mt-1 whitespace-pre-wrap">{p.body||p.content}</p>{p.image_url&&<div className="mt-3 nkc-post-image-frame rounded-xl overflow-hidden border" style={{borderColor:theme.border}}><img src={p.image_url} alt="post" className="nkc-post-image w-full h-full object-cover" /></div>}<p className="text-xs opacity-40 mt-2">{new Date(p.created_at).toLocaleString()}</p><div className="mt-3 pt-3 border-t flex gap-4" style={{borderColor:theme.border}}><button onClick={()=>togglePostLike(p.id)} className="text-xs font-bold">{liked?'❤️':'🤍'} {pLikes.length}</button><button onClick={()=>setOpenComments(prev=>({...prev,[p.id]:!prev[p.id]}))} className="text-xs font-bold opacity-60">💬 {cList.length} {isOpen?'▲':'▼'}</button></div>{isOpen&&<div className="mt-3 rounded-xl p-3 space-y-2" style={{backgroundColor:theme.input}}>{cList.map((c:any)=>{const cl=cLikes[c.id]||[];const cliked=cl.some((l:any)=>l.author_id===profile?.user_id||l.author_name===profile?.full_name);const canDelC=(profile&&c.author_name===profile.full_name)||isAdmin;return <div key={c.id} className="text-sm rounded-lg p-2 flex justify-between gap-2" style={{backgroundColor:theme.card}}><div><b className="text-xs">{c.author_name}:</b> {c.content||c.body}<button onClick={()=>toggleCommentLike(c.id)} className="ml-3 text-xs">{cliked?'❤️':'🤍'} {cl.length}</button></div>{canDelC&&<button onClick={()=>deleteComment(c.id,p.id)} className="text-[10px] opacity-30">🗑️</button>}</div>})}<div className="flex gap-2 pt-2"><input value={commentText[p.id]||''} onChange={e=>setCommentText(prev=>({...prev,[p.id]:e.target.value}))} placeholder="Add a comment..." className="flex-1 border rounded-full px-3 py-2 text-sm outline-none" style={{backgroundColor:theme.card,borderColor:theme.border,color:theme.text}}/><button onClick={()=>addComment(p.id)} className="px-4 py-2 rounded-full text-xs font-bold" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>Reply</button></div></div>}
+                  </div></div>{scope==='kc'&&<p className="text-[11px] font-bold mt-1 opacity-45">📍 {neighborhoodName(p.neighborhood_id)}</p>}</div></div>{canManage&&<div className="flex items-center gap-2"><button onClick={()=>beginEdit(p)} className="text-xs font-bold opacity-55 hover:opacity-100 transition-opacity">✏️ Edit</button><button onClick={()=>deletePost(p.id,p.image_url)} className="text-xs opacity-40 hover:text-red-600 transition-colors">🗑️ Delete</button>{isAdmin&&!isOwner&&<button onClick={()=>blockUser(p.user_id||p.author_id,p.profiles?.full_name||p.author_name||'Neighbor')} className="text-xs opacity-50 hover:text-red-600 transition-colors">🚫 Block</button>}</div>}</div>
+              {isEditing?<div className="mt-3 rounded-2xl p-3 nkc-pop-in" style={{backgroundColor:theme.input}}><textarea value={editBody} onChange={e=>setEditBody(e.target.value)} className="w-full rounded-xl p-3 min-h-[120px] text-sm outline-none border" style={{backgroundColor:theme.card,color:theme.text,borderColor:theme.border}}/><div className="grid sm:grid-cols-2 gap-2 mt-2"><select value={editCategory} onChange={e=>setEditCategory(e.target.value)} className="rounded-xl px-3 py-2 text-sm border outline-none" style={{backgroundColor:theme.card,color:theme.text,borderColor:theme.border}}>{CATS.filter(c=>c!=='All').map(c=><option key={c}>{c}</option>)}</select><label className="rounded-xl px-3 py-2 text-sm border cursor-pointer" style={{backgroundColor:theme.card,borderColor:theme.border}}><span className="font-bold">📷 Replace image</span><input ref={editFileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setEditFile(e.target.files?.[0]||null)} className="sr-only"/>{editFile&&<span className="block text-xs opacity-60 truncate mt-1">{editFile.name}</span>}</label></div><div className="flex justify-end gap-2 mt-3"><button onClick={cancelEdit} className="px-4 py-2 rounded-full text-xs font-bold transition-colors" style={{backgroundColor:theme.card,border:`1px solid ${theme.border}`}}>Cancel</button><button disabled={editSaving||!editBody.trim()} onClick={()=>savePostEdit(p)} className="px-4 py-2 rounded-full text-xs font-bold disabled:opacity-50 transition-opacity" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{editSaving?'Saving...':'Save changes'}</button></div></div>:<>
+                <p className="mt-1 whitespace-pre-wrap break-words">{p.body||p.content}</p>{p.image_url&&<div className="mt-3 nkc-post-image-frame rounded-xl overflow-hidden border" style={{borderColor:theme.border}}><img src={p.image_url} alt="post" className="nkc-post-image w-full h-full object-cover" loading="lazy" /></div>}<p className="text-xs opacity-40 mt-2">{new Date(p.created_at).toLocaleString()}</p><div className="mt-3 pt-3 border-t flex gap-4" style={{borderColor:theme.border}}><button onClick={()=>togglePostLike(p.id)} className="text-xs font-bold transition-colors hover:opacity-70">{liked?'❤️':'🤍'} {pLikes.length}</button><button onClick={()=>setOpenComments(prev=>({...prev,[p.id]:!prev[p.id]}))} className="text-xs font-bold opacity-60 transition-opacity hover:opacity-100">💬 {cList.length} {isOpen?'▲':'▼'}</button></div>{isOpen&&<div className="mt-3 rounded-xl p-3 space-y-2" style={{backgroundColor:theme.input}}>{cList.map((c:any)=>{const cl=cLikes[c.id]||[];const cliked=cl.some((l:any)=>l.author_id===profile?.user_id||l.author_name===profile?.full_name);const canDelC=(profile&&c.author_name===profile.full_name)||isAdmin;return <div key={c.id} className="text-sm rounded-lg p-2 flex justify-between gap-2" style={{backgroundColor:theme.card}}><div><b className="text-xs">{c.author_name}:</b> <span className="break-words">{c.content||c.body}</span><button onClick={()=>toggleCommentLike(c.id)} className="ml-3 text-xs transition-colors hover:opacity-70">{cliked?'❤️':'🤍'} {cl.length}</button></div>{canDelC&&<button onClick={()=>deleteComment(c.id,p.id)} className="text-[10px] opacity-30 hover:opacity-100 transition-opacity">🗑️</button>}</div>})}<div className="flex gap-2 pt-2"><input value={commentText[p.id]||''} onChange={e=>setCommentText(prev=>({...prev,[p.id]:e.target.value}))} placeholder="Add a comment..." className="flex-1 border rounded-full px-3 py-2 text-sm outline-none transition-colors" style={{backgroundColor:theme.card,borderColor:theme.border,color:theme.text}} onKeyDown={(e)=>{if(e.key==='Enter' && !e.shiftKey){e.preventDefault();addComment(p.id);}}}/><button onClick={()=>addComment(p.id)} disabled={isCommenting || !commentText[p.id]?.trim()} className="px-4 py-2 rounded-full text-xs font-bold disabled:opacity-50 transition-opacity" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{isCommenting?'...':'Reply'}</button></div></div>}
               </>}
             </div>
           })}
