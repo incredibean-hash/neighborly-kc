@@ -5,6 +5,11 @@ import { THEMES, DEFAULT_THEME_ID } from '../lib/themes';
 
 const CATS = ['All','General','For Sale & Free','Safety Alert','Recommendation','Event','Lost & Found'];
 
+// A PKCE authorization code may only be redeemed once. React Strict Mode mounts
+// effects twice in development, and a fast double render can do the same in
+// production, so the exchange is guarded at module scope rather than per mount.
+let oauthCodeExchangeStarted = false;
+
 
 
 async function compressImage(file: File): Promise<File> {
@@ -291,17 +296,41 @@ export default function Page(){
 
     (async()=>{
       try {
-        // Explicitly exchange the OAuth PKCE code on the callback page. This
-        // removes the intermittent first-login/second-login behavior seen on
-        // mobile browsers and Vercel test deployments.
+        // Exchange the OAuth PKCE code exactly once. detectSessionInUrl is off
+        // in lib/community.ts so this is the only consumer of the verifier.
         const params = new URLSearchParams(window.location.search);
         const code = params.get('code');
-        if(code){
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
-          if(error) {
-            console.warn('OAuth code exchange warning:', error.message);
-            setEmailAuthMessage(error.message);
+
+        // Some Supabase email templates still return implicit-flow tokens in
+        // the URL hash. detectSessionInUrl is off, so adopt them explicitly.
+        const hash = new URLSearchParams(window.location.hash.replace(/^#/,''));
+        const access_token = hash.get('access_token');
+        const refresh_token = hash.get('refresh_token');
+        if(access_token && refresh_token){
+          const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+          if(error) console.warn('Hash session adopt warning:', error.message);
+          window.history.replaceState({}, '', window.location.pathname);
+        }
+
+        if(code && !oauthCodeExchangeStarted){
+          oauthCodeExchangeStarted = true;
+          // If a session already landed (e.g. the listener fired first), the
+          // code is redundant and redeeming it would fail for no reason.
+          const { data: { session: preexisting } } = await supabase.auth.getSession();
+          if(!preexisting?.user){
+            const { error } = await supabase.auth.exchangeCodeForSession(code);
+            if(error) {
+              console.warn('OAuth code exchange warning:', error.message);
+              // A consumed verifier is benign when a session exists anyway.
+              const { data: { session: after } } = await supabase.auth.getSession();
+              if(!after?.user && alive){
+                setShowJoin(true);
+                setEmailAuthMessage('Google sign in did not complete. Please try again.');
+              }
+            }
           }
+          window.history.replaceState({}, '', window.location.pathname);
+        } else if(code){
           window.history.replaceState({}, '', window.location.pathname);
         }
 
@@ -327,6 +356,8 @@ export default function Page(){
     return ()=>{ alive=false; subscription?.unsubscribe(); };
   },[]);
 
+  const postCountRef = useRef(0);
+
   const loadPublicFeed = async (attempt=0): Promise<void> => {
     const [hoodsResult, postsResult] = await Promise.all([
       supabase.from('neighborhoods').select('*').order('member_count',{ascending:false}),
@@ -346,9 +377,12 @@ export default function Page(){
       profileMap=new Map((postProfiles||[]).map((x:any)=>[x.auth_user_id,x]));
     }
     const enrichedPosts=rawPosts.map((x:any)=>({...x,profiles:profileMap.get(x.user_id || x.author_id)||x.profiles||null}));
+    postCountRef.current=enrichedPosts.length;
     setPosts(enrichedPosts);
     void loadAll(enrichedPosts.map((x:any)=>x.id));
-    if(!enrichedPosts.length && attempt < 4) window.setTimeout(()=>void loadPublicFeed(attempt+1), 700 + attempt*500);
+    // Retry only once for a genuinely empty result. The old code re-polled four
+    // times on every load, which hammered Supabase for brand new neighborhoods.
+    if(!enrichedPosts.length && attempt < 1) window.setTimeout(()=>void loadPublicFeed(attempt+1), 700);
   };
 
   // Load the public feed separately from authentication. A slow OAuth/session
@@ -356,7 +390,9 @@ export default function Page(){
   useEffect(()=>{
     let cancelled=false;
     void loadPublicFeed();
-    const onFocus=()=>{ if(!cancelled && posts.length===0) void loadPublicFeed(); };
+    // postCountRef avoids the stale `posts` closure this effect used to capture,
+    // which made every window focus trigger a full feed reload.
+    const onFocus=()=>{ if(!cancelled && postCountRef.current===0) void loadPublicFeed(); };
     window.addEventListener('focus',onFocus);
     return()=>{ cancelled=true; window.removeEventListener('focus',onFocus); };
   },[]);

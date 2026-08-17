@@ -21,7 +21,10 @@ export default function ProfilePage(){
 
   const load=async()=>{
     setLoading(true);
-    const {data:{user}}=await supabase.auth.getUser();
+    // getSession reads the persisted session directly, so a slow or failed
+    // /auth/v1/user call can no longer make the owner look like a visitor.
+    const {data:{session}}=await supabase.auth.getSession();
+    const user=session?.user||null;
     setMe(user);
     // Accept either the auth UUID or the profile row UUID in the public URL.
     // Older Neighborly KC data used the profile id as the route id, while the
@@ -41,8 +44,12 @@ export default function ProfilePage(){
     const {data:po}=await supabase.from('posts').select('id,body,category,created_at,image_url,neighborhood_id').eq('user_id',ownerId).order('created_at',{ascending:false}).limit(20);
     setPosts(po||[]);
     if(user&&user.id!==ownerId){
-      const {data:c}=await supabase.from('connections').select('*').or(`and(requester_id.eq.${user.id},addressee_id.eq.${ownerId}),and(requester_id.eq.${ownerId},addressee_id.eq.${user.id})`).maybeSingle();
-      setConn(c);
+      // limit(1) instead of maybeSingle(): duplicate legacy rows in either
+      // direction used to throw and silently reset the Connect button.
+      const {data:c}=await supabase.from('connections').select('*').or(`and(requester_id.eq.${user.id},addressee_id.eq.${ownerId}),and(requester_id.eq.${ownerId},addressee_id.eq.${user.id})`).order('created_at',{ascending:false}).limit(1);
+      setConn(c?.[0]||null);
+    } else {
+      setConn(null);
     }
     setLoading(false);
   };
@@ -53,17 +60,27 @@ export default function ProfilePage(){
     const ownerId = p?.auth_user_id || id;
     if(ownerId===me.id)return;
     const {error}=await supabase.from('connections').insert({requester_id:me.id,addressee_id:ownerId,status:'pending'});
-    if(error)alert(error.message);
+    // A duplicate pair just means the request already exists; reload quietly.
+    if(error&&!(error.code==='23505'||/duplicate/i.test(error.message||'')))alert(error.message);
     await load();
   };
 
   const saveProfile=async()=>{
     if(!me||me.id!==(p?.auth_user_id || id)||!name.trim())return;
+    if(!p?.id){alert('Finish creating your profile first.');return;}
     setSaving(true);
-    const {data,error}=await supabase.from('profiles').update({full_name:name.trim(),zip:zip.trim()}).eq('auth_user_id',p?.auth_user_id || id).select('id,auth_user_id,full_name,email,zip,street_address,avatar_url,is_verified,is_founder,is_admin').single();
+    // Update by the profile row's own primary key. The old code matched on
+    // auth_user_id, which updated zero rows (and then threw on .single()) for
+    // legacy rows where auth_user_id was never backfilled.
+    const cols='id,auth_user_id,full_name,email,zip,street_address,avatar_url,is_verified,is_founder,is_admin';
+    const {error}=await supabase.from('profiles').update({full_name:name.trim(),zip:zip.trim()}).eq('id',p.id);
     if(error){alert('Could not save profile: '+error.message);setSaving(false);return;}
-    setP(data);setEditing(false);
-    localStorage.setItem('nkc_profile',JSON.stringify({...data,user_id:id}));
+    // Read the row back separately so a restrictive SELECT policy cannot make a
+    // successful save look like a failure.
+    const {data}=await supabase.from('profiles').select(cols).eq('id',p.id).maybeSingle();
+    const next=data||{...p,full_name:name.trim(),zip:zip.trim()};
+    setP(next);setEditing(false);
+    localStorage.setItem('nkc_profile',JSON.stringify({...next,user_id:me.id}));
     setSaving(false);
   };
 

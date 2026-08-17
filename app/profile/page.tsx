@@ -4,10 +4,9 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/community';
-import { THEMES, DEFAULT_THEME_ID } from '../../lib/themes';
+import { useAppTheme } from '../../lib/use-theme';
 
 export default function MyProfilePage() {
-  const [themeId, setThemeId] = useState(DEFAULT_THEME_ID);
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [hoods, setHoods] = useState<any[]>([]);
@@ -21,18 +20,18 @@ export default function MyProfilePage() {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
 
-  const theme = THEMES[themeId] || THEMES.royals;
+  // Shared hook so this page follows the same theme as the rest of the app and
+  // stays in sync when the theme changes elsewhere.
+  const theme = useAppTheme();
   const router = useRouter();
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('nkc_theme');
-    if (savedTheme && THEMES[savedTheme]) setThemeId(savedTheme);
-
     (async () => {
-      const [{ data: hoodsData }, { data: { user: currentUser } }] = await Promise.all([
+      const [{ data: hoodsData }, { data: { session } }] = await Promise.all([
         supabase.from('neighborhoods').select('*').order('name'),
-        supabase.auth.getUser(),
+        supabase.auth.getSession(),
       ]);
+      const currentUser = session?.user || null;
       setHoods(hoodsData || []);
       if (!currentUser) { setLoading(false); return; }
       setUser(currentUser);
@@ -64,7 +63,9 @@ export default function MyProfilePage() {
     setSaved(false);
     try {
       const selectedHood = hoods.find(h => String(h.id) === String(neighborhoodId));
-      let nextAvatarUrl = avatarUrl || null;
+      // avatarUrl holds a base64 preview while a new file is pending. Never let
+      // that data: URL reach the database if the upload does not run.
+      let nextAvatarUrl = avatarUrl && !avatarUrl.startsWith('data:') ? avatarUrl : (profile?.avatar_url || null);
       if (avatarFile) {
         setAvatarUploading(true);
         const ext = (avatarFile.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';

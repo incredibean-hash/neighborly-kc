@@ -16,7 +16,7 @@ export default function PeoplePage(){
 
   const load=async()=>{
     setLoading(true);
-    const {data:{user}}=await supabase.auth.getUser(); setMe(user);
+    const {data:{session}}=await supabase.auth.getSession();const user=session?.user||null; setMe(user);
     const {data:p,error:profileError}=await supabase.from('profiles').select('auth_user_id,full_name,email,zip,street_address,avatar_url,is_founder,is_admin,is_verified,neighborhood_id').not('auth_user_id','is',null).order('full_name');
     if(profileError) setErrorMessage('Neighbors could not be loaded: '+profileError.message); else if(p) setProfiles(p);
     if(user){ const {data:c,error:connectionError}=await supabase.from('connections').select('*').or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`); if(connectionError) setErrorMessage('Connections could not be loaded: '+connectionError.message); else if(c) setConnections(c); }
