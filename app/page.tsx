@@ -243,22 +243,23 @@ export default function Page(){
     const migrated = saved === 'kc-sunset' ? 'kc-current' : saved;
     setThemeId(migrated && THEMES[migrated] ? migrated : DEFAULT_THEME_ID);
     if(new URLSearchParams(window.location.search).get('signin')==='1') setShowJoin(true);
+
     let alive = true;
     let subscription: { unsubscribe: () => void } | null = null;
-    let sawAuthEvent = false;
 
     const applySession = (user:any) => {
-      setGoogleLoading(false);
       if(!user || !alive) return;
-      // Show the signed-in UI immediately, then hydrate the full profile in the
-      // next task. This prevents the OAuth callback from briefly looking logged out.
+      setGoogleLoading(false);
       setShowJoin(false);
-      setProfile((current:any)=>current || {
+      // Update the UI from the real Supabase session immediately. Never use a
+      // cached profile as proof of authentication.
+      const quickProfile = {
         user_id:user.id,
         auth_user_id:user.id,
         full_name:user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Neighbor',
         email:user.email || ''
-      });
+      };
+      setProfile((current:any)=>current?.user_id===user.id ? current : quickProfile);
       window.setTimeout(() => {
         void syncCommunityProfile(user).then(pr=>{
           if(alive && pr){
@@ -269,11 +270,10 @@ export default function Page(){
       }, 0);
     };
 
-    // Register the auth listener before restoring/exchanging a session so the
-    // UI reacts immediately when Supabase establishes the authenticated user.
+    // Listen first so a session created during an OAuth/code exchange can never
+    // be missed by the UI.
     const { data } = supabase.auth.onAuthStateChange((event, sess)=>{
       if(!alive) return;
-      sawAuthEvent = true;
       if(sess?.user){
         applySession(sess.user);
         setAuthReady(true);
@@ -285,25 +285,29 @@ export default function Page(){
       }
     });
     subscription = data.subscription;
-    // Auth controls should never be held hostage by feed/profile network requests.
-    // Resolve the header state immediately; the async session hydration below can
-    // then upgrade the UI to the signed-in state when Supabase is ready.
-    setAuthReady(true);
 
     (async()=>{
-      // Supabase handles the PKCE callback automatically because the client
-      // uses detectSessionInUrl:true. Restore any existing session here.
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if(!alive) return;
-      if(error) console.warn('Auth session restore warning:', error.message);
-      if(session?.user){
-        applySession(session.user);
-      } else if(!sawAuthEvent) {
-        // Do not erase a freshly established session if the auth event won the
-        // race with getSession() on Safari/Vercel. This was the source of the
-        // first-login-looks-logged-out / sign-in-twice behavior.
-        localStorage.removeItem('nkc_profile');
-        setProfile(null);
+      try {
+        // Explicitly exchange the OAuth PKCE code on the callback page. This
+        // removes the intermittent first-login/second-login behavior seen on
+        // mobile browsers and Vercel test deployments.
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get('code');
+        if(code){
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if(error) {
+            console.warn('OAuth code exchange warning:', error.message);
+            setEmailAuthMessage(error.message);
+          }
+          window.history.replaceState({}, '', window.location.pathname);
+        }
+
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if(!alive) return;
+        if(error) console.warn('Auth session restore warning:', error.message);
+        if(session?.user) applySession(session.user);
+      } finally {
+        if(alive) setAuthReady(true);
       }
     })();
 
