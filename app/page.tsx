@@ -141,6 +141,7 @@ export default function Page(){
   const [weather,setWeather]=useState<{temp:number;feels:number;precip:number;code:number}|null>(null);
   const [forecast,setForecast]=useState<{date:string;high:number;low:number;code:number}[]>([]);
   const [neighborCount,setNeighborCount]=useState<number|null>(null);
+  const [blockedUsers,setBlockedUsers]=useState<Set<string>>(new Set());
 
   const theme = THEMES[themeId] || THEMES['royals'];
   const headerImage = theme.headerImage || '/neighborly-kc-header-banner.png';
@@ -362,14 +363,25 @@ export default function Page(){
 
   useEffect(()=>{
     let cancelled=false;
+    const loadBlocks=async()=>{
+      if(!profile?.user_id) { setBlockedUsers(new Set()); return; }
+      const {data}=await supabase.from('user_blocks').select('blocked_id').eq('blocker_id',profile.user_id);
+      if(!cancelled) setBlockedUsers(new Set((data||[]).map((x:any)=>x.blocked_id)));
+    };
+    void loadBlocks();
+    return()=>{cancelled=true};
+  },[profile?.user_id]);
+
+  useEffect(()=>{
+    let cancelled=false;
     const loadNeighborCount=async()=>{
       const neighborhoodId=cur?.id;
       if(!neighborhoodId){ setNeighborCount(null); return; }
       const {count,error}=await supabase.from('profiles').select('id',{count:'exact',head:true}).eq('neighborhood_id',neighborhoodId);
       if(cancelled) return;
-      if(!error && typeof count==='number'){ setNeighborCount(count); return; }
+      if(!error && typeof count==='number' && count>0){ setNeighborCount(count); return; }
       const fallbackCount=Number(cur?.member_count);
-      setNeighborCount(Number.isFinite(fallbackCount)?fallbackCount:0);
+      setNeighborCount(Number.isFinite(fallbackCount)?fallbackCount:(typeof count==='number'?count:0));
     };
     void loadNeighborCount();
     return()=>{cancelled=true};
@@ -429,7 +441,8 @@ export default function Page(){
 const scopedPosts = scope==='local'
     ? (hoods.length===0 ? posts : posts.filter((p:any)=>!p.neighborhood_id || String(p.neighborhood_id)===String(cur?.id||'')))
     : posts;
-  const filtered = cat==='All'? scopedPosts : scopedPosts.filter((p:any)=>p.category===cat);
+  const visiblePosts = scopedPosts.filter((p:any)=>{ const id=p.user_id||p.author_id; return !id || !blockedUsers.has(id); });
+  const filtered = cat==='All'? visiblePosts : visiblePosts.filter((p:any)=>p.category===cat);
   const neighborhoodName = (id:any) => hoods.find((h:any)=>String(h.id)===String(id))?.name || cur?.name || 'Kansas City';
   const contributorCounts = posts.reduce((acc:any,p:any)=>{
     const id=p.user_id||p.author_id;
@@ -569,6 +582,7 @@ const scopedPosts = scope==='local'
     } catch(e:any) { alert('Could not update post: '+(e.message||e)); } finally { setEditSaving(false); }
   };
   const deletePost = async (id:string, image_url:string|null) => { if(!confirm('Delete this post?')) return; if(image_url){ const path = image_url.split('/post-images/')[1]; if(path) await supabase.storage.from('post-images').remove([path]); } const {error}=await supabase.from('posts').delete().eq('id', id); if(error) return alert('Could not delete post: '+error.message); setPosts(prev=>prev.filter((p:any)=>p.id!==id)); };
+  const blockUser = async (userId:string, userName:string) => { if(!isAdmin || !userId) return; if(!confirm(`Block ${userName}? Their posts will be hidden from the feed.`)) return; const {error}=await supabase.from('user_blocks').upsert({blocker_id:profile.user_id,blocked_id:userId},{onConflict:'blocker_id,blocked_id'}); if(error) return alert('Could not block user: '+error.message); setBlockedUsers(prev=>new Set([...prev,userId])); setToast(`✓ ${userName} blocked`); window.setTimeout(()=>setToast(''),2600); };
   const deleteComment = async (id:string, postId:string) => { if(!confirm('Delete comment?')) return; const {error}=await supabase.from('comments').delete().eq('id', id); if(error)return alert(error.message); setComments((prev)=>({...prev, [postId]: prev[postId].filter((c:any)=>c.id!==id)})); };
 
   return (
@@ -579,12 +593,10 @@ const scopedPosts = scope==='local'
             <img src={headerImage} alt="Neighborly KC" className="nkc-header-banner" draggable="false" />
           </button>
         </div>
-        <div className="nkc-mobile-account-row" aria-label="Account controls" style={{backgroundColor:theme.header,borderColor:theme.border}}>
-          <button type="button" onClick={()=>setShowSettings(true)} aria-label="Themes and settings" className="nkc-mobile-account-btn" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.accent}}>⚙️ <span>Themes</span></button>
-          {!authReady ? <span className="nkc-mobile-account-status">Loading…</span> : profile ? <button type="button" onClick={signOut} className="nkc-mobile-account-btn" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.accent}}>↪ <span>Sign out</span></button> : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-mobile-account-btn" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.accent}}>👤 <span>Sign in</span></button>}
-        </div>
+        <div className="nkc-mobile-account-row" aria-label="Explore controls" style={{backgroundColor:theme.header,borderColor:theme.border}}><button type="button" onClick={()=>setShowExplore(v=>!v)} className="nkc-mobile-account-btn" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.accent}}>🧭 <span>Explore</span></button></div>
         {showExplore && <div className="max-w-6xl mx-auto px-3 pb-3 flex gap-2 justify-center flex-wrap">
-          <a href="/people" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>👥 People</a>
+          <a href="/people" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>👥 Neighbors</a>
+          <button onClick={()=>{setShowSettings(true);setShowExplore(false)}} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>🎨 Themes</button>{profile?<button onClick={signOut} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>↪ Sign out</button>:<button onClick={()=>{setShowJoin(true);setShowExplore(false)}} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>👤 Sign in</button>}
           <button onClick={()=>setCat('Event')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>📅 Events</button>
           <a href="/notifications" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>🔔 Alerts</a>
           <a href="/dms" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>💬 Messages</a>
@@ -596,16 +608,11 @@ const scopedPosts = scope==='local'
           <button type="button" className="block nkc-header-banner-link" aria-label="Neighborly KC home" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})}>
             <img src={headerImage} alt="Neighborly KC" className="nkc-header-banner" draggable="false" />
           </button>
-          <div className="nkc-header-controls" aria-label="Account controls">
-            <div className="flex items-center gap-1.5">
-              <a href="/people" className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold nkc-header-control">People</a>
-              <button type="button" onClick={()=>setShowSettings(true)} aria-label="Themes and settings" className="w-9 h-8 rounded-full flex items-center justify-center nkc-header-control">⚙️</button>
-              {!authReady ? <span className="shrink-0 px-3 py-2 text-xs font-black text-white/70">Loading…</span> : profile ? <><span className="text-xs hidden lg:block max-w-28 truncate text-white/80">{profile.full_name}</span><button type="button" onClick={signOut} className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold nkc-header-control">Sign out</button></> : <button type="button" onClick={()=>setShowJoin(true)} className="shrink-0 px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-black whitespace-nowrap nkc-header-control">Sign in</button>}
-            </div>
-          </div>
+          <div className="nkc-header-controls" aria-label="Explore controls"><button type="button" onClick={()=>setShowExplore(v=>!v)} className="px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-black whitespace-nowrap nkc-header-control">🧭 Explore</button></div>
         </div>
         {showExplore && <div className="max-w-6xl mx-auto px-3 sm:px-6 pb-3 flex gap-2 justify-center flex-wrap">
-          <a href="/people" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>👥 People</a>
+          <a href="/people" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>👥 Neighbors</a>
+          <button onClick={()=>{setShowSettings(true);setShowExplore(false)}} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>🎨 Themes</button>{profile?<button onClick={signOut} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>↪ Sign out</button>:<button onClick={()=>{setShowJoin(true);setShowExplore(false)}} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>👤 Sign in</button>}
           <button onClick={()=>setCat('Event')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>📅 Events</button>
           <button onClick={()=>setCat('Lost & Found')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>🔎 Lost & Found</button>
           <a href="/notifications" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>🔔 Alerts</a>
@@ -653,13 +660,13 @@ const scopedPosts = scope==='local'
             const cList=comments[p.id]||[]; const isOpen=openComments[p.id]; const pLikes=likes[p.id]||[]; const liked=pLikes.some((l:any)=>l.author_id===profile?.user_id || l.author_name===profile?.full_name);
             const isOwner=Boolean(profile && ((p.user_id && p.user_id===profile.user_id) || (!p.user_id && p.author_name===profile.full_name))); const canManage=isOwner||isAdmin; const isEditing=editingPostId===p.id;
             return <div key={p.id} className="rounded-2xl p-4 border nkc-surface nkc-fade-in nkc-post-card" style={{backgroundColor:theme.card,borderColor:theme.border}}>
-              <div className="flex justify-between gap-3"><div className="flex items-center gap-2 min-w-0"><div className="w-9 h-9 shrink-0 rounded-full overflow-hidden grid place-items-center font-black text-xs border" style={{backgroundColor:theme.input,borderColor:theme.border}}>{p.profiles?.avatar_url?<img src={p.profiles.avatar_url} alt="" className="w-full h-full object-cover"/>:(p.profiles?.full_name||p.author_name||'N').slice(0,1).toUpperCase()}</div><div><div className="flex items-center gap-1.5 flex-wrap"><p className="text-xs font-bold opacity-60">{(p.user_id||p.author_id)?<a href={`/profile/${p.user_id||p.author_id}`} className="hover:underline">{p.profiles?.full_name||p.author_name||'Neighbor'}</a>:(p.profiles?.full_name||p.author_name||'Neighbor')} · {p.category}</p>
+              <div className="flex justify-between gap-3"><div className="flex items-center gap-2 min-w-0"><div className="w-9 h-9 shrink-0 rounded-full overflow-hidden grid place-items-center font-black text-xs border" style={{backgroundColor:theme.input,borderColor:theme.border}}>{p.profiles?.avatar_url?<img src={p.profiles.avatar_url} alt="" className="w-full h-full object-cover"/>:(p.profiles?.full_name||p.author_name||'N').slice(0,1).toUpperCase()}</div><div><div className="flex items-center gap-1.5 flex-wrap"><p className="text-xs font-bold opacity-60">{(p.user_id||p.author_id)?<a href={`/dms?user=${p.user_id||p.author_id}`} className="hover:underline">{p.profiles?.full_name||p.author_name||'Neighbor'}</a>:(p.profiles?.full_name||p.author_name||'Neighbor')} · {p.category}</p>
                   <div className="nkc-badges">
                     {p.profiles?.is_founder&&<span className="nkc-badge founder">⭐ Founder</span>}
                     {p.profiles?.is_admin&&<span className="nkc-badge moderator">🛡️ Moderator</span>}
                     {topContributorIds.has(p.user_id||p.author_id)&&<span className="nkc-badge contributor">🔥 Top Contributor</span>}
                     {p.profiles?.is_verified&&<span className="nkc-badge verified">✓ Verified</span>}
-                  </div></div>{scope==='kc'&&<p className="text-[11px] font-bold mt-1 opacity-45">📍 {neighborhoodName(p.neighborhood_id)}</p>}</div></div>{canManage&&<div className="flex items-center gap-2"><button onClick={()=>beginEdit(p)} className="text-xs font-bold opacity-55 hover:opacity-100">✏️ Edit</button><button onClick={()=>deletePost(p.id,p.image_url)} className="text-xs opacity-40 hover:text-red-600">🗑️ Delete</button></div>}</div>
+                  </div></div>{scope==='kc'&&<p className="text-[11px] font-bold mt-1 opacity-45">📍 {neighborhoodName(p.neighborhood_id)}</p>}</div></div>{canManage&&<div className="flex items-center gap-2"><button onClick={()=>beginEdit(p)} className="text-xs font-bold opacity-55 hover:opacity-100">✏️ Edit</button><button onClick={()=>deletePost(p.id,p.image_url)} className="text-xs opacity-40 hover:text-red-600">🗑️ Delete</button>{isAdmin&&!isOwner&&<button onClick={()=>blockUser(p.user_id||p.author_id,p.profiles?.full_name||p.author_name||'Neighbor')} className="text-xs opacity-50 hover:text-red-600">🚫 Block</button>}</div>}</div>
               {isEditing?<div className="mt-3 rounded-2xl p-3 nkc-pop-in" style={{backgroundColor:theme.input}}><textarea value={editBody} onChange={e=>setEditBody(e.target.value)} className="w-full rounded-xl p-3 min-h-[120px] text-sm outline-none border" style={{backgroundColor:theme.card,color:theme.text,borderColor:theme.border}}/><div className="grid sm:grid-cols-2 gap-2 mt-2"><select value={editCategory} onChange={e=>setEditCategory(e.target.value)} className="rounded-xl px-3 py-2 text-sm border outline-none" style={{backgroundColor:theme.card,color:theme.text,borderColor:theme.border}}>{CATS.filter(c=>c!=='All').map(c=><option key={c}>{c}</option>)}</select><label className="rounded-xl px-3 py-2 text-sm border cursor-pointer" style={{backgroundColor:theme.card,borderColor:theme.border}}><span className="font-bold">📷 Replace image</span><input ref={editFileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setEditFile(e.target.files?.[0]||null)} className="sr-only"/>{editFile&&<span className="block text-xs opacity-60 truncate mt-1">{editFile.name}</span>}</label></div><div className="flex justify-end gap-2 mt-3"><button onClick={cancelEdit} className="px-4 py-2 rounded-full text-xs font-bold" style={{backgroundColor:theme.card,border:`1px solid ${theme.border}`}}>Cancel</button><button disabled={editSaving||!editBody.trim()} onClick={()=>savePostEdit(p)} className="px-4 py-2 rounded-full text-xs font-bold disabled:opacity-50" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{editSaving?'Saving...':'Save changes'}</button></div></div>:<>
                 <p className="mt-1 whitespace-pre-wrap">{p.body||p.content}</p>{p.image_url&&<div className="mt-3 nkc-post-image-frame rounded-xl overflow-hidden border" style={{borderColor:theme.border}}><img src={p.image_url} alt="post" className="nkc-post-image w-full h-full object-cover" /></div>}<p className="text-xs opacity-40 mt-2">{new Date(p.created_at).toLocaleString()}</p><div className="mt-3 pt-3 border-t flex gap-4" style={{borderColor:theme.border}}><button onClick={()=>togglePostLike(p.id)} className="text-xs font-bold">{liked?'❤️':'🤍'} {pLikes.length}</button><button onClick={()=>setOpenComments(prev=>({...prev,[p.id]:!prev[p.id]}))} className="text-xs font-bold opacity-60">💬 {cList.length} {isOpen?'▲':'▼'}</button></div>{isOpen&&<div className="mt-3 rounded-xl p-3 space-y-2" style={{backgroundColor:theme.input}}>{cList.map((c:any)=>{const cl=cLikes[c.id]||[];const cliked=cl.some((l:any)=>l.author_id===profile?.user_id||l.author_name===profile?.full_name);const canDelC=(profile&&c.author_name===profile.full_name)||isAdmin;return <div key={c.id} className="text-sm rounded-lg p-2 flex justify-between gap-2" style={{backgroundColor:theme.card}}><div><b className="text-xs">{c.author_name}:</b> {c.content||c.body}<button onClick={()=>toggleCommentLike(c.id)} className="ml-3 text-xs">{cliked?'❤️':'🤍'} {cl.length}</button></div>{canDelC&&<button onClick={()=>deleteComment(c.id,p.id)} className="text-[10px] opacity-30">🗑️</button>}</div>})}<div className="flex gap-2 pt-2"><input value={commentText[p.id]||''} onChange={e=>setCommentText(prev=>({...prev,[p.id]:e.target.value}))} placeholder="Add a comment..." className="flex-1 border rounded-full px-3 py-2 text-sm outline-none" style={{backgroundColor:theme.card,borderColor:theme.border,color:theme.text}}/><button onClick={()=>addComment(p.id)} className="px-4 py-2 rounded-full text-xs font-bold" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>Reply</button></div></div>}
               </>}
