@@ -846,20 +846,70 @@ export default function Page(){
       </nav>
 
       {showSettings && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 nkc-pop-in">
-          <div className="rounded-[24px] w-full max-w-sm p-5 border max-h-[80vh] overflow-y-auto" style={{backgroundColor: '#15181f', borderColor: '#262a33'}}>
-            <div className="flex justify-between items-center mb-4"><h2 className="font-black text-white">Settings</h2><button onClick={()=>setShowSettings(false)} className="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center">✕</button></div>
-            <button type="button" onClick={()=>setShowThemePicker(v=>!v)} className="w-full flex items-center justify-between py-3 px-4 rounded-2xl border border-white/15 bg-white/10 text-white font-bold"><span>🎨 Themes</span><span className="text-white/60">{showThemePicker?'▲':'▼'}</span></button>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 nkc-pop-in">
+          <div className="rounded-[24px] w-full max-w-sm p-3 sm:p-5 border max-h-[90vh] overflow-y-auto nkc-settings-modal" style={{backgroundColor: '#15181f', borderColor: '#262a33'}}>
+            <div className="flex justify-between items-center mb-3 sm:mb-4">
+              <h2 className="font-black text-white text-lg sm:text-xl">Settings</h2>
+              <button 
+                onClick={()=>setShowSettings(false)} 
+                className="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center text-sm hover:bg-white/20 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <button 
+              type="button" 
+              onClick={()=>setShowThemePicker(v=>!v)} 
+              className="w-full flex items-center justify-between py-3 px-4 rounded-2xl border border-white/15 bg-white/10 text-white font-bold text-sm sm:text-base"
+            >
+              <span>🎨 Themes</span>
+              <span className="text-white/60">{showThemePicker?'▲':'▼'}</span>
+            </button>
+            
             {showThemePicker && <div className="mt-3">
-              <p className="text-[10px] font-black tracking-widest uppercase text-white/40 mb-2">Choose your Neighborly KC look · tap a theme to apply & close</p>
-              <div className="grid grid-cols-2 gap-2">
-                {['aim','sporting','royals','chiefs','pip-boy','space','kc-current','kcpd','kcfd'].map(id=>{ const t=THEMES[id]; const active=themeId===id; return <button key={id} type="button" aria-label={`Use ${t.name} theme`} onClick={()=>setTheme(id)} className={`nkc-theme-choice ${active?'is-active':''}`} style={{borderColor:active?t.accent:t.border,boxShadow:active?`0 0 0 2px ${t.accent}55`:undefined}}>{t.themeButtonImage?<img src={t.themeButtonImage} alt={t.name}/>:<div className="nkc-theme-choice-fallback" style={{background:`linear-gradient(135deg,${t.header},${t.accent})`}}><b>{t.name}</b></div>}{active&&<span className="nkc-theme-choice-check" style={{backgroundColor:t.accent,color:t.pillTextActive}}>✓</span>}</button>})}
+              <p className="text-[8px] sm:text-[10px] font-black tracking-widest uppercase text-white/40 mb-2 text-center sm:text-left">
+                Choose your Neighborly KC look · tap a theme to apply & close
+              </p>
+              <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                {['aim','sporting','royals','chiefs','pip-boy','space','kc-current','kcpd','kcfd'].map(id=>{ 
+                  const t=THEMES[id]; 
+                  const active=themeId===id; 
+                  return <button 
+                    key={id} 
+                    type="button" 
+                    aria-label={`Use ${t.name} theme`} 
+                    onClick={()=>setTheme(id)} 
+                    className={`nkc-theme-choice relative aspect-square w-full overflow-hidden rounded-lg sm:rounded-xl border-2 transition-all hover:scale-105 active:scale-95 ${active?'is-active':''}`} 
+                    style={{
+                      borderColor: active ? t.accent : 'rgba(255,255,255,0.15)',
+                      boxShadow: active ? `0 0 0 2px ${t.accent}55` : 'none'
+                    }}
+                  >
+                    {t.themeButtonImage ? 
+                      <img 
+                        src={t.themeButtonImage} 
+                        alt={t.name} 
+                        className="w-full h-full object-cover" 
+                        loading="lazy"
+                      /> :
+                      <div className="nkc-theme-choice-fallback w-full h-full flex items-center justify-center p-1 text-center" style={{background:`linear-gradient(135deg,${t.header},${t.accent})`}}>
+                        <span className="text-white text-[8px] sm:text-[10px] font-bold leading-tight">{t.name}</span>
+                      </div>
+                    }
+                    {active && <span className="absolute top-0.5 right-0.5 w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center text-[8px] sm:text-xs font-bold shadow-lg" style={{backgroundColor:t.accent,color:t.pillTextActive}}>✓</span>}
+                  </button>
+                })}
               </div>
             </div>}
-            {profile&&<a href="/profile" onClick={()=>setShowSettings(false)} className="mt-4 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center">👤 My Profile</a>}
-            <button onClick={()=>{if(!profile){setShowJoin(true);return;}setShowFeedback(true)}} className="mt-2 w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold">💬 Leave Feedback</button>
-            {profile&&<button onClick={signOut} className="mt-2 w-full py-3 rounded-full border border-red-300/20 bg-red-500/10 text-red-200 font-bold">🚪 Sign out</button>}
-            <button onClick={()=>setShowSettings(false)} className="mt-2 w-full py-3 rounded-full bg-white text-black font-bold">Done</button>
+            
+            {profile&&<a href="/profile" onClick={()=>setShowSettings(false)} className="mt-3 sm:mt-4 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center text-sm sm:text-base">👤 My Profile</a>}
+            
+            <button onClick={()=>{if(!profile){setShowJoin(true);return;}setShowFeedback(true)}} className="mt-2 w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-sm sm:text-base">💬 Leave Feedback</button>
+            
+            {profile&&<button onClick={signOut} className="mt-2 w-full py-3 rounded-full border border-red-300/20 bg-red-500/10 text-red-200 font-bold text-sm sm:text-base">🚪 Sign out</button>}
+            
+            <button onClick={()=>setShowSettings(false)} className="mt-2 w-full py-3 rounded-full bg-white text-black font-bold text-sm sm:text-base">Done</button>
           </div>
         </div>
       )}
