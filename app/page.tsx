@@ -541,10 +541,10 @@ const scopedPosts = scope==='local'
           </button>
         </div>
         <div className="nkc-mobile-account-row" aria-label="Account controls" style={{backgroundColor:theme.header,borderColor:theme.border}}>
-          <a href="/dms" aria-label="Messages" className="nkc-mobile-account-btn">💬 <span>Messages</span></a>
-          <a href="/notifications" aria-label="Notifications" className="nkc-mobile-account-btn">🔔 <span>Alerts</span></a>
-          <button type="button" onClick={()=>setShowSettings(true)} aria-label="Themes and settings" className="nkc-mobile-account-btn">⚙️ <span>Themes</span></button>
-          {!authReady ? <span className="nkc-mobile-account-status">Loading…</span> : profile ? <button type="button" onClick={signOut} className="nkc-mobile-account-btn">↪ <span>Sign out</span></button> : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-mobile-account-btn">👤 <span>Sign in</span></button>}
+          <a href="/dms" aria-label="Messages" className="nkc-mobile-account-btn" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.accent}}>💬 <span>Messages</span></a>
+          <a href="/notifications" aria-label="Notifications" className="nkc-mobile-account-btn" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.accent}}>🔔 <span>Alerts</span></a>
+          <button type="button" onClick={()=>setShowSettings(true)} aria-label="Themes and settings" className="nkc-mobile-account-btn" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.accent}}>⚙️ <span>Themes</span></button>
+          {!authReady ? <span className="nkc-mobile-account-status">Loading…</span> : profile ? <button type="button" onClick={signOut} className="nkc-mobile-account-btn" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.accent}}>↪ <span>Sign out</span></button> : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-mobile-account-btn" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.accent}}>👤 <span>Sign in</span></button>}
         </div>
         <div className="nkc-mobile-nav" aria-label="Main navigation">
           <div className="nkc-mobile-nav-scroll">
