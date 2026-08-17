@@ -545,8 +545,6 @@ const scopedPosts = scope==='local'
           </button>
         </div>
         <div className="nkc-mobile-account-row" aria-label="Account controls" style={{backgroundColor:theme.header,borderColor:theme.border}}>
-          <a href="/dms" aria-label="Messages" className="nkc-mobile-account-btn" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.accent}}>💬 <span>Messages</span></a>
-          <a href="/notifications" aria-label="Notifications" className="nkc-mobile-account-btn" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.accent}}>🔔 <span>Alerts</span></a>
           <button type="button" onClick={()=>setShowSettings(true)} aria-label="Themes and settings" className="nkc-mobile-account-btn" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.accent}}>⚙️ <span>Themes</span></button>
           {!authReady ? <span className="nkc-mobile-account-status">Loading…</span> : profile ? <button type="button" onClick={signOut} className="nkc-mobile-account-btn" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.accent}}>↪ <span>Sign out</span></button> : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-mobile-account-btn" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.accent}}>👤 <span>Sign in</span></button>}
         </div>
@@ -560,9 +558,9 @@ const scopedPosts = scope==='local'
         </div>
         {showExplore && <div className="max-w-6xl mx-auto px-3 pb-3 flex gap-2 justify-center flex-wrap">
           <a href="/people" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>👥 People</a>
-          <a href="/dms" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>💬 Messages</a>
-          <a href="/notifications" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>🔔 Notifications</a>
           <button onClick={()=>setCat('Event')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>📅 Events</button>
+          <a href="/notifications" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>🔔 Alerts</a>
+          <a href="/dms" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>💬 Messages</a>
         </div>}
       </header>
 
@@ -574,8 +572,6 @@ const scopedPosts = scope==='local'
           <div className="nkc-header-controls" aria-label="Account controls">
             <div className="flex items-center gap-1.5">
               <a href="/people" className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold nkc-header-control">People</a>
-              <a href="/dms" aria-label="Messages" className="hidden sm:grid w-9 h-8 rounded-full text-xs font-bold place-items-center nkc-header-control">💬</a>
-              <a href="/notifications" aria-label="Notifications" className="hidden sm:grid w-9 h-8 rounded-full text-xs font-bold place-items-center nkc-header-control">🔔</a>
               <button type="button" onClick={()=>setShowSettings(true)} aria-label="Themes and settings" className="w-9 h-8 rounded-full flex items-center justify-center nkc-header-control">⚙️</button>
               {!authReady ? <span className="shrink-0 px-3 py-2 text-xs font-black text-white/70">Loading…</span> : profile ? <><span className="text-xs hidden lg:block max-w-28 truncate text-white/80">{profile.full_name}</span><button type="button" onClick={signOut} className="hidden sm:inline px-3 py-1.5 rounded-full text-xs font-bold nkc-header-control">Sign out</button></> : <button type="button" onClick={()=>setShowJoin(true)} className="shrink-0 px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-black whitespace-nowrap nkc-header-control">Sign in</button>}
             </div>
@@ -595,10 +591,10 @@ const scopedPosts = scope==='local'
         </div>
         {showExplore && <div className="max-w-6xl mx-auto px-3 sm:px-6 pb-3 flex gap-2 justify-center flex-wrap">
           <a href="/people" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>👥 People</a>
-          <a href="/dms" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>💬 Messages</a>
-          <a href="/notifications" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>🔔 Notifications</a>
           <button onClick={()=>setCat('Event')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>📅 Events</button>
           <button onClick={()=>setCat('Lost & Found')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>🔎 Lost & Found</button>
+          <a href="/notifications" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>🔔 Alerts</a>
+          <a href="/dms" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>💬 Messages</a>
         </div>}
       </header>
 
@@ -621,12 +617,6 @@ const scopedPosts = scope==='local'
   <input key={fileInputKey} ref={fileInputRef} id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="sr-only" />
   {file && <div className="min-w-0 flex items-center gap-2 text-xs opacity-70"><span className="truncate max-w-[180px]" title={file.name}>{file.name}</span><button type="button" onClick={()=>{setFile(null); if(fileInputRef.current) fileInputRef.current.value=''; setFileInputKey(k=>k+1);}} className="shrink-0 font-black" aria-label="Remove selected image">✕</button></div>}
 </div>
-            <div className="mt-3">
-              <div className="text-[10px] font-black uppercase tracking-wider opacity-50 mb-2">Category</div>
-              <div className="flex gap-1.5 overflow-x-auto pb-1 nkc-category-row">
-                {CATS.filter(c=>c!=='All').map(c=><button key={c} type="button" onClick={()=>setPostCategory(c)} className="shrink-0 rounded-full px-3 py-1.5 text-[11px] font-black border" style={postCategory===c?{backgroundColor:theme.pillActive,color:theme.pillTextActive,borderColor:theme.pillActive}:{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>{c}</button>)}
-              </div>
-            </div>
             <div className="flex justify-end mt-2"><button disabled={uploading} onClick={handleBePost} className="px-5 py-2 rounded-full text-sm font-bold disabled:opacity-50" style={{backgroundColor: theme.accent, color: theme.pillTextActive}}>{uploading?'Uploading...':scope==='kc'?'Post to KC':'Post to neighbors'}</button></div>
           </div>
 
