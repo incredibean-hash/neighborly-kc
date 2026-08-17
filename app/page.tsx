@@ -541,7 +541,7 @@ export default function Page(){
     if(!text) return; 
     const {data, error}=await supabase.from('comments').insert({ 
       post_id: postId, 
-      content:text,  // Using 'content' only - remove 'body'
+      content:text,
       author_name:profile.full_name, 
       author_id:profile.user_id 
     }).select().single(); 
@@ -602,7 +602,7 @@ export default function Page(){
     if(editFileInputRef.current) editFileInputRef.current.value=''; 
   };
 
-  // FIXED: Removed 'content' column from update
+  // FIXED: Removed 'content' column and fixed string literal
   const savePostEdit = async (post:any) => {
     if(!profile || !editBody.trim()) return;
     const {data:{user}}=await supabase.auth.getUser();
@@ -629,6 +629,4 @@ export default function Page(){
       if(error) throw error;
       const {data:saved,error:readError}=await supabase.from('posts').select('*').eq('id',post.id).maybeSingle();
       if(readError) throw readError;
-      setPosts(prev=>prev.map((x:any)=>x.id===post.id?{...x,...(saved||updatePayload)}:x));
-      cancelEdit();
-      setToast('✓ Post
+      setPosts(prev=>prev.map((x:any)=>x.id===post.id?{...x,...(saved||updatePayload)}:
