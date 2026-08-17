@@ -294,3 +294,15 @@ body { overscroll-behavior-y: none; }
   .nkc-mobile-bottom-nav{height:70px;padding-left:8px;padding-right:8px}
   .nkc-bottom-nav-item{height:50px;max-width:82px;font-size:10px}
 }
+
+/* Restore the previous NeighborlyKC mobile top navigation: full theme header artwork + centered Feed/Safety/For Sale/Explore pills. */
+@media (max-width:639px){
+  .nkc-mobile-top-header{display:none!important}
+  .nkc-mobile-nav{display:block!important;border-top:1px solid rgba(255,255,255,.10);border-bottom:1px solid rgba(255,255,255,.10);padding:4px 0;background:rgba(7,25,51,.34)}
+  .nkc-mobile-nav-scroll{display:flex;align-items:center;justify-content:center;gap:4px;overflow-x:auto;scrollbar-width:none;padding:0 6px;-webkit-overflow-scrolling:touch}
+  .nkc-mobile-nav-scroll::-webkit-scrollbar{display:none}
+  .nkc-mobile-nav-btn{flex:0 0 auto;min-height:32px;padding:5px 9px;border-radius:9999px;font-size:11px;font-weight:800;white-space:nowrap;-webkit-tap-highlight-color:transparent}
+  .nkc-header-banner{aspect-ratio:1920/368;object-position:center}
+  .nkc-header-controls{top:6px;right:8px}
+  .nkc-header-control{box-shadow:0 3px 10px rgba(0,0,0,.16)}
+}

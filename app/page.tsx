@@ -534,32 +534,34 @@ const scopedPosts = scope==='local'
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden nkc-app-shell" style={{backgroundColor: theme.bg, color: theme.text}}>
-      <header className="sticky top-0 z-40 overflow-hidden border-b nkc-mobile-top-header sm:hidden" style={{backgroundColor:theme.header,borderColor:theme.border}}>
-        <div className="nkc-mobile-top-row">
-          <button type="button" aria-label="Neighborly KC home" className="nkc-mobile-brand" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})}>
-            <img src="/neighborly-kc-logo.svg" alt="" aria-hidden="true" />
-            <span>Neighborly<span>KC</span></span>
+      <header className="sticky top-0 z-40 overflow-hidden border-b nkc-main-header sm:hidden" style={{backgroundColor: theme.header, borderColor: theme.border}}>
+        <div className="nkc-header-banner-wrap">
+          <button type="button" className="block nkc-header-banner-link" aria-label="Neighborly KC home" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})}>
+            <img src={headerImage} alt="Neighborly KC" className="nkc-header-banner" draggable="false" />
           </button>
-          <div className="nkc-mobile-top-icons">
-            <button type="button" aria-label="Search" className="nkc-mobile-icon" onClick={()=>setShowExplore(true)}>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" strokeWidth="2"/><path d="m16 16 5 5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-            </button>
-            <a href="/notifications" aria-label="Notifications" className="nkc-mobile-icon">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 10a6 6 0 0 1 12 0v4l2 2H4l2-2z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M10 19h4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
-            </a>
+          <div className="nkc-header-controls" aria-label="Account controls">
+            <div className="flex items-center gap-1.5">
+              <a href="/dms" aria-label="Messages" className="w-9 h-8 rounded-full text-xs font-bold place-items-center nkc-header-control grid">💬</a>
+              <a href="/notifications" aria-label="Notifications" className="w-9 h-8 rounded-full text-xs font-bold place-items-center nkc-header-control grid">🔔</a>
+              <button type="button" onClick={()=>setShowSettings(true)} aria-label="Themes and settings" className="w-9 h-8 rounded-full flex items-center justify-center nkc-header-control">⚙️</button>
+              {!authReady ? <span className="shrink-0 px-2 py-1 text-[10px] font-black text-white/70">Loading…</span> : profile ? <button type="button" onClick={signOut} className="px-2.5 py-1 rounded-full text-[10px] font-bold nkc-header-control">Sign out</button> : <button type="button" onClick={()=>setShowJoin(true)} className="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-black whitespace-nowrap nkc-header-control">Sign in</button>}
+            </div>
           </div>
         </div>
-        <button type="button" className="nkc-mobile-whats" onClick={()=>{if(!profile){setShowJoin(true);return;} postComposerRef.current?.focus(); postComposerRef.current?.scrollIntoView({behavior:'smooth',block:'center'});}}>
-          <span className="nkc-mobile-avatar">{profile?.full_name?.slice(0,1)?.toUpperCase() || 'N'}</span>
-          <span>{profile ? (scope==='kc'?'What should Kansas City know?':`What's happening in ${cur?.name || 'KC'}?`) : "What's happening in KC?"}</span>
-          <span className="nkc-mobile-whats-plus">＋</span>
-        </button>
-        <div className="nkc-mobile-tabs" role="tablist" aria-label="Feed filters">
-          {[
-            ['All','All'],['Nearby','local'],['Following','following'],['Groups','groups']
-          ].map(([label,id])=><button key={id} type="button" className={`nkc-mobile-tab ${((id==='All'&&cat==='All')||(id==='local'&&scope==='local'&&cat==='All'))?'is-active':''}`} onClick={()=>{if(id==='All'){setCat('All');setScope('kc')} else if(id==='local'){setCat('All');setScope('local')} else {setShowExplore(true)}}}>{label}</button>)}
+        <div className="nkc-mobile-nav" aria-label="Main navigation">
+          <div className="nkc-mobile-nav-scroll">
+            <button onClick={()=>setCat('All')} className="nkc-mobile-nav-btn" style={{backgroundColor:cat==='All'?theme.pillActive:theme.pillInactive,color:cat==='All'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Feed</button>
+            <button onClick={()=>setCat('Safety Alert')} className="nkc-mobile-nav-btn" style={{backgroundColor:cat==='Safety Alert'?theme.pillActive:theme.pillInactive,color:cat==='Safety Alert'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Safety</button>
+            <button onClick={()=>setCat('For Sale & Free')} className="nkc-mobile-nav-btn" style={{backgroundColor:cat==='For Sale & Free'?theme.pillActive:theme.pillInactive,color:cat==='For Sale & Free'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>For Sale</button>
+            <button onClick={()=>setShowExplore(v=>!v)} className="nkc-mobile-nav-btn" style={{backgroundColor:showExplore?theme.pillActive:theme.pillInactive,color:showExplore?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Explore <span aria-hidden="true">▾</span></button>
+          </div>
         </div>
-        <div className="nkc-mobile-weather" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>{weather ? <>🌡️ <b>{Math.round(weather.temp)}°</b><span>💧 {weather.precip.toFixed(2)} in</span><span>🥵 Feels {Math.round(weather.feels)}°</span></> : <>🌤️ Kansas City weather loading…</>}</div>
+        {showExplore && <div className="max-w-6xl mx-auto px-3 pb-3 flex gap-2 justify-center flex-wrap">
+          <a href="/people" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>👥 People</a>
+          <a href="/dms" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>💬 Messages</a>
+          <a href="/notifications" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>🔔 Notifications</a>
+          <button onClick={()=>setCat('Event')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>📅 Events</button>
+        </div>}
       </header>
 
       <header className="hidden sm:block sticky top-0 z-40 overflow-hidden border-b nkc-main-header" style={{backgroundColor: theme.header, borderColor: 'rgba(255,255,255,.12)'}}>
