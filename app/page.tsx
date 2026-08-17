@@ -48,7 +48,7 @@ async function withTimeout<T>(promise: PromiseLike<T>, ms = 30000): Promise<T> {
 
 async function syncCommunityProfile(user:any, fallback?:any){
   if(!user) return null;
-  const selectCols='id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder';
+  const selectCols='id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder,is_verified';
   const { data: existingRows, error: lookupError } = await supabase
     .from('profiles')
     .select(selectCols)
@@ -134,10 +134,12 @@ export default function Page(){
   const [showThemePicker,setShowThemePicker]=useState(false);
   const [authReady,setAuthReady]=useState(false);
   const [postSuccess,setPostSuccess]=useState(false);
+  const [toast,setToast]=useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const postComposerRef = useRef<HTMLTextAreaElement>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
   const [weather,setWeather]=useState<{temp:number;feels:number;precip:number;code:number}|null>(null);
+  const [forecast,setForecast]=useState<{date:string;high:number;low:number;code:number}[]>([]);
   const [neighborCount,setNeighborCount]=useState<number|null>(null);
 
   const theme = THEMES[themeId] || THEMES['royals'];
@@ -377,19 +379,31 @@ export default function Page(){
     const next=THEMES[id] ? id : DEFAULT_THEME_ID;
     setThemeId(next);
     localStorage.setItem('nkc_theme', next);
+    setCat('All');
+    setShowExplore(false);
     setShowThemePicker(false);
     setShowSettings(false);
+    // Re-read the public feed after a theme change so the feed never disappears
+    // while React is repainting the themed shell.
+    void loadPublicFeed();
   };
 
   useEffect(()=>{
     let alive=true;
     const loadWeather=async()=>{
       try{
-        const res=await fetch('https://api.open-meteo.com/v1/forecast?latitude=39.0997&longitude=-94.5786&current=temperature_2m,apparent_temperature,precipitation,weather_code&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=America%2FChicago',{cache:'no-store'});
+        const res=await fetch('https://api.open-meteo.com/v1/forecast?latitude=39.0997&longitude=-94.5786&current=temperature_2m,apparent_temperature,precipitation,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=America%2FChicago&forecast_days=7',{cache:'no-store'});
         if(!res.ok) throw new Error('weather request failed');
         const data=await res.json();
         const c=data?.current;
+        const d=data?.daily;
         if(alive && c) setWeather({temp:Number(c.temperature_2m),feels:Number(c.apparent_temperature),precip:Number(c.precipitation),code:Number(c.weather_code)});
+        if(alive && d?.time) setForecast(d.time.slice(0,7).map((date:string,i:number)=>({
+          date,
+          high:Number(d.temperature_2m_max?.[i]),
+          low:Number(d.temperature_2m_min?.[i]),
+          code:Number(d.weather_code?.[i])
+        })).filter((x:any)=>Number.isFinite(x.high)&&Number.isFinite(x.low)));
       }catch{}
     };
     loadWeather();
@@ -417,6 +431,18 @@ const scopedPosts = scope==='local'
     : posts;
   const filtered = cat==='All'? scopedPosts : scopedPosts.filter((p:any)=>p.category===cat);
   const neighborhoodName = (id:any) => hoods.find((h:any)=>String(h.id)===String(id))?.name || cur?.name || 'Kansas City';
+  const contributorCounts = posts.reduce((acc:any,p:any)=>{
+    const id=p.user_id||p.author_id;
+    if(id) acc[id]=(acc[id]||0)+1;
+    return acc;
+  },{});
+  const topContributorIds = new Set(Object.entries(contributorCounts)
+    .sort((a:any,b:any)=>Number(b[1])-Number(a[1]))
+    .slice(0,3)
+    .filter(([,count]:any)=>Number(count)>=3)
+    .map(([id])=>id));
+  const weatherEmoji = (code:number) => code===0?'☀️':code<=3?'🌤️':code<=48?'🌫️':code<=67?'🌧️':code<=77?'❄️':code<=82?'🌦️':'⛈️';
+  const forecastDay = (date:string,i:number) => i===0?'Today':new Date(`${date}T12:00:00`).toLocaleDateString('en-US',{weekday:'short'});
   const isAdmin = Boolean(profile?.is_admin || profile?.is_founder);
   const POST_LIMIT_24H = 5;
 
@@ -466,6 +492,8 @@ const scopedPosts = scope==='local'
       setPosts([{ ...data, profiles: { full_name: profile.full_name, avatar_url: profile.avatar_url || null } }, ...posts]);
       setBody('');
       setPostCategory('General');
+      setCat('All');
+      setShowExplore(false);
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
       document.documentElement.classList.remove('nkc-keyboard-open');
@@ -527,10 +555,17 @@ const scopedPosts = scope==='local'
     try {
       let image_url=post.image_url || null;
       if(editFile){ const compressed=await compressImage(editFile); const path=`${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`; const {error:upErr}=await withTimeout(supabase.storage.from('post-images').upload(path,compressed),30000); if(upErr) throw upErr; image_url=supabase.storage.from('post-images').getPublicUrl(path).data.publicUrl; if(post.image_url){ const oldPath=post.image_url.split('/post-images/')[1]; if(oldPath) await supabase.storage.from('post-images').remove([oldPath]); } }
-      const {data,error}=await supabase.from('posts').update({body:editBody.trim(),content:editBody.trim(),category:editCategory,image_url}).eq('id',post.id).select().single();
+      const updatePayload={body:editBody.trim(),content:editBody.trim(),category:editCategory,image_url};
+      const {error}=await supabase.from('posts').update(updatePayload).eq('id',post.id);
       if(error) throw error;
-      setPosts(prev=>prev.map((x:any)=>x.id===post.id?{...x,...data}:x));
+      // Fetch the saved row separately so a restrictive SELECT policy cannot
+      // make a successful update look like a failed edit.
+      const {data:saved,error:readError}=await supabase.from('posts').select('*').eq('id',post.id).maybeSingle();
+      if(readError) throw readError;
+      setPosts(prev=>prev.map((x:any)=>x.id===post.id?{...x,...(saved||updatePayload)}:x));
       cancelEdit();
+      setToast('✓ Post updated');
+      window.setTimeout(()=>setToast(''),2600);
     } catch(e:any) { alert('Could not update post: '+(e.message||e)); } finally { setEditSaving(false); }
   };
   const deletePost = async (id:string, image_url:string|null) => { if(!confirm('Delete this post?')) return; if(image_url){ const path = image_url.split('/post-images/')[1]; if(path) await supabase.storage.from('post-images').remove([path]); } const {error}=await supabase.from('posts').delete().eq('id', id); if(error) return alert('Could not delete post: '+error.message); setPosts(prev=>prev.filter((p:any)=>p.id!==id)); };
@@ -538,7 +573,7 @@ const scopedPosts = scope==='local'
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden nkc-app-shell" style={{backgroundColor: theme.bg, color: theme.text}}>
-      <header className="sticky top-0 z-40 overflow-hidden border-b nkc-main-header sm:hidden" style={{backgroundColor: theme.header, borderColor: theme.border}}>
+      <header className="relative z-40 overflow-hidden border-b nkc-main-header sm:hidden" style={{backgroundColor: theme.header, borderColor: theme.border}}>
         <div className="nkc-header-banner-wrap">
           <button type="button" className="block nkc-header-banner-link" aria-label="Neighborly KC home" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})}>
             <img src={headerImage} alt="Neighborly KC" className="nkc-header-banner" draggable="false" />
@@ -548,14 +583,6 @@ const scopedPosts = scope==='local'
           <button type="button" onClick={()=>setShowSettings(true)} aria-label="Themes and settings" className="nkc-mobile-account-btn" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.accent}}>⚙️ <span>Themes</span></button>
           {!authReady ? <span className="nkc-mobile-account-status">Loading…</span> : profile ? <button type="button" onClick={signOut} className="nkc-mobile-account-btn" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.accent}}>↪ <span>Sign out</span></button> : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-mobile-account-btn" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.accent}}>👤 <span>Sign in</span></button>}
         </div>
-        <div className="nkc-mobile-nav" aria-label="Main navigation">
-          <div className="nkc-mobile-nav-scroll">
-            <button onClick={()=>setCat('All')} className="nkc-mobile-nav-btn" style={{backgroundColor:cat==='All'?theme.pillActive:theme.pillInactive,color:cat==='All'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Feed</button>
-            <button onClick={()=>setCat('Safety Alert')} className="nkc-mobile-nav-btn" style={{backgroundColor:cat==='Safety Alert'?theme.pillActive:theme.pillInactive,color:cat==='Safety Alert'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Safety</button>
-            <button onClick={()=>setCat('For Sale & Free')} className="nkc-mobile-nav-btn" style={{backgroundColor:cat==='For Sale & Free'?theme.pillActive:theme.pillInactive,color:cat==='For Sale & Free'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>For Sale</button>
-            <button onClick={()=>setShowExplore(v=>!v)} className="nkc-mobile-nav-btn" style={{backgroundColor:showExplore?theme.pillActive:theme.pillInactive,color:showExplore?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Explore <span aria-hidden="true">▾</span></button>
-          </div>
-        </div>
         {showExplore && <div className="max-w-6xl mx-auto px-3 pb-3 flex gap-2 justify-center flex-wrap">
           <a href="/people" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>👥 People</a>
           <button onClick={()=>setCat('Event')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>📅 Events</button>
@@ -564,7 +591,7 @@ const scopedPosts = scope==='local'
         </div>}
       </header>
 
-      <header className="hidden sm:block sticky top-0 z-40 overflow-hidden border-b nkc-main-header" style={{backgroundColor: theme.header, borderColor: 'rgba(255,255,255,.12)'}}>
+      <header className="hidden sm:block relative z-40 overflow-hidden border-b nkc-main-header" style={{backgroundColor: theme.header, borderColor: 'rgba(255,255,255,.12)'}}>
         <div className="nkc-header-banner-wrap">
           <button type="button" className="block nkc-header-banner-link" aria-label="Neighborly KC home" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})}>
             <img src={headerImage} alt="Neighborly KC" className="nkc-header-banner" draggable="false" />
@@ -577,18 +604,6 @@ const scopedPosts = scope==='local'
             </div>
           </div>
         </div>
-        <div className="nkc-weather-ticker" aria-label="Kansas City current weather" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>
-          {weather ? <div className="nkc-weather-track">
-            <span>🌡️ <b>{Math.round(weather.temp)}°</b></span><span>💧 <b>{weather.precip.toFixed(2)} in</b> precip</span><span>🥵 <b>{Math.round(weather.feels)}°</b> feels like</span><span>📍 Kansas City</span>
-            <span>🌡️ <b>{Math.round(weather.temp)}°</b></span><span>💧 <b>{weather.precip.toFixed(2)} in</b> precip</span><span>🥵 <b>{Math.round(weather.feels)}°</b> feels like</span><span>📍 Kansas City</span>
-          </div> : <div className="nkc-weather-track nkc-weather-static"><span>🌤️ Kansas City weather loading…</span></div>}
-        </div>
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2.5 flex gap-2 justify-center flex-wrap relative z-10 nkc-desktop-nav">
-          <button onClick={()=>setCat('All')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor: cat==='All'?theme.pillActive:theme.pillInactive,color:cat==='All'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Feed</button>
-          <button onClick={()=>setCat('Safety Alert')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor: cat==='Safety Alert'?theme.pillActive:theme.pillInactive,color:cat==='Safety Alert'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Safety</button>
-          <button onClick={()=>setCat('For Sale & Free')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:cat==='For Sale & Free'?theme.pillActive:theme.pillInactive,color:cat==='For Sale & Free'?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>For Sale</button>
-          <button onClick={()=>setShowExplore(v=>!v)} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:showExplore?theme.pillActive:theme.pillInactive,color:showExplore?theme.pillTextActive:theme.text,border:`1px solid ${theme.border}`}}>Explore ▾</button>
-        </div>
         {showExplore && <div className="max-w-6xl mx-auto px-3 sm:px-6 pb-3 flex gap-2 justify-center flex-wrap">
           <a href="/people" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>👥 People</a>
           <button onClick={()=>setCat('Event')} className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>📅 Events</button>
@@ -597,6 +612,20 @@ const scopedPosts = scope==='local'
           <a href="/dms" className="px-4 py-1.5 rounded-full text-sm font-bold" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>💬 Messages</a>
         </div>}
       </header>
+
+      <section className="nkc-forecast-banner" aria-label="7 day Kansas City forecast" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>
+        <div className="nkc-forecast-inner">
+          <div className="nkc-forecast-title">
+            <span>🌤️ <b>KC 7-DAY FORECAST</b></span>
+            {weather && <span className="nkc-forecast-now">Now {Math.round(weather.temp)}° · feels {Math.round(weather.feels)}°</span>}
+          </div>
+          <div className="nkc-forecast-days">
+            {forecast.length ? forecast.map((f,i)=><div key={f.date} className="nkc-forecast-day" style={{backgroundColor:theme.card,borderColor:theme.border}}>
+              <b>{forecastDay(f.date,i)}</b><span className="nkc-forecast-icon">{weatherEmoji(f.code)}</span><strong>{Math.round(f.high)}°</strong><span className="nkc-forecast-low">{Math.round(f.low)}°</span>
+            </div>) : <div className="nkc-forecast-loading">Loading Kansas City forecast…</div>}
+          </div>
+        </div>
+      </section>
 
       <div className="max-w-6xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-[220px_1fr_300px] gap-6 nkc-page-content">
         <aside className="rounded-2xl p-3 h-fit border hidden lg:block" style={{backgroundColor: theme.card, borderColor: theme.border}}><p className="text-xs font-bold px-3 py-2 opacity-40">FILTER</p>{CATS.map(c=><button key={c} onClick={()=>setCat(c)} className="w-full text-left px-3 py-2.5 rounded-xl text-sm" style={{backgroundColor: cat===c? theme.accent : 'transparent', color: cat===c? theme.pillTextActive : theme.text}}>{c}</button>)}</aside>
@@ -624,7 +653,13 @@ const scopedPosts = scope==='local'
             const cList=comments[p.id]||[]; const isOpen=openComments[p.id]; const pLikes=likes[p.id]||[]; const liked=pLikes.some((l:any)=>l.author_id===profile?.user_id || l.author_name===profile?.full_name);
             const isOwner=Boolean(profile && ((p.user_id && p.user_id===profile.user_id) || (!p.user_id && p.author_name===profile.full_name))); const canManage=isOwner||isAdmin; const isEditing=editingPostId===p.id;
             return <div key={p.id} className="rounded-2xl p-4 border nkc-surface nkc-fade-in nkc-post-card" style={{backgroundColor:theme.card,borderColor:theme.border}}>
-              <div className="flex justify-between gap-3"><div className="flex items-center gap-2 min-w-0"><div className="w-9 h-9 shrink-0 rounded-full overflow-hidden grid place-items-center font-black text-xs border" style={{backgroundColor:theme.input,borderColor:theme.border}}>{p.profiles?.avatar_url?<img src={p.profiles.avatar_url} alt="" className="w-full h-full object-cover"/>:(p.profiles?.full_name||p.author_name||'N').slice(0,1).toUpperCase()}</div><div><p className="text-xs font-bold opacity-60">{(p.user_id||p.author_id)?<a href={`/profile/${p.user_id||p.author_id}`} className="hover:underline">{p.profiles?.full_name||p.author_name||'Neighbor'}</a>:(p.profiles?.full_name||p.author_name||'Neighbor')} · {p.category}</p>{scope==='kc'&&<p className="text-[11px] font-bold mt-1 opacity-45">📍 {neighborhoodName(p.neighborhood_id)}</p>}</div></div>{canManage&&<div className="flex items-center gap-2"><button onClick={()=>beginEdit(p)} className="text-xs font-bold opacity-55 hover:opacity-100">✏️ Edit</button><button onClick={()=>deletePost(p.id,p.image_url)} className="text-xs opacity-40 hover:text-red-600">🗑️ Delete</button></div>}</div>
+              <div className="flex justify-between gap-3"><div className="flex items-center gap-2 min-w-0"><div className="w-9 h-9 shrink-0 rounded-full overflow-hidden grid place-items-center font-black text-xs border" style={{backgroundColor:theme.input,borderColor:theme.border}}>{p.profiles?.avatar_url?<img src={p.profiles.avatar_url} alt="" className="w-full h-full object-cover"/>:(p.profiles?.full_name||p.author_name||'N').slice(0,1).toUpperCase()}</div><div><div className="flex items-center gap-1.5 flex-wrap"><p className="text-xs font-bold opacity-60">{(p.user_id||p.author_id)?<a href={`/profile/${p.user_id||p.author_id}`} className="hover:underline">{p.profiles?.full_name||p.author_name||'Neighbor'}</a>:(p.profiles?.full_name||p.author_name||'Neighbor')} · {p.category}</p>
+                  <div className="nkc-badges">
+                    {p.profiles?.is_founder&&<span className="nkc-badge founder">⭐ Founder</span>}
+                    {p.profiles?.is_admin&&<span className="nkc-badge moderator">🛡️ Moderator</span>}
+                    {topContributorIds.has(p.user_id||p.author_id)&&<span className="nkc-badge contributor">🔥 Top Contributor</span>}
+                    {p.profiles?.is_verified&&<span className="nkc-badge verified">✓ Verified</span>}
+                  </div></div>{scope==='kc'&&<p className="text-[11px] font-bold mt-1 opacity-45">📍 {neighborhoodName(p.neighborhood_id)}</p>}</div></div>{canManage&&<div className="flex items-center gap-2"><button onClick={()=>beginEdit(p)} className="text-xs font-bold opacity-55 hover:opacity-100">✏️ Edit</button><button onClick={()=>deletePost(p.id,p.image_url)} className="text-xs opacity-40 hover:text-red-600">🗑️ Delete</button></div>}</div>
               {isEditing?<div className="mt-3 rounded-2xl p-3 nkc-pop-in" style={{backgroundColor:theme.input}}><textarea value={editBody} onChange={e=>setEditBody(e.target.value)} className="w-full rounded-xl p-3 min-h-[120px] text-sm outline-none border" style={{backgroundColor:theme.card,color:theme.text,borderColor:theme.border}}/><div className="grid sm:grid-cols-2 gap-2 mt-2"><select value={editCategory} onChange={e=>setEditCategory(e.target.value)} className="rounded-xl px-3 py-2 text-sm border outline-none" style={{backgroundColor:theme.card,color:theme.text,borderColor:theme.border}}>{CATS.filter(c=>c!=='All').map(c=><option key={c}>{c}</option>)}</select><label className="rounded-xl px-3 py-2 text-sm border cursor-pointer" style={{backgroundColor:theme.card,borderColor:theme.border}}><span className="font-bold">📷 Replace image</span><input ref={editFileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setEditFile(e.target.files?.[0]||null)} className="sr-only"/>{editFile&&<span className="block text-xs opacity-60 truncate mt-1">{editFile.name}</span>}</label></div><div className="flex justify-end gap-2 mt-3"><button onClick={cancelEdit} className="px-4 py-2 rounded-full text-xs font-bold" style={{backgroundColor:theme.card,border:`1px solid ${theme.border}`}}>Cancel</button><button disabled={editSaving||!editBody.trim()} onClick={()=>savePostEdit(p)} className="px-4 py-2 rounded-full text-xs font-bold disabled:opacity-50" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{editSaving?'Saving...':'Save changes'}</button></div></div>:<>
                 <p className="mt-1 whitespace-pre-wrap">{p.body||p.content}</p>{p.image_url&&<div className="mt-3 nkc-post-image-frame rounded-xl overflow-hidden border" style={{borderColor:theme.border}}><img src={p.image_url} alt="post" className="nkc-post-image w-full h-full object-cover" /></div>}<p className="text-xs opacity-40 mt-2">{new Date(p.created_at).toLocaleString()}</p><div className="mt-3 pt-3 border-t flex gap-4" style={{borderColor:theme.border}}><button onClick={()=>togglePostLike(p.id)} className="text-xs font-bold">{liked?'❤️':'🤍'} {pLikes.length}</button><button onClick={()=>setOpenComments(prev=>({...prev,[p.id]:!prev[p.id]}))} className="text-xs font-bold opacity-60">💬 {cList.length} {isOpen?'▲':'▼'}</button></div>{isOpen&&<div className="mt-3 rounded-xl p-3 space-y-2" style={{backgroundColor:theme.input}}>{cList.map((c:any)=>{const cl=cLikes[c.id]||[];const cliked=cl.some((l:any)=>l.author_id===profile?.user_id||l.author_name===profile?.full_name);const canDelC=(profile&&c.author_name===profile.full_name)||isAdmin;return <div key={c.id} className="text-sm rounded-lg p-2 flex justify-between gap-2" style={{backgroundColor:theme.card}}><div><b className="text-xs">{c.author_name}:</b> {c.content||c.body}<button onClick={()=>toggleCommentLike(c.id)} className="ml-3 text-xs">{cliked?'❤️':'🤍'} {cl.length}</button></div>{canDelC&&<button onClick={()=>deleteComment(c.id,p.id)} className="text-[10px] opacity-30">🗑️</button>}</div>})}<div className="flex gap-2 pt-2"><input value={commentText[p.id]||''} onChange={e=>setCommentText(prev=>({...prev,[p.id]:e.target.value}))} placeholder="Add a comment..." className="flex-1 border rounded-full px-3 py-2 text-sm outline-none" style={{backgroundColor:theme.card,borderColor:theme.border,color:theme.text}}/><button onClick={()=>addComment(p.id)} className="px-4 py-2 rounded-full text-xs font-bold" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>Reply</button></div></div>}
               </>}
@@ -728,7 +763,7 @@ const scopedPosts = scope==='local'
 
       {feedbackSent && <div className="fixed left-1/2 -translate-x-1/2 bottom-24 z-[80] rounded-full px-5 py-3 shadow-xl font-bold text-sm nkc-pop-in" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>✓ Feedback sent — thank you!</div>}
 
-      {postSuccess && <div role="status" aria-live="polite" className="fixed left-1/2 -translate-x-1/2 top-[92px] z-[100] rounded-full px-5 py-3 shadow-xl font-bold text-sm nkc-pop-in whitespace-nowrap" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>✓ Post published</div>}
+      {(postSuccess || toast) && <div role="status" aria-live="polite" className="fixed left-1/2 -translate-x-1/2 bottom-[86px] sm:bottom-6 z-[120] rounded-2xl px-5 py-3 shadow-xl font-bold text-sm nkc-pop-in max-w-[calc(100vw-32px)] text-center" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>{postSuccess?'✓ Post published':toast}</div>}
 
       {showJoin && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 nkc-pop-in">

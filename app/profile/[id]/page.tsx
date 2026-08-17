@@ -92,7 +92,7 @@ export default function ProfilePage(){
         {!editing?<div className="flex flex-col sm:flex-row gap-5 items-start">
           <div className="w-20 h-20 shrink-0 rounded-full overflow-hidden grid place-items-center text-3xl font-black border-2" style={{backgroundColor:theme.input,borderColor:theme.border}}>{p.avatar_url?<img src={p.avatar_url} alt={displayName(p)} className="w-full h-full object-cover"/>:displayName(p).slice(0,1).toUpperCase()}</div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap"><h1 className="text-3xl font-black">{displayName(p)}</h1>{(p.is_admin||p.is_founder)&&<span className="rounded-full px-2.5 py-1 text-[10px] font-black uppercase" style={{backgroundColor:theme.input}}>Admin</span>}{p.is_verified&&<span className="rounded-full px-2.5 py-1 text-[10px] font-black uppercase" style={{backgroundColor:theme.input}}>Verified</span>}</div>
+            <div className="flex items-center gap-2 flex-wrap"><h1 className="text-3xl font-black">{displayName(p)}</h1>{p.is_founder&&<span className="nkc-badge founder">⭐ Founder</span>}{p.is_admin&&<span className="nkc-badge moderator">🛡️ Moderator</span>}{p.is_verified&&<span className="nkc-badge verified">✓ Verified</span>}{posts.length>=5&&<span className="nkc-badge contributor">🔥 Top Contributor</span>}</div>
             <p className="opacity-60 mt-1">📍 Kansas City {p.zip?`• ${p.zip}`:''}</p>
             <p className="text-sm mt-3 opacity-70">Neighborly KC member</p>
           </div>

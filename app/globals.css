@@ -325,3 +325,55 @@ body { overscroll-behavior-y: none; }
 .nkc-post-composer[data-theme="pip-boy"]::placeholder{color:#1aff61!important;opacity:.62!important}
 .nkc-post-composer[data-theme="space"]{color:#f5eaff!important}
 .nkc-post-composer[data-theme="space"]::placeholder{color:#d9b8ff!important;opacity:.78!important}
+
+
+/* Cleaner header scrolling: the full artwork scrolls with the page so Safari
+   cannot expose a white sticky-header strip during momentum scrolling. */
+.nkc-main-header{position:relative!important;top:auto!important}
+
+/* Seven-day Kansas City forecast banner directly below the header artwork. */
+.nkc-forecast-banner{
+  width:100%;
+  border-top:1px solid;
+  border-bottom:1px solid;
+  overflow:hidden;
+}
+.nkc-forecast-inner{max-width:1200px;margin:0 auto;padding:8px 12px}
+.nkc-forecast-title{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:11px;line-height:1;margin-bottom:7px}
+.nkc-forecast-now{opacity:.65;font-weight:800}
+.nkc-forecast-days{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.nkc-forecast-days::-webkit-scrollbar{display:none}
+.nkc-forecast-day{
+  flex:1 0 82px;
+  min-width:82px;
+  min-height:62px;
+  border:1px solid;
+  border-radius:13px;
+  padding:6px 7px;
+  display:grid;
+  grid-template-columns:1fr auto;
+  grid-template-rows:auto 1fr;
+  align-items:center;
+  column-gap:5px;
+  font-size:10px;
+}
+.nkc-forecast-day>b{opacity:.65}
+.nkc-forecast-icon{grid-row:1 / span 2;grid-column:2;font-size:21px;align-self:center}
+.nkc-forecast-day>strong{font-size:15px;line-height:1}
+.nkc-forecast-low{opacity:.45;font-weight:800}
+.nkc-forecast-loading{padding:14px 4px;font-size:11px;font-weight:800;opacity:.65}
+.nkc-badges{display:inline-flex;align-items:center;gap:3px;flex-wrap:wrap}
+.nkc-badge{display:inline-flex;align-items:center;gap:2px;border-radius:999px;padding:2px 6px;font-size:8px;font-weight:950;line-height:1;border:1px solid currentColor;white-space:nowrap}
+.nkc-badge.founder{color:#b8860b;background:rgba(255,215,0,.12)}
+.nkc-badge.moderator{color:#1769aa;background:rgba(23,105,170,.10)}
+.nkc-badge.contributor{color:#d06a00;background:rgba(255,153,0,.10)}
+.nkc-badge.verified{color:#16834a;background:rgba(22,131,74,.10)}
+.nkc-post-composer::placeholder{color:currentColor!important;opacity:.86!important}
+@media(max-width:639px){
+  .nkc-forecast-inner{padding:7px 10px}
+  .nkc-forecast-title{font-size:10px;margin-bottom:5px}
+  .nkc-forecast-day{flex-basis:70px;min-width:70px;min-height:56px;padding:5px 6px}
+  .nkc-forecast-icon{font-size:18px}
+  .nkc-forecast-day>strong{font-size:14px}
+  .nkc-badge{font-size:7px;padding:2px 5px}
+}
