@@ -380,8 +380,11 @@ export default function Page(){
       const {count,error}=await supabase.from('profiles').select('id',{count:'exact',head:true}).eq('neighborhood_id',neighborhoodId);
       if(cancelled) return;
       if(!error && typeof count==='number' && count>0){ setNeighborCount(count); return; }
+      // If neighborhood_id is missing/unpopulated, fall back to all registered neighbors.
+      const {count:allCount}=await supabase.from('profiles').select('id',{count:'exact',head:true}).not('auth_user_id','is',null);
+      if(cancelled) return;
       const fallbackCount=Number(cur?.member_count);
-      setNeighborCount(Number.isFinite(fallbackCount)?fallbackCount:(typeof count==='number'?count:0));
+      setNeighborCount(typeof allCount==='number' && allCount>0 ? allCount : (Number.isFinite(fallbackCount)?fallbackCount:(typeof count==='number'?count:0)));
     };
     void loadNeighborCount();
     return()=>{cancelled=true};

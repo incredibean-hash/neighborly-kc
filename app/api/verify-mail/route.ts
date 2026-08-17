@@ -19,7 +19,8 @@ export async function POST(req: NextRequest){
       full_address: '304 NE 115TH ST, KANSAS CITY, MO 64155',
       full: '304 NE 115TH ST, KANSAS CITY, MO 64155',
       ocr_text: 'FREE VERIFY - No OpenAI key needed',
-      verified: true
+      verified: true,
+      is_verified: true
     });
   }catch(e:any){
     return NextResponse.json({ error: e.message }, {status:500});

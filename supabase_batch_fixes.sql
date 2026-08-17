@@ -31,6 +31,20 @@ where auth_user_id is null
 alter table public.profiles
   add column if not exists is_admin boolean default false;
 
+-- VERIFIED BADGE COMPATIBILITY
+-- Some production databases use the legacy `verified` column while the app
+-- uses `is_verified`. Add the app column and backfill it when `verified` exists.
+alter table public.profiles
+  add column if not exists is_verified boolean default false;
+
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+             where table_schema='public' and table_name='profiles' and column_name='verified') then
+    execute 'update public.profiles set is_verified = coalesce(verified,false) where is_verified is distinct from coalesce(verified,false)';
+  end if;
+end $$;
+
 -- ============================================================
 -- DMs: keep the old text columns, add real auth UUID columns
 -- ============================================================
