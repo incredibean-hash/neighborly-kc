@@ -27,7 +27,9 @@ export default function PeoplePage(){
     if(!me)return window.location.href='/';
     setBusy(id);
     const {error}=await supabase.from('connections').insert({requester_id:me.id,addressee_id:id,status:'pending'});
-    if(error && !error.message.toLowerCase().includes('duplicate')) alert(error.message);
+    if(error && !error.message.toLowerCase().includes('duplicate')) {
+      alert(error.message.includes('requester_id') || error.message.includes('addressee_id') ? 'Connections need the latest Neighborly KC database fix. Run supabase_batch_fixes.sql in Supabase SQL Editor.' : error.message);
+    }
     await load(); setBusy(null);
   };
   const filtered=useMemo(()=>profiles.filter(p=>p.auth_user_id!==me?.id && displayName(p).toLowerCase().includes(search.toLowerCase())),[profiles,search,me]);

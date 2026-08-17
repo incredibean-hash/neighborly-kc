@@ -75,3 +75,12 @@ Set `FEEDBACK_TO_EMAIL` in Vercel. The existing `RESEND_API_KEY` and `RESEND_FRO
 - User profiles are available from People, post author names, DMs, and Settings → My Profile.
 - Signed-in users can edit their display name and ZIP from their own profile page; street address is not displayed publicly.
 - Existing admin/founder post-limit bypass remains in the database migration (`supabase_apply_fixes.sql`) and owner bootstrap (`supabase_admin_owner.sql`).
+
+## Latest community/auth pass
+- Google/email first-login race fixed so a successful auth event is not overwritten by a stale `getSession()` result.
+- Email login explains both the 6-digit code and a clickable Sign In link when present.
+- Composer shows the destination (`Posting to:`) and uses category chips instead of a dropdown.
+- Post confirmation is placed at the top of the viewport on mobile so it stays visible while the keyboard is open.
+- Added Space, KCPD, KCFD, Cow Town, and KC BBQ themes/buttons. KCPD/KCFD/Space use the latest supplied artwork.
+- Profile connection requests now always target `auth_user_id`.
+- For Connections/DM database errors, run `supabase_batch_fixes.sql` by itself in Supabase SQL Editor.

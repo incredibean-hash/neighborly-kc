@@ -182,6 +182,8 @@ export default function Page(){
     // Return to the exact browser origin that started OAuth. This preserves
     // the PKCE verifier on Vercel preview/test URLs and on mobile Safari.
     const redirectTo = `${window.location.origin}/`;
+    // Keep the browser's current origin for PKCE so test/preview devices retain
+    // the verifier that started the OAuth flow.
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo }
@@ -209,7 +211,7 @@ export default function Page(){
       setEmailAuthMessage(/database error saving new user/i.test(msg) ? 'Supabase is blocking new accounts right now. Run the included Supabase auth login fix, then try again.' : msg);
     } else {
       setEmailCodeSent(true);
-      setEmailAuthMessage(`We sent a 6-digit login code to ${target}.`);
+      setEmailAuthMessage(`Check ${target}. We emailed a 6-digit sign-in code. If your email also shows a Sign In link, you can tap that instead.`);
     }
     setEmailAuthLoading(false);
   };
@@ -240,8 +242,10 @@ export default function Page(){
     if(new URLSearchParams(window.location.search).get('signin')==='1') setShowJoin(true);
     let alive = true;
     let subscription: { unsubscribe: () => void } | null = null;
+    let sawAuthEvent = false;
 
     const applySession = (user:any) => {
+      setGoogleLoading(false);
       if(!user || !alive) return;
       // Show the signed-in UI immediately, then hydrate the full profile in the
       // next task. This prevents the OAuth callback from briefly looking logged out.
@@ -266,6 +270,7 @@ export default function Page(){
     // UI reacts immediately when Supabase establishes the authenticated user.
     const { data } = supabase.auth.onAuthStateChange((event, sess)=>{
       if(!alive) return;
+      sawAuthEvent = true;
       if(sess?.user){
         applySession(sess.user);
         setAuthReady(true);
@@ -290,7 +295,10 @@ export default function Page(){
       if(error) console.warn('Auth session restore warning:', error.message);
       if(session?.user){
         applySession(session.user);
-      } else {
+      } else if(!sawAuthEvent) {
+        // Do not erase a freshly established session if the auth event won the
+        // race with getSession() on Safari/Vercel. This was the source of the
+        // first-login-looks-logged-out / sign-in-twice behavior.
         localStorage.removeItem('nkc_profile');
         setProfile(null);
       }
@@ -557,17 +565,18 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
                 <button onClick={()=>setScope('kc')} className="px-3 py-1.5 rounded-full text-xs font-black" style={{backgroundColor:scope==='kc'?theme.pillActive:'transparent',color:scope==='kc'?theme.pillTextActive:theme.text}}>🏙️ All KC</button>
               </div>
             </div>
+            <div className="mb-2 rounded-xl px-3 py-2 text-xs font-bold border" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>📍 Posting to: <span style={{color:theme.accent}}>{scope==='kc'?'All Kansas City':cur?.name || 'your neighborhood'}</span></div>
             <textarea ref={postComposerRef} value={body} onChange={e=>setBody(e.target.value)} onFocus={()=>window.setTimeout(()=>postComposerRef.current?.scrollIntoView({behavior:'smooth',block:'center'}),120)} autoComplete="off" autoCorrect="on" autoCapitalize="sentences" spellCheck={true} inputMode="text" name="neighborly-post" data-lpignore="true" placeholder={profile?(scope==='kc'?'What should Kansas City know?':`What's up in ${cur?.name}?`):'Join Neighborly KC to post...'} className="nkc-post-composer w-full rounded-xl p-3 min-h-[80px] text-sm outline-none" style={{backgroundColor: theme.input, color: theme.text, border: `1px solid ${theme.border}`, scrollMarginBottom:'180px' }} />
             <div className="flex items-center gap-2 mt-3 min-w-0">
   <label htmlFor="file-input" className="shrink-0 cursor-pointer rounded-full border px-3 py-1.5 text-xs font-bold" style={{borderColor:theme.border}}>Choose image</label>
   <input key={fileInputKey} ref={fileInputRef} id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="sr-only" />
   {file && <div className="min-w-0 flex items-center gap-2 text-xs opacity-70"><span className="truncate max-w-[180px]" title={file.name}>{file.name}</span><button type="button" onClick={()=>{setFile(null); if(fileInputRef.current) fileInputRef.current.value=''; setFileInputKey(k=>k+1);}} className="shrink-0 font-black" aria-label="Remove selected image">✕</button></div>}
 </div>
-            <div className="mt-3 grid sm:grid-cols-[1fr_auto] gap-2 items-center">
-              <label className="text-xs font-black uppercase tracking-wide opacity-55" htmlFor="post-category">Category</label>
-              <select id="post-category" value={postCategory} onChange={e=>setPostCategory(e.target.value)} className="w-full sm:w-auto rounded-full px-4 py-2 text-sm font-bold border outline-none" style={{backgroundColor:theme.card,color:theme.text,borderColor:theme.border}}>
-                {CATS.filter(c=>c!=='All').map(c=><option key={c} value={c}>{c}</option>)}
-              </select>
+            <div className="mt-3">
+              <div className="text-[10px] font-black uppercase tracking-wider opacity-50 mb-2">Category</div>
+              <div className="flex gap-1.5 overflow-x-auto pb-1 nkc-category-row">
+                {CATS.filter(c=>c!=='All').map(c=><button key={c} type="button" onClick={()=>setPostCategory(c)} className="shrink-0 rounded-full px-3 py-1.5 text-[11px] font-black border" style={postCategory===c?{backgroundColor:theme.pillActive,color:theme.pillTextActive,borderColor:theme.pillActive}:{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>{c}</button>)}
+              </div>
             </div>
             <div className="flex justify-end mt-2"><button disabled={uploading} onClick={handleBePost} className="px-5 py-2 rounded-full text-sm font-bold disabled:opacity-50" style={{backgroundColor: theme.accent, color: theme.pillTextActive}}>{uploading?'Uploading...':scope==='kc'?'Post to KC':'Post to neighbors'}</button></div>
           </div>
@@ -661,7 +670,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
             {showThemePicker && <div className="mt-3">
               <p className="text-[10px] font-black tracking-widest uppercase text-white/40 mb-2">Choose your Neighborly KC look · tap a theme to apply & close</p>
               <div className="grid grid-cols-2 gap-2">
-                {['aim','sporting','royals','chiefs','pip-boy','space','kc-current','kcpd','kcfd'].map(id=>{ const t=THEMES[id]; const active=themeId===id; return <button key={id} type="button" aria-label={`Use ${t.name} theme`} onClick={()=>setTheme(id)} className={`nkc-theme-choice ${active?'is-active':''}`} style={{borderColor:active?t.accent:t.border,boxShadow:active?`0 0 0 2px ${t.accent}55`:undefined}}>{t.themeButtonImage?<img src={t.themeButtonImage} alt={t.name}/>:<div className="nkc-theme-choice-fallback" style={{background:`linear-gradient(135deg,${t.header},${t.accent})`}}><b>{t.name}</b></div>}{active&&<span className="nkc-theme-choice-check" style={{backgroundColor:t.accent,color:t.pillTextActive}}>✓</span>}</button>})}
+                {['aim','sporting','royals','chiefs','pip-boy','space','kc-current','kcpd','kcfd','cow-town','bbq'].map(id=>{ const t=THEMES[id]; const active=themeId===id; return <button key={id} type="button" aria-label={`Use ${t.name} theme`} onClick={()=>setTheme(id)} className={`nkc-theme-choice ${active?'is-active':''}`} style={{borderColor:active?t.accent:t.border,boxShadow:active?`0 0 0 2px ${t.accent}55`:undefined}}>{t.themeButtonImage?<img src={t.themeButtonImage} alt={t.name}/>:<div className="nkc-theme-choice-fallback" style={{background:`linear-gradient(135deg,${t.header},${t.accent})`}}><b>{t.name}</b></div>}{active&&<span className="nkc-theme-choice-check" style={{backgroundColor:t.accent,color:t.pillTextActive}}>✓</span>}</button>})}
               </div>
             </div>}
             {profile&&<a href="/profile" onClick={()=>setShowSettings(false)} className="mt-4 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center">👤 My Profile</a>}<button onClick={()=>{if(!profile){setShowJoin(true);return;}setShowFeedback(true)}} className="mt-2 w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold">💬 Leave Feedback</button>{profile&&<button onClick={signOut} className="mt-2 w-full py-3 rounded-full border border-red-300/20 bg-red-500/10 text-red-200 font-bold">🚪 Sign out</button>}<button onClick={()=>setShowSettings(false)} className="mt-2 w-full py-3 rounded-full bg-white text-black font-bold">Done</button>
@@ -680,7 +689,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
 
       {feedbackSent && <div className="fixed left-1/2 -translate-x-1/2 bottom-24 z-[80] rounded-full px-5 py-3 shadow-xl font-bold text-sm nkc-pop-in" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>✓ Feedback sent — thank you!</div>}
 
-      {postSuccess && <div role="status" aria-live="polite" className="fixed left-1/2 -translate-x-1/2 bottom-[calc(88px+env(safe-area-inset-bottom))] z-[100] rounded-full px-5 py-3 shadow-xl font-bold text-sm nkc-pop-in whitespace-nowrap" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>✓ Post published</div>}
+      {postSuccess && <div role="status" aria-live="polite" className="fixed left-1/2 -translate-x-1/2 top-[92px] z-[100] rounded-full px-5 py-3 shadow-xl font-bold text-sm nkc-pop-in whitespace-nowrap" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>✓ Post published</div>}
 
       {showJoin && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 nkc-pop-in">
@@ -692,7 +701,8 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
               <input value={name} onChange={e=>setName(e.target.value)} placeholder="Full name (optional)" className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-sm outline-none"/>
               <input value={email} onChange={e=>setEmail(e.target.value)} inputMode="email" autoComplete="email" placeholder="Email address" className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-sm outline-none"/>
               {!emailCodeSent && <input value={addr} onChange={e=>setAddr(e.target.value)} placeholder={`Address in ${cur?.zip} (optional)`} className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-sm outline-none"/>}
-              {emailCodeSent && <input value={emailCode} onChange={e=>setEmailCode(e.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="6-digit login code" className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-center tracking-[0.45em] font-black text-lg outline-none"/>}
+              {emailCodeSent && <input value={emailCode} onChange={e=>setEmailCode(e.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="Enter the 6-digit code" className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-center tracking-[0.45em] font-black text-lg outline-none"/>}
+              {emailCodeSent && <div className="rounded-xl p-3 text-xs leading-5" style={{backgroundColor:theme.input,color:theme.text}}><b>Check your email</b><br/>Use the 6-digit code in the message. If a Sign In link is provided, tapping the link will also finish login.</div>}
               {emailAuthMessage && <p className="text-xs font-semibold text-center opacity-70">{emailAuthMessage}</p>}
               <div className="flex gap-2 pt-2"><button type="button" onClick={()=>{setShowJoin(false);setEmailCodeSent(false);setEmailCode('');setEmailAuthMessage('')}} className="flex-1 bg-[#f8f5ee] py-3.5 rounded-full font-bold text-sm">Cancel</button>{emailCodeSent ? <button type="button" disabled={emailAuthLoading} onClick={verifyEmailLoginCode} className="flex-1 text-white py-3.5 rounded-full font-bold text-sm disabled:opacity-60" style={{backgroundColor: theme.accent}}>{emailAuthLoading?'Checking…':'Verify & Sign In'}</button> : <button type="button" disabled={emailAuthLoading||!email.trim()} onClick={sendEmailLoginCode} className="flex-1 text-white py-3.5 rounded-full font-bold text-sm disabled:opacity-60" style={{backgroundColor: theme.accent}}>{emailAuthLoading?'Sending…':'Send Login Code'}</button>}</div>
               {emailCodeSent && <button type="button" disabled={emailAuthLoading} onClick={sendEmailLoginCode} className="w-full text-xs font-bold underline opacity-60">Send a new code</button>}
