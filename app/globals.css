@@ -263,3 +263,34 @@ body { overscroll-behavior-y: none; }
   .nkc-weather-ticker{font-size:10px;padding:6px 0}
   .nkc-weather-track{gap:20px;animation-duration:20s}
 }
+
+
+/* Mobile top navigation modeled on the compact social-feed layout: brand row,
+   quick post prompt, then All/Nearby/Following/Groups tabs. The full artwork
+   header remains the desktop/tablet header so the artwork is never squeezed. */
+.nkc-mobile-top-header{box-shadow:0 6px 20px rgba(0,0,0,.16)}
+.nkc-mobile-top-row{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 12px}
+.nkc-mobile-brand{display:flex;align-items:center;gap:7px;color:inherit;background:transparent;border:0;padding:0;font-weight:950;font-size:17px;letter-spacing:-.5px}
+.nkc-mobile-brand img{width:30px;height:30px;border-radius:9px;object-fit:cover}
+.nkc-mobile-brand span span{font-weight:950}
+.nkc-mobile-top-icons{display:flex;align-items:center;gap:4px}
+.nkc-mobile-icon{width:36px;height:36px;border:0;border-radius:999px;background:transparent;color:inherit;display:grid;place-items:center;text-decoration:none}
+.nkc-mobile-icon svg{width:20px;height:20px}
+.nkc-mobile-whats{margin:0 10px 7px;width:calc(100% - 20px);height:38px;border:1px solid currentColor;border-color:color-mix(in srgb,currentColor 18%,transparent);border-radius:20px;display:flex;align-items:center;gap:8px;padding:0 10px;background:color-mix(in srgb,white 8%,transparent);color:inherit;text-align:left;font-size:12px;font-weight:700}
+.nkc-mobile-avatar{width:24px;height:24px;border-radius:999px;display:grid;place-items:center;flex:0 0 24px;background:color-mix(in srgb,currentColor 18%,transparent);font-size:10px}
+.nkc-mobile-whats>span:nth-child(2){flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.75}
+.nkc-mobile-whats-plus{font-size:20px;line-height:1;opacity:.75}
+.nkc-mobile-tabs{display:grid;grid-template-columns:repeat(4,1fr);height:37px;padding:0 7px;gap:2px;border-bottom:1px solid color-mix(in srgb,currentColor 14%,transparent)}
+.nkc-mobile-tab{position:relative;border:0;background:transparent;color:inherit;opacity:.65;font-size:12px;font-weight:900}
+.nkc-mobile-tab.is-active{opacity:1}
+.nkc-mobile-tab.is-active::after{content:"";position:absolute;left:20%;right:20%;bottom:0;height:2px;border-radius:2px;background:currentColor}
+.nkc-mobile-weather{height:28px;display:flex;align-items:center;justify-content:center;gap:12px;border-bottom:1px solid;font-size:10px;font-weight:800}
+
+/* Inactive bottom-nav labels/icons need strong contrast against every theme
+   header, especially the light KC Current and Daylight variants. */
+.nkc-mobile-bottom-nav .nkc-bottom-nav-item:not(.is-active){color:var(--nkc-bottom-inactive,#fff)!important;text-shadow:0 1px 3px rgba(0,0,0,.35)}
+.nkc-mobile-bottom-nav .nkc-bottom-nav-item:not(.is-active) span{opacity:1}
+@media (max-width:639px){
+  .nkc-mobile-bottom-nav{height:70px;padding-left:8px;padding-right:8px}
+  .nkc-bottom-nav-item{height:50px;max-width:82px;font-size:10px}
+}

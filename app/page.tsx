@@ -138,9 +138,12 @@ export default function Page(){
   const postComposerRef = useRef<HTMLTextAreaElement>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
   const [weather,setWeather]=useState<{temp:number;feels:number;precip:number;code:number}|null>(null);
+  const [neighborCount,setNeighborCount]=useState<number|null>(null);
 
   const theme = THEMES[themeId] || THEMES['royals'];
   const headerImage = theme.headerImage || '/neighborly-kc-header-banner.png';
+  const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brooks Heights', zip:'64155', id: '5fb249cb-1667-475b-ab8c-43e1df245ace', slug:'meadow-brooks-heights'};
+  const bottomInactiveColor = theme.id==='aim' ? '#111111' : theme.id==='pip-boy' ? theme.text : '#ffffff';
 
   useEffect(()=>{
     const vv=window.visualViewport;
@@ -351,6 +354,21 @@ export default function Page(){
     return()=>{ cancelled=true; window.removeEventListener('focus',onFocus); };
   },[]);
 
+  useEffect(()=>{
+    let cancelled=false;
+    const loadNeighborCount=async()=>{
+      const neighborhoodId=cur?.id;
+      if(!neighborhoodId){ setNeighborCount(null); return; }
+      const {count,error}=await supabase.from('profiles').select('id',{count:'exact',head:true}).eq('neighborhood_id',neighborhoodId);
+      if(cancelled) return;
+      if(!error && typeof count==='number'){ setNeighborCount(count); return; }
+      const fallbackCount=Number(cur?.member_count);
+      setNeighborCount(Number.isFinite(fallbackCount)?fallbackCount:0);
+    };
+    void loadNeighborCount();
+    return()=>{cancelled=true};
+  },[cur?.id,cur?.member_count]);
+
   const setTheme = (id:string)=>{
     const next=THEMES[id] ? id : DEFAULT_THEME_ID;
     setThemeId(next);
@@ -390,8 +408,7 @@ export default function Page(){
     } catch(e:any) { alert(e.message || 'Could not send feedback.'); }
     finally { setFeedbackSending(false); }
   };
-const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brooks Heights', zip:'64155', id: '5fb249cb-1667-475b-ab8c-43e1df245ace', slug:'meadow-brooks-heights'};
-  const scopedPosts = scope==='local'
+const scopedPosts = scope==='local'
     ? (hoods.length===0 ? posts : posts.filter((p:any)=>!p.neighborhood_id || String(p.neighborhood_id)===String(cur?.id||'')))
     : posts;
   const filtered = cat==='All'? scopedPosts : scopedPosts.filter((p:any)=>p.category===cat);
@@ -517,7 +534,35 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden nkc-app-shell" style={{backgroundColor: theme.bg, color: theme.text}}>
-      <header className="sticky top-0 z-40 overflow-hidden border-b nkc-main-header" style={{backgroundColor: theme.header, borderColor: 'rgba(255,255,255,.12)'}}>
+      <header className="sticky top-0 z-40 overflow-hidden border-b nkc-mobile-top-header sm:hidden" style={{backgroundColor:theme.header,borderColor:theme.border}}>
+        <div className="nkc-mobile-top-row">
+          <button type="button" aria-label="Neighborly KC home" className="nkc-mobile-brand" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})}>
+            <img src="/neighborly-kc-logo.svg" alt="" aria-hidden="true" />
+            <span>Neighborly<span>KC</span></span>
+          </button>
+          <div className="nkc-mobile-top-icons">
+            <button type="button" aria-label="Search" className="nkc-mobile-icon" onClick={()=>setShowExplore(true)}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" strokeWidth="2"/><path d="m16 16 5 5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+            </button>
+            <a href="/notifications" aria-label="Notifications" className="nkc-mobile-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 10a6 6 0 0 1 12 0v4l2 2H4l2-2z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M10 19h4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+            </a>
+          </div>
+        </div>
+        <button type="button" className="nkc-mobile-whats" onClick={()=>{if(!profile){setShowJoin(true);return;} postComposerRef.current?.focus(); postComposerRef.current?.scrollIntoView({behavior:'smooth',block:'center'});}}>
+          <span className="nkc-mobile-avatar">{profile?.full_name?.slice(0,1)?.toUpperCase() || 'N'}</span>
+          <span>{profile ? (scope==='kc'?'What should Kansas City know?':`What's happening in ${cur?.name || 'KC'}?`) : "What's happening in KC?"}</span>
+          <span className="nkc-mobile-whats-plus">＋</span>
+        </button>
+        <div className="nkc-mobile-tabs" role="tablist" aria-label="Feed filters">
+          {[
+            ['All','All'],['Nearby','local'],['Following','following'],['Groups','groups']
+          ].map(([label,id])=><button key={id} type="button" className={`nkc-mobile-tab ${((id==='All'&&cat==='All')||(id==='local'&&scope==='local'&&cat==='All'))?'is-active':''}`} onClick={()=>{if(id==='All'){setCat('All');setScope('kc')} else if(id==='local'){setCat('All');setScope('local')} else {setShowExplore(true)}}}>{label}</button>)}
+        </div>
+        <div className="nkc-mobile-weather" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>{weather ? <>🌡️ <b>{Math.round(weather.temp)}°</b><span>💧 {weather.precip.toFixed(2)} in</span><span>🥵 Feels {Math.round(weather.feels)}°</span></> : <>🌤️ Kansas City weather loading…</>}</div>
+      </header>
+
+      <header className="hidden sm:block sticky top-0 z-40 overflow-hidden border-b nkc-main-header" style={{backgroundColor: theme.header, borderColor: 'rgba(255,255,255,.12)'}}>
         <div className="nkc-header-banner-wrap">
           <button type="button" className="block nkc-header-banner-link" aria-label="Neighborly KC home" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})}>
             <img src={headerImage} alt="Neighborly KC" className="nkc-header-banner" draggable="false" />
@@ -593,7 +638,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
           })}
         </main>
 
-        <aside className="rounded-2xl p-5 border h-fit nkc-surface" style={{backgroundColor: theme.card, borderColor: theme.border}}><h3 className="font-black">{cur?.name}</h3><p className="text-xs opacity-60">{cur?.zip} · Kansas City, MO</p><div className="grid grid-cols-2 gap-2 mt-4"><div className="rounded-xl p-3 text-center" style={{backgroundColor: theme.input}}><b className="text-lg">{cur?.member_count}</b><p className="text-xs">NEIGHBORS</p></div><div className="rounded-xl p-3 text-center" style={{backgroundColor: theme.input}}><b className="text-lg">{scopedPosts.length}</b><p className="text-xs">{scope==='kc'?'KC POSTS':'LOCAL POSTS'}</p></div></div></aside>
+        <aside className="rounded-2xl p-5 border h-fit nkc-surface" style={{backgroundColor: theme.card, borderColor: theme.border}}><h3 className="font-black">{cur?.name}</h3><p className="text-xs opacity-60">{cur?.zip} · Kansas City, MO</p><div className="grid grid-cols-2 gap-2 mt-4"><div className="rounded-xl p-3 text-center" style={{backgroundColor: theme.input}}><b className="text-lg">{neighborCount ?? cur?.member_count ?? 0}</b><p className="text-xs">NEIGHBORS</p></div><div className="rounded-xl p-3 text-center" style={{backgroundColor: theme.input}}><b className="text-lg">{scopedPosts.length}</b><p className="text-xs">{scope==='kc'?'KC POSTS':'LOCAL POSTS'}</p></div></div></aside>
       </div>
 
 
@@ -604,14 +649,14 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
       <nav
         className="nkc-mobile-actions nkc-mobile-bottom-nav"
         aria-label="Mobile navigation"
-        style={{backgroundColor:theme.header,color:theme.text,borderColor:theme.border}}
+        style={{backgroundColor:theme.header,color:bottomInactiveColor,borderColor:theme.border}}
       >
         <button
           type="button"
           aria-label="Feed"
           className={`nkc-bottom-nav-item ${cat==='All'?'is-active':''}`}
           onClick={()=>{setCat('All');setShowExplore(false);window.scrollTo({top:0,behavior:'smooth'});}}
-          style={cat==='All'?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{}}
+          style={cat==='All'?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{color:bottomInactiveColor}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>
           <span>Feed</span>
@@ -622,7 +667,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
           aria-label="Safety"
           className={`nkc-bottom-nav-item ${cat==='Safety Alert'?'is-active':''}`}
           onClick={()=>{setCat('Safety Alert');setShowExplore(false);window.scrollTo({top:0,behavior:'smooth'});}}
-          style={cat==='Safety Alert'?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{}}
+          style={cat==='Safety Alert'?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{color:bottomInactiveColor}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 6v5c0 5.2-3.4 8.5-8 10-4.6-1.5-8-4.8-8-10V6z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="m9 12 2 2 4-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
           <span>Safety</span>
@@ -644,7 +689,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
           aria-label="For Sale"
           className={`nkc-bottom-nav-item ${cat==='For Sale & Free'?'is-active':''}`}
           onClick={()=>{setCat('For Sale & Free');setShowExplore(false);window.scrollTo({top:0,behavior:'smooth'});}}
-          style={cat==='For Sale & Free'?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{}}
+          style={cat==='For Sale & Free'?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{color:bottomInactiveColor}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5 12 4l8 4.5v8L12 21l-8-4.5z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M9 11h6M9 14h4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
           <span>For Sale</span>
@@ -655,7 +700,7 @@ const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brook
           aria-label="Explore"
           className={`nkc-bottom-nav-item ${showExplore?'is-active':''}`}
           onClick={()=>setShowExplore(v=>!v)}
-          style={showExplore?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{}}
+          style={showExplore?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{color:bottomInactiveColor}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="m15.8 8.2-2 5.6-5.6 2 2-5.6z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>
           <span>Explore</span>
