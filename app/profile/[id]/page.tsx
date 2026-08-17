@@ -26,8 +26,14 @@ export default function ProfilePage(){
     // Accept either the auth UUID or the profile row UUID in the public URL.
     // Older Neighborly KC data used the profile id as the route id, while the
     // current app normally uses auth_user_id.
-    const {data:pr,error:prErr}=await supabase.from('profiles').select('id,auth_user_id,full_name,email,zip,street_address,avatar_url,is_verified,is_founder,is_admin').or(`auth_user_id.eq.${id},id.eq.${id}`).maybeSingle();
-    if(prErr) console.error(prErr);
+    const profileCols='id,auth_user_id,full_name,email,zip,street_address,avatar_url,is_verified,is_founder,is_admin';
+    let pr:any=null;
+    const byAuth=await supabase.from('profiles').select(profileCols).eq('auth_user_id',id).maybeSingle();
+    pr=byAuth.data||null;
+    if(!pr){
+      const byId=await supabase.from('profiles').select(profileCols).eq('id',id).maybeSingle();
+      pr=byId.data||null;
+    }
     setP(pr);
     setName(pr?.full_name||'');
     setZip(pr?.zip||'');

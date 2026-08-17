@@ -539,14 +539,12 @@ const scopedPosts = scope==='local'
           <button type="button" className="block nkc-header-banner-link" aria-label="Neighborly KC home" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})}>
             <img src={headerImage} alt="Neighborly KC" className="nkc-header-banner" draggable="false" />
           </button>
-          <div className="nkc-header-controls" aria-label="Account controls">
-            <div className="flex items-center gap-1.5">
-              <a href="/dms" aria-label="Messages" className="w-9 h-8 rounded-full text-xs font-bold place-items-center nkc-header-control grid">💬</a>
-              <a href="/notifications" aria-label="Notifications" className="w-9 h-8 rounded-full text-xs font-bold place-items-center nkc-header-control grid">🔔</a>
-              <button type="button" onClick={()=>setShowSettings(true)} aria-label="Themes and settings" className="w-9 h-8 rounded-full flex items-center justify-center nkc-header-control">⚙️</button>
-              {!authReady ? <span className="shrink-0 px-2 py-1 text-[10px] font-black text-white/70">Loading…</span> : profile ? <button type="button" onClick={signOut} className="px-2.5 py-1 rounded-full text-[10px] font-bold nkc-header-control">Sign out</button> : <button type="button" onClick={()=>setShowJoin(true)} className="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-black whitespace-nowrap nkc-header-control">Sign in</button>}
-            </div>
-          </div>
+        </div>
+        <div className="nkc-mobile-account-row" aria-label="Account controls" style={{backgroundColor:theme.header,borderColor:theme.border}}>
+          <a href="/dms" aria-label="Messages" className="nkc-mobile-account-btn">💬 <span>Messages</span></a>
+          <a href="/notifications" aria-label="Notifications" className="nkc-mobile-account-btn">🔔 <span>Alerts</span></a>
+          <button type="button" onClick={()=>setShowSettings(true)} aria-label="Themes and settings" className="nkc-mobile-account-btn">⚙️ <span>Themes</span></button>
+          {!authReady ? <span className="nkc-mobile-account-status">Loading…</span> : profile ? <button type="button" onClick={signOut} className="nkc-mobile-account-btn">↪ <span>Sign out</span></button> : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-mobile-account-btn">👤 <span>Sign in</span></button>}
         </div>
         <div className="nkc-mobile-nav" aria-label="Main navigation">
           <div className="nkc-mobile-nav-scroll">
@@ -613,7 +611,7 @@ const scopedPosts = scope==='local'
               </div>
             </div>
             <div className="mb-2 rounded-xl px-3 py-2 text-xs font-bold border" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>📍 Posting to: <span style={{color:theme.accent}}>{scope==='kc'?'All Kansas City':cur?.name || 'your neighborhood'}</span></div>
-            <textarea ref={postComposerRef} value={body} onChange={e=>setBody(e.target.value)} onFocus={()=>window.setTimeout(()=>postComposerRef.current?.scrollIntoView({behavior:'smooth',block:'center'}),120)} autoComplete="off" autoCorrect="on" autoCapitalize="sentences" spellCheck={true} inputMode="text" name="neighborly-post" data-lpignore="true" placeholder={profile?(scope==='kc'?'What should Kansas City know?':`What's up in ${cur?.name}?`):'Join Neighborly KC to post...'} className="nkc-post-composer w-full rounded-xl p-3 min-h-[80px] text-sm outline-none" style={{backgroundColor: theme.input, color: theme.text, border: `1px solid ${theme.border}`, scrollMarginBottom:'180px' }} />
+            <textarea ref={postComposerRef} value={body} onChange={e=>setBody(e.target.value)} onFocus={()=>window.setTimeout(()=>postComposerRef.current?.scrollIntoView({behavior:'smooth',block:'center'}),120)} autoComplete="off" autoCorrect="on" autoCapitalize="sentences" spellCheck={true} inputMode="text" name="neighborly-post" data-lpignore="true" placeholder={profile?(scope==='kc'?'What should Kansas City know?':`What's up in ${cur?.name}?`):'Join Neighborly KC to post...'} className="nkc-post-composer w-full rounded-xl p-3 min-h-[80px] text-sm outline-none" data-theme={theme.id} style={{backgroundColor: theme.input, color: theme.text, border: `1px solid ${theme.border}`, scrollMarginBottom:'180px', caretColor: theme.accent, boxShadow: theme.id==='pip-boy' ? `inset 0 0 14px ${theme.accent}22, 0 0 8px ${theme.accent}22` : theme.id==='space' ? `inset 0 0 14px ${theme.accent}16` : undefined }} />
             <div className="flex items-center gap-2 mt-3 min-w-0">
   <label htmlFor="file-input" className="shrink-0 cursor-pointer rounded-full border px-3 py-1.5 text-xs font-bold" style={{borderColor:theme.border}}>Choose image</label>
   <input key={fileInputKey} ref={fileInputRef} id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="sr-only" />
@@ -717,7 +715,7 @@ const scopedPosts = scope==='local'
             {showThemePicker && <div className="mt-3">
               <p className="text-[10px] font-black tracking-widest uppercase text-white/40 mb-2">Choose your Neighborly KC look · tap a theme to apply & close</p>
               <div className="grid grid-cols-2 gap-2">
-                {['aim','sporting','royals','chiefs','pip-boy','space','kc-current','kcpd','kcfd','cow-town','bbq'].map(id=>{ const t=THEMES[id]; const active=themeId===id; return <button key={id} type="button" aria-label={`Use ${t.name} theme`} onClick={()=>setTheme(id)} className={`nkc-theme-choice ${active?'is-active':''}`} style={{borderColor:active?t.accent:t.border,boxShadow:active?`0 0 0 2px ${t.accent}55`:undefined}}>{t.themeButtonImage?<img src={t.themeButtonImage} alt={t.name}/>:<div className="nkc-theme-choice-fallback" style={{background:`linear-gradient(135deg,${t.header},${t.accent})`}}><b>{t.name}</b></div>}{active&&<span className="nkc-theme-choice-check" style={{backgroundColor:t.accent,color:t.pillTextActive}}>✓</span>}</button>})}
+                {['aim','sporting','royals','chiefs','pip-boy','space','kc-current','kcpd','kcfd'].map(id=>{ const t=THEMES[id]; const active=themeId===id; return <button key={id} type="button" aria-label={`Use ${t.name} theme`} onClick={()=>setTheme(id)} className={`nkc-theme-choice ${active?'is-active':''}`} style={{borderColor:active?t.accent:t.border,boxShadow:active?`0 0 0 2px ${t.accent}55`:undefined}}>{t.themeButtonImage?<img src={t.themeButtonImage} alt={t.name}/>:<div className="nkc-theme-choice-fallback" style={{background:`linear-gradient(135deg,${t.header},${t.accent})`}}><b>{t.name}</b></div>}{active&&<span className="nkc-theme-choice-check" style={{backgroundColor:t.accent,color:t.pillTextActive}}>✓</span>}</button>})}
               </div>
             </div>}
             {profile&&<a href="/profile" onClick={()=>setShowSettings(false)} className="mt-4 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center">👤 My Profile</a>}<button onClick={()=>{if(!profile){setShowJoin(true);return;}setShowFeedback(true)}} className="mt-2 w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold">💬 Leave Feedback</button>{profile&&<button onClick={signOut} className="mt-2 w-full py-3 rounded-full border border-red-300/20 bg-red-500/10 text-red-200 font-bold">🚪 Sign out</button>}<button onClick={()=>setShowSettings(false)} className="mt-2 w-full py-3 rounded-full bg-white text-black font-bold">Done</button>

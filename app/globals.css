@@ -306,3 +306,22 @@ body { overscroll-behavior-y: none; }
   .nkc-header-controls{top:6px;right:8px}
   .nkc-header-control{box-shadow:0 3px 10px rgba(0,0,0,.16)}
 }
+
+/* Mobile account controls live below the artwork so they never cover the NeighborlyKC header. */
+.nkc-mobile-account-row{display:none}
+@media (max-width:639px){
+  .nkc-mobile-account-row{display:flex;align-items:center;justify-content:center;gap:5px;padding:4px 6px;background:color-mix(in srgb, var(--nkc-header-color, #071933) 88%, black);border-bottom:1px solid rgba(255,255,255,.12)}
+  .nkc-mobile-account-btn{min-width:0;flex:1;display:flex;align-items:center;justify-content:center;gap:3px;min-height:31px;padding:3px 5px;border:1px solid rgba(255,255,255,.16);border-radius:999px;background:rgba(255,255,255,.08);color:#fff;text-decoration:none;font-size:10px;font-weight:850;white-space:nowrap}
+  .nkc-mobile-account-status{font-size:10px;color:rgba(255,255,255,.65);padding:0 6px}
+  .nkc-mobile-account-btn:active{transform:scale(.97)}
+}
+
+/* Stronger text contrast inside the post composer, including Safari placeholder text. */
+.nkc-post-composer::placeholder{color:currentColor!important;opacity:.72!important}
+.nkc-post-composer{caret-color:currentColor}
+
+/* Pip-Boy CRT composer: green-on-black, glowing and easy to read. */
+.nkc-post-composer[data-theme="pip-boy"]{font-family:monospace!important;letter-spacing:.01em;text-shadow:0 0 5px currentColor}
+.nkc-post-composer[data-theme="pip-boy"]::placeholder{color:#1aff61!important;opacity:.62!important}
+.nkc-post-composer[data-theme="space"]{color:#f5eaff!important}
+.nkc-post-composer[data-theme="space"]::placeholder{color:#d9b8ff!important;opacity:.78!important}

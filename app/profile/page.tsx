@@ -37,13 +37,15 @@ export default function MyProfilePage() {
       if (!currentUser) { setLoading(false); return; }
       setUser(currentUser);
 
-      const { data: existingRows } = await supabase
-        .from('profiles')
-        .select('id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder')
-        .eq('auth_user_id', currentUser.id)
-        .order('id',{ascending:true})
-        .limit(1);
-      const existing = existingRows?.[0] || null;
+      const profileCols = 'id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder';
+      let existing:any = null;
+      const byAuth = await supabase.from('profiles').select(profileCols).eq('auth_user_id', currentUser.id).order('id',{ascending:true}).limit(1);
+      existing = byAuth.data?.[0] || null;
+      // Legacy rows may have the auth UUID stored as the profile id instead.
+      if (!existing) {
+        const byId = await supabase.from('profiles').select(profileCols).eq('id', currentUser.id).maybeSingle();
+        existing = byId.data || null;
+      }
 
       const fallbackName = currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || '';
       setProfile(existing || null);
