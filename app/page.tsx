@@ -6,7 +6,6 @@ import { THEMES, DEFAULT_THEME_ID } from '../lib/themes';
 const CATS = ['All','General','For Sale & Free','Safety Alert','Recommendation','Event','Lost & Found'];
 
 let oauthCodeExchangeStarted = false;
-let authInitialized = false; // Move this outside component to persist
 
 async function compressImage(file: File): Promise<File> {
   if (!file.type.startsWith('image/')) throw new Error('Please choose an image file.');
@@ -143,7 +142,6 @@ export default function Page(){
   const [blockedUsers,setBlockedUsers]=useState<Set<string>>(new Set());
   const [isLoading,setIsLoading]=useState(true);
   const [commenting,setCommenting]=useState<Record<string,boolean>>({});
-  const profileSyncedRef = useRef<Set<string>>(new Set()); // Track synced users
 
   const theme = THEMES[themeId] || THEMES['royals'];
   const headerImage = theme.headerImage || '/neighborly-kc-header-banner.png';
@@ -244,35 +242,21 @@ export default function Page(){
     setEmailAuthLoading(false);
   };
 
-  // SINGLE AUTH HANDLER - Fixed double login
-  useEffect(()=>{
-    // Only run this effect once
-    if (authInitialized) return;
-    authInitialized = true;
-
+  // FIXED: Simplified auth handler - no blue screen
+  useEffect(() => {
     const saved = localStorage.getItem('nkc_theme');
     const migrated = saved === 'kc-sunset' ? 'kc-current' : saved;
     setThemeId(migrated && THEMES[migrated] ? migrated : DEFAULT_THEME_ID);
-    
-    if(new URLSearchParams(window.location.search).get('signin')==='1') setShowJoin(true);
+    if (new URLSearchParams(window.location.search).get('signin') === '1') setShowJoin(true);
 
     let alive = true;
     let subscription: { unsubscribe: () => void } | null = null;
 
-    const applySession = async (user: any) => {
+    const applySession = (user: any) => {
       if (!user || !alive) return;
-      
-      // Check if this user was already synced
-      if (profileSyncedRef.current.has(user.id)) {
-        console.log('User already synced, skipping duplicate');
-        return;
-      }
-      
-      console.log('Applying session for user:', user.id);
       setGoogleLoading(false);
       setShowJoin(false);
-      
-      // Set quick profile first
+
       const quickProfile = {
         user_id: user.id,
         auth_user_id: user.id,
@@ -280,27 +264,21 @@ export default function Page(){
         email: user.email || ''
       };
       setProfile(quickProfile);
-      
-      // Then sync full profile
-      try {
-        const pr = await syncCommunityProfile(user);
-        if (alive && pr) {
-          localStorage.setItem('nkc_profile', JSON.stringify(pr));
-          setProfile(pr);
-          // Mark as synced
-          profileSyncedRef.current.add(user.id);
-        }
-      } catch (e) {
-        console.warn('Profile sync error:', e);
-      }
+
+      // Sync profile in background
+      setTimeout(() => {
+        if (!alive) return;
+        syncCommunityProfile(user).then(pr => {
+          if (alive && pr) {
+            localStorage.setItem('nkc_profile', JSON.stringify(pr));
+            setProfile(pr);
+          }
+        }).catch(console.warn);
+      }, 0);
     };
 
-    // Auth state change listener
     const { data } = supabase.auth.onAuthStateChange((event, sess) => {
       if (!alive) return;
-      
-      console.log('Auth event:', event, sess?.user?.id);
-      
       if (sess?.user) {
         applySession(sess.user);
         setAuthReady(true);
@@ -311,68 +289,64 @@ export default function Page(){
         setShowJoin(false);
         setAuthReady(true);
         setIsLoading(false);
-        // Clear synced users on sign out
-        profileSyncedRef.current.clear();
       }
     });
     subscription = data.subscription;
 
-    // Handle OAuth callback
-    (async () => {
-      try {
-        const params = new URLSearchParams(window.location.search);
-        const code = params.get('code');
-
-        const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-        const access_token = hash.get('access_token');
-        const refresh_token = hash.get('refresh_token');
-        
-        if (access_token && refresh_token) {
-          const { error } = await supabase.auth.setSession({ access_token, refresh_token });
-          if (error) console.warn('Hash session adopt warning:', error.message);
-          window.history.replaceState({}, '', window.location.pathname);
-        }
-
-        if (code && !oauthCodeExchangeStarted) {
-          oauthCodeExchangeStarted = true;
-          const { data: { session: preexisting } } = await supabase.auth.getSession();
-          if (!preexisting?.user) {
-            const { error } = await supabase.auth.exchangeCodeForSession(code);
-            if (error) {
-              console.warn('OAuth code exchange warning:', error.message);
-              const { data: { session: after } } = await supabase.auth.getSession();
-              if (!after?.user && alive) {
-                setShowJoin(true);
-                setEmailAuthMessage('Google sign in did not complete. Please try again.');
-              }
-            }
-          }
-          window.history.replaceState({}, '', window.location.pathname);
-        } else if (code) {
-          window.history.replaceState({}, '', window.location.pathname);
-        }
-
-        // Initial session check
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (!alive) return;
-        if (error) console.warn('Auth session restore warning:', error.message);
-        
-        if (session?.user) {
-          await applySession(session.user);
-        }
-      } catch (e) {
-        console.warn('Auth initialization warning:', e);
-      } finally {
-        if (alive) {
-          setAuthReady(true);
-          setIsLoading(false);
-        }
+    // Initial auth check
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (!alive) return;
+      if (error) console.warn('Auth session restore warning:', error.message);
+      if (session?.user) {
+        applySession(session.user);
       }
-    })();
+      setAuthReady(true);
+      setIsLoading(false);
+    }).catch(() => {
+      if (alive) {
+        setAuthReady(true);
+        setIsLoading(false);
+      }
+    });
 
-    // Check for auth errors in URL
-    const authHash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-    const authError = authHash.get('error_description') || authHash.get('error');
+    // OAuth code exchange
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const access_token = hash.get('access_token');
+    const refresh_token = hash.get('refresh_token');
+
+    if (access_token && refresh_token) {
+      supabase.auth.setSession({ access_token, refresh_token }).then(({ error }) => {
+        if (error) console.warn('Hash session adopt warning:', error.message);
+        window.history.replaceState({}, '', window.location.pathname);
+      });
+    }
+
+    if (code && !oauthCodeExchangeStarted) {
+      oauthCodeExchangeStarted = true;
+      supabase.auth.getSession().then(({ data: { session: preexisting } }) => {
+        if (!preexisting?.user) {
+          supabase.auth.exchangeCodeForSession(code).catch((error) => {
+            console.warn('OAuth code exchange warning:', error.message);
+            if (alive) {
+              supabase.auth.getSession().then(({ data: { session: after } }) => {
+                if (!after?.user && alive) {
+                  setShowJoin(true);
+                  setEmailAuthMessage('Google sign in did not complete. Please try again.');
+                }
+              });
+            }
+          });
+        }
+        window.history.replaceState({}, '', window.location.pathname);
+      });
+    } else if (code) {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
+    const authError = new URLSearchParams(window.location.hash.replace(/^#/, '')).get('error_description') || 
+                       new URLSearchParams(window.location.hash.replace(/^#/, '')).get('error');
     if (authError) {
       setShowJoin(true);
       setEmailAuthMessage(authError.replace(/\+/g, ' '));
@@ -383,7 +357,7 @@ export default function Page(){
       alive = false;
       subscription?.unsubscribe();
     };
-  }, []); // Empty dependency array - only runs once
+  }, []);
 
   const postCountRef = useRef(0);
 
@@ -487,8 +461,6 @@ export default function Page(){
     await supabase.auth.signOut(); 
     setProfile(null); 
     setShowSettings(false);
-    profileSyncedRef.current.clear();
-    sessionStorage.clear();
   };
   
   const submitFeedback = async () => {
@@ -761,21 +733,23 @@ export default function Page(){
     setComments((prev)=>({...prev, [postId]: prev[postId].filter((c:any)=>c.id!==id)})); 
   };
 
-  if(isLoading) {
+  // Show loading state
+  if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{backgroundColor: theme.bg}}>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: theme.bg }}>
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin mx-auto mb-4" style={{borderColor: theme.accent, borderTopColor: 'transparent'}}></div>
-          <p style={{color: theme.text}}>Loading Neighborly KC...</p>
+          <div className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin mx-auto mb-4" style={{ borderColor: theme.accent, borderTopColor: 'transparent' }}></div>
+          <p style={{ color: theme.text }}>Loading Neighborly KC...</p>
         </div>
       </div>
     );
   }
 
+  // The rest of your JSX return goes here (the actual app UI)
   return (
     <div className="min-h-screen w-full overflow-x-hidden nkc-app-shell" style={{backgroundColor: theme.bg, color: theme.text}}>
-      {/* ... rest of your JSX remains the same ... */}
-      {/* The rest of your component stays exactly as you have it */}
+      {/* ... your existing JSX ... */}
+      {/* ... copy the rest of your JSX from your original file ... */}
     </div>
   );
 }
