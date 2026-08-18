@@ -10,6 +10,7 @@ function DmsContent(){
  const params=useSearchParams(); const target=params.get('user');
  const [me,setMe]=useState<any>(null),[people,setPeople]=useState<any[]>([]),[messages,setMessages]=useState<any[]>([]),[selected,setSelected]=useState<string|null>(target),[text,setText]=useState(''),[loading,setLoading]=useState(true),[sending,setSending]=useState(false),[errorText,setErrorText]=useState('');
  const [unread,setUnread]=useState<Record<string,number>>({});
+ const [pushState,setPushState]=useState<'checking'|'unsupported'|'off'|'on'|'blocked'>('checking');
  // The realtime handler must read the *current* selection without being torn
  // down and resubscribed every time the user switches conversations.
  const selectedRef=useRef<string|null>(target);
@@ -17,6 +18,29 @@ function DmsContent(){
  const bottomRef=useRef<HTMLDivElement|null>(null);
  useEffect(()=>{selectedRef.current=selected},[selected]);
  useEffect(()=>{meRef.current=me},[me]);
+ useEffect(()=>{
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)){setPushState('unsupported');return;}
+  if(Notification.permission==='denied'){setPushState('blocked');return;}
+  navigator.serviceWorker.register('/sw.js').then(r=>r.pushManager.getSubscription()).then(s=>setPushState(s?'on':'off')).catch(()=>setPushState('off'));
+ },[]);
+ const enablePush=async()=>{
+  try{
+   if(!me)return;
+   if(!('serviceWorker' in navigator)||!('PushManager' in window)){setPushState('unsupported');return;}
+   const permission=await Notification.requestPermission();
+   if(permission!=='granted'){setPushState(permission==='denied'?'blocked':'off');return;}
+   const publicKey=process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+   if(!publicKey)throw new Error('Push alerts are not configured yet.');
+   const registration=await navigator.serviceWorker.register('/sw.js');
+   await navigator.serviceWorker.ready;
+   let subscription=await registration.pushManager.getSubscription();
+   if(!subscription)subscription=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(publicKey)});
+   const {data:{session}}=await supabase.auth.getSession();
+   const response=await fetch('/api/push/subscribe',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${session?.access_token||''}`},body:JSON.stringify(subscription.toJSON())});
+   if(!response.ok)throw new Error((await response.json().catch(()=>({}))).error||'Could not enable alerts.');
+   setPushState('on');
+  }catch(e:any){setErrorText(e.message||'Could not enable alerts.');}
+ };
  const load=async()=>{
   setLoading(true);setErrorText('');
   // getSession() reads persisted storage without a network round trip, so a
@@ -94,6 +118,8 @@ function DmsContent(){
   } else {
    setMessages(x=>x.some(y=>y.id===data.id)?x:[...x,data]);
    setText('');
+   const {data:{session}}=await supabase.auth.getSession();
+   if(session?.access_token)void fetch('/api/push/send',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`},body:JSON.stringify({messageId:data.id})}).catch(()=>{});
   }
   setSending(false);
  };
@@ -101,7 +127,7 @@ function DmsContent(){
  if(!me)return <main className="min-h-screen grid place-items-center" style={{backgroundColor:theme.bg,color:theme.text}}><div className="text-center"><p className="font-bold">Sign in to use Messages.</p><Link href="/" className="underline">Back to Neighborly KC</Link></div></main>;
  const border={borderColor:theme.border};
  return <main className="min-h-screen w-full overflow-x-hidden" style={{backgroundColor:theme.bg,color:theme.text}}>
-  <header className="nkc-subpage-header p-4" style={{backgroundColor:theme.header,color:'#fff'}}><div className="max-w-4xl mx-auto flex justify-between items-center gap-3"><div className="min-w-0"><Link href="/" className="text-xs opacity-70">← Feed</Link><h1 className="font-black text-2xl">Messages</h1></div><Link href="/people" className="shrink-0 rounded-full px-3 sm:px-4 py-2 text-sm font-bold whitespace-nowrap" style={{backgroundColor:theme.card,color:theme.accent,border:`1px solid ${theme.border}`}}>Find People</Link></div></header>
+  <header className="nkc-subpage-header p-4" style={{backgroundColor:theme.header,color:'#fff'}}><div className="max-w-4xl mx-auto flex justify-between items-center gap-3"><div className="min-w-0"><Link href="/" className="text-xs opacity-70">← Feed</Link><h1 className="font-black text-2xl">Messages</h1></div><div className="flex items-center gap-2"><button type="button" disabled={pushState==='checking'||pushState==='on'||pushState==='unsupported'} onClick={enablePush} className="shrink-0 rounded-full px-3 py-2 text-xs font-bold whitespace-nowrap disabled:opacity-70" style={{backgroundColor:theme.card,color:theme.accent,border:`1px solid ${theme.border}`}}>{pushState==='on'?'🔔 Alerts on':pushState==='blocked'?'🔕 Blocked':pushState==='unsupported'?'Alerts unavailable':'🔔 Enable alerts'}</button><Link href="/people" className="shrink-0 rounded-full px-3 sm:px-4 py-2 text-sm font-bold whitespace-nowrap" style={{backgroundColor:theme.card,color:theme.accent,border:`1px solid ${theme.border}`}}>Find People</Link></div></div></header>
   <div className="w-full max-w-4xl mx-auto p-3 sm:p-4 grid md:grid-cols-[280px_minmax(0,1fr)] gap-4 min-w-0">
    <aside className={`rounded-2xl p-3 ${selected?'hidden md:block':''}`} style={{backgroundColor:theme.card,...border}}><p className="text-xs font-bold opacity-50 px-2 pb-2">NEIGHBORS</p>{!people.length?<p className="p-3 text-sm opacity-50">No other members yet.</p>:people.map(p=><button key={p.auth_user_id} onClick={()=>loadMessages(p.auth_user_id)} className="w-full text-left rounded-xl p-3" style={selected===p.auth_user_id?{backgroundColor:theme.accent,color:theme.pillTextActive}:{}}><b className="block text-sm">{displayName(p)}</b><span className="text-xs opacity-60">Kansas City{p.zip?` • ${p.zip}`:''}</span>{!!unread[p.auth_user_id]&&<span className="ml-2 inline-flex items-center justify-center text-[10px] font-black rounded-full px-2 py-0.5" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{unread[p.auth_user_id]}</span>}</button>)}</aside>
    <section className={`rounded-2xl min-h-[520px] flex flex-col min-w-0 overflow-hidden ${selected?'':'hidden md:flex'}`} style={{backgroundColor:theme.card,...border}}>
@@ -109,6 +135,13 @@ function DmsContent(){
    </section>
   </div>
  </main>;
+}
+
+function urlBase64ToUint8Array(value:string){
+ const padding='='.repeat((4-value.length%4)%4);
+ const base64=(value+padding).replace(/-/g,'+').replace(/_/g,'/');
+ const raw=window.atob(base64);
+ return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
 }
 
 export default function DmsPage(){

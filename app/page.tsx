@@ -763,6 +763,8 @@ export default function Page(){
           [postId]: [data, ...(prev[postId] || [])]
         }));
         setCommentText(prev => ({...prev, [postId]: ''}));
+        const {data:{session}}=await supabase.auth.getSession();
+        if(session?.access_token)void fetch('/api/notify-comment',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`},body:JSON.stringify({postId,commentId:data.id})}).catch(()=>{});
       }
     } catch(e: any) {
       alert('Could not post comment: ' + (e.message || 'Unknown error'));
