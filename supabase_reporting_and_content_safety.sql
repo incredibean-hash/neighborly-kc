@@ -44,7 +44,12 @@ returns trigger language plpgsql set search_path=public
 as $$
 declare content_text text;
 begin
-  content_text := lower(coalesce(new.body,'') || ' ' || coalesce(new.content,''));
+  -- Read through JSON so this works with both the current schema (`body`)
+  -- and older NeighborlyKC tables that also had a `content` column.
+  content_text := lower(
+    coalesce(to_jsonb(new)->>'body','') || ' ' ||
+    coalesce(to_jsonb(new)->>'content','')
+  );
   if content_text ~ '(kill[[:space:]]+yourself|i[[:space:]]+will[[:space:]]+kill[[:space:]]+you|child[[:space:]-]*porn|rape[[:space:]]+you)' then
     raise exception 'This text cannot be posted under the NeighborlyKC community standards.';
   end if;
@@ -54,11 +59,10 @@ $$;
 
 drop trigger if exists reject_unsafe_post_text on public.posts;
 create trigger reject_unsafe_post_text
-before insert or update of body,content on public.posts
+before insert or update on public.posts
 for each row execute function public.reject_neighborly_unsafe_text();
 
 drop trigger if exists reject_unsafe_comment_text on public.comments;
 create trigger reject_unsafe_comment_text
-before insert or update of body,content on public.comments
+before insert or update on public.comments
 for each row execute function public.reject_neighborly_unsafe_text();
-
