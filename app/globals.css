@@ -332,6 +332,13 @@ body { overscroll-behavior-y: none; }
 .nkc-themed-field::placeholder{color:currentColor!important;opacity:.82!important}
 .nkc-auth-divider{color:var(--nkc-auth-muted,currentColor);opacity:.72}
 .nkc-auth-action:disabled{opacity:.78!important}
+.nkc-welcome-card{position:relative;overflow:hidden}
+.nkc-welcome-card::after{content:"";position:absolute;right:-75px;top:-90px;width:210px;height:210px;border-radius:999px;background:currentColor;opacity:.035;pointer-events:none}
+.nkc-welcome-benefits{display:flex;flex-wrap:wrap;gap:8px}
+.nkc-welcome-benefits span{display:inline-flex;align-items:center;min-height:34px;padding:7px 11px;border:1px solid currentColor;border-radius:999px;font-size:11px;font-weight:800;opacity:.78}
+.nkc-welcome-cta{min-height:48px;box-shadow:0 8px 20px rgba(0,0,0,.16);transition:transform .15s ease,opacity .15s ease}
+.nkc-welcome-cta:hover{opacity:.94;transform:translateY(-1px)}
+.nkc-welcome-cta:active{transform:translateY(0)}
 @media (max-width:639px){
   .nkc-auth-overlay{padding:10px!important;align-items:center}
   .nkc-auth-card{padding:18px!important;border-radius:24px!important;max-height:calc(100dvh - 20px);overflow-y:auto}

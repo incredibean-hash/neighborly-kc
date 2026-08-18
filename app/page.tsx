@@ -106,7 +106,7 @@ export default function Page(){
   const [hood,setHood]=useState('Meadow Brooks Heights');
   const [cat,setCat]=useState('All');
   const [postCategory,setPostCategory]=useState('General');
-  const [scope,setScope]=useState<'local'|'kc'>('local');
+  const [scope,setScope]=useState<'local'|'kc'>('kc');
   const [showExplore,setShowExplore]=useState(false);
   const [body,setBody]=useState('');
   const [profile,setProfile]=useState<any>(null);
@@ -119,7 +119,7 @@ export default function Page(){
   const [themeId,setThemeId]=useState(DEFAULT_THEME_ID);
   const [name,setName]=useState('');
   const [email,setEmail]=useState('');
-  const [addr,setAddr]=useState('');
+  const [joinZip,setJoinZip]=useState('');
   const [file,setFile]=useState<File|null>(null);
   const [uploading,setUploading]=useState(false);
   const [editingPostId,setEditingPostId]=useState<string|null>(null);
@@ -156,6 +156,16 @@ export default function Page(){
   const headerImage = theme.headerImage || '/neighborly-kc-header-banner.png';
   const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brooks Heights', zip:'64155', id: '5fb249cb-1667-475b-ab8c-43e1df245ace', slug:'meadow-brooks-heights'};
   const bottomInactiveColor = theme.id==='aim' ? '#111111' : theme.id==='pip-boy' ? theme.text : '#ffffff';
+
+  const trackSignupEvent = useCallback((name:string, method?:string) => {
+    if(typeof window==='undefined') return;
+    const va=(window as any).va;
+    if(typeof va==='function') va('event',{name,data:method?{method}:undefined});
+  },[]);
+
+  useEffect(()=>{
+    if(showJoin) trackSignupEvent('Signup Opened');
+  },[showJoin,trackSignupEvent]);
 
   useEffect(()=>{
     document.documentElement.style.backgroundColor=theme.bg;
@@ -219,6 +229,7 @@ export default function Page(){
         client_id:GOOGLE_CLIENT_ID,
         callback:async(response:any)=>{
           if(!response?.credential) return;
+          trackSignupEvent('Signup Started','google');
           setGoogleLoading(true);
           setEmailAuthMessage('');
           const {data,error}=await supabase.auth.signInWithIdToken({
@@ -236,6 +247,7 @@ export default function Page(){
           }
           setGoogleLoading(false);
           setShowJoin(false);
+          trackSignupEvent('Signup Completed','google');
         }
       });
       google.accounts.id.renderButton(googleButtonRef.current,{
@@ -269,12 +281,13 @@ export default function Page(){
     const target = email.trim().toLowerCase();
     if(!target) return setEmailAuthMessage('Enter your email address first.');
     setEmailAuthLoading(true);
+    trackSignupEvent('Signup Started','email');
     setEmailAuthMessage('');
     const { error } = await supabase.auth.signInWithOtp({
       email: target,
       options: {
         shouldCreateUser: true,
-        data: { full_name: name.trim(), street_address: addr.trim(), zip: cur?.zip || '' },
+        data: { full_name: name.trim(), street_address: '', zip: joinZip.trim() },
       },
     });
     if(error){
@@ -282,6 +295,7 @@ export default function Page(){
       setEmailAuthMessage(/database error saving new user/i.test(msg) ? 'Supabase is blocking new accounts right now. Run the included Supabase auth login fix, then try again.' : msg);
     } else {
       setEmailCodeSent(true);
+      trackSignupEvent('Login Code Sent','email');
       setEmailAuthMessage(`Check ${target}. We emailed a 6-digit sign-in code. If your email also shows a Sign In link, you can tap that instead.`);
     }
     setEmailAuthLoading(false);
@@ -297,11 +311,12 @@ export default function Page(){
     if(error){
       setEmailAuthMessage(error.message || 'That code is invalid or expired.');
     } else if(data.user){
-      await syncCommunityProfile(data.user, { full_name: name.trim(), street_address: addr.trim(), zip: cur?.zip || '' });
+      await syncCommunityProfile(data.user, { full_name: name.trim(), street_address: '', zip: joinZip.trim() });
       setEmailCode('');
       setEmailCodeSent(false);
       setEmailAuthMessage('Signed in successfully.');
       setShowJoin(false);
+      trackSignupEvent('Signup Completed','email');
       // Force profile refresh
       const { data: { user: refreshedUser } } = await supabase.auth.getUser();
       if(refreshedUser) {
@@ -911,7 +926,7 @@ export default function Page(){
         <div className="nkc-mobile-account-row" aria-label="Account controls" style={{backgroundColor:theme.header,borderColor:theme.border}}>
           {profile
             ? <button type="button" onClick={signOut} className="nkc-mobile-account-btn">↪ <span>Sign out</span></button>
-            : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-mobile-account-btn">👤 <span>Sign in</span></button>}
+            : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-mobile-account-btn">👤 <span>Join free</span></button>}
           <a href="/dms" className="nkc-mobile-account-btn">💬 <span>Messages</span></a>
           {profile
             ? <a href="/profile" className="nkc-mobile-account-btn">🙂 <span>Profile</span></a>
@@ -928,7 +943,7 @@ export default function Page(){
           <div className="nkc-header-controls" aria-label="Account controls">
             {profile
               ? <button type="button" onClick={signOut} className="nkc-header-control">↪ Sign out</button>
-              : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-header-control">👤 Sign in</button>}
+              : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-header-control">👤 Join free</button>}
             <a href="/dms" className="nkc-header-control">💬 Messages</a>
             {profile
               ? <a href="/profile" className="nkc-header-control">🙂 Profile</a>
@@ -959,6 +974,16 @@ export default function Page(){
         </aside>
 
         <main className="space-y-3">
+          {!profile && <section className="nkc-welcome-card rounded-2xl p-5 sm:p-6 border nkc-surface nkc-fade-in" style={{backgroundColor:theme.card,borderColor:theme.border}}>
+            <p className="text-xs font-black uppercase tracking-[0.16em] opacity-60">Made for Kansas City</p>
+            <h1 className="mt-2 text-2xl sm:text-3xl font-black leading-tight">Your Kansas City neighborhood, all in one place.</h1>
+            <p className="mt-2 text-sm sm:text-base leading-relaxed opacity-75">Share local updates, recommendations, events, safety alerts and free items with people across the KC area.</p>
+            <div className="nkc-welcome-benefits mt-4" aria-label="NeighborlyKC benefits">
+              <span>🏘️ Local conversations</span><span>🤝 Meet neighbors</span><span>📣 KC-wide updates</span>
+            </div>
+            <button type="button" onClick={()=>setShowJoin(true)} className="nkc-welcome-cta mt-5 w-full sm:w-auto rounded-full px-6 py-3 font-black text-sm" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>Join NeighborlyKC — Free</button>
+            <p className="mt-3 text-[11px] font-semibold opacity-60">Your exact address is never displayed publicly.</p>
+          </section>}
           <div className="rounded-2xl p-4 border nkc-surface nkc-fade-in" style={{backgroundColor: theme.card, borderColor: theme.border}}>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
               <div><p className="text-xs font-black uppercase tracking-wider opacity-50">Neighborly KC Network</p><h2 className="text-xl font-black">{scope==='local'?cur?.name:'All Kansas City'}</h2><p className="text-xs opacity-55">{scope==='local'?'Your neighborhood and nearby local conversation':'Everyone inside the 40-mile Neighborly KC network'}</p></div>
@@ -1200,7 +1225,7 @@ export default function Page(){
       {showJoin && (
         <div className="nkc-auth-overlay fixed inset-0 bg-black/70 backdrop-blur-md z-[900] flex items-center justify-center p-4 nkc-pop-in">
           <div className="nkc-auth-card rounded-[28px] w-full max-w-sm p-6 shadow-2xl border" style={{backgroundColor: theme.card, borderColor: theme.border, '--nkc-auth-muted':theme.subtext} as any}>
-            <h2 className="font-black text-xl">Join {cur?.name}</h2><p className="text-xs opacity-60">{theme.id==='royals'? 'THE K • 64155 • ROYALS BLUE & WHITE' : theme.id==='chiefs'? 'ARROWHEAD • CHIEFS KINGDOM' : '40 mile radius KC network'}</p>
+            <h2 className="font-black text-xl">Join NeighborlyKC</h2><p className="text-xs opacity-70 mt-1">Connect with neighbors across the Kansas City area.</p>
             <div className="nkc-auth-google mt-5 min-h-[44px] flex items-center justify-center">
               {googleLoading
                 ? <div className="w-full bg-white border-2 border-black text-black py-3.5 rounded-full font-bold text-sm text-center">Signing in…</div>
@@ -1210,7 +1235,8 @@ export default function Page(){
             <div className="space-y-3">
               <input value={name} onChange={e=>setName(e.target.value)} placeholder="Full name (optional)" className="nkc-themed-field w-full border rounded-xl px-4 py-3 text-sm outline-none" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}/>
               <input value={email} onChange={e=>setEmail(e.target.value)} inputMode="email" autoComplete="email" placeholder="Email address" className="nkc-themed-field w-full border rounded-xl px-4 py-3 text-sm outline-none" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}/>
-              {!emailCodeSent && <input value={addr} onChange={e=>setAddr(e.target.value)} placeholder={`Address in ${cur?.zip} (optional)`} className="nkc-themed-field w-full border rounded-xl px-4 py-3 text-sm outline-none" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}/>}
+              {!emailCodeSent && <input value={joinZip} onChange={e=>setJoinZip(e.target.value.replace(/\D/g,'').slice(0,5))} inputMode="numeric" autoComplete="postal-code" maxLength={5} placeholder="KC-area ZIP code (optional)" className="nkc-themed-field w-full border rounded-xl px-4 py-3 text-sm outline-none" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}/>}
+              {!emailCodeSent && <p className="px-1 text-[11px] leading-4 font-semibold opacity-65">Your ZIP helps us find nearby conversations. Your exact address is never shown publicly.</p>}
               {emailCodeSent && <input value={emailCode} onChange={e=>setEmailCode(e.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="Enter the 6-digit code" className="nkc-themed-field w-full border rounded-xl px-4 py-3 text-center tracking-[0.45em] font-black text-lg outline-none" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}/>}
               {emailCodeSent && <div className="rounded-xl p-3 text-xs leading-5" style={{backgroundColor:theme.input,color:theme.text}}><b>Check your email</b><br/>Use the 6-digit code in the message. If a Sign In link is provided, tapping the link will also finish login.</div>}
               {emailAuthMessage && <p className="text-xs font-semibold text-center opacity-70">{emailAuthMessage}</p>}
