@@ -17,6 +17,7 @@ button:active:not(:disabled),a:active{transform:scale(.98)}
 
 html, body { min-height: 100%; }
 body { overscroll-behavior-y: none; }
+.nkc-subpage-header{padding-top:calc(1rem + env(safe-area-inset-top))!important}
 .nkc-app-shell { min-height: 100svh; min-height: 100dvh; }
 .nkc-mobile-actions { display:none; }
 .nkc-kc-mark{display:grid;place-items:center;width:42px;height:42px;border:2px solid rgba(255,255,255,.72);border-radius:14px;background:rgba(255,255,255,.08);color:#fff;font-weight:950;letter-spacing:-.08em;font-size:15px;line-height:1;box-shadow:0 6px 20px rgba(0,0,0,.12);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
