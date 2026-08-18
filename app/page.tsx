@@ -4,6 +4,7 @@ import { supabase } from '../lib/community';
 import { THEMES, DEFAULT_THEME_ID } from '../lib/themes';
 
 const CATS = ['All','General','For Sale & Free','Safety Alert','Recommendation','Event','Lost & Found'];
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '493019301743-e2djce6rmlpntl05terd0uopslij1gtu.apps.googleusercontent.com';
 
 // A PKCE authorization code may only be redeemed once. React Strict Mode mounts
 // effects twice in development, and a fast double render can do the same in
@@ -127,6 +128,7 @@ export default function Page(){
   const [editFile,setEditFile]=useState<File|null>(null);
   const [editSaving,setEditSaving]=useState(false);
   const editFileInputRef=useRef<HTMLInputElement>(null);
+  const googleButtonRef=useRef<HTMLDivElement>(null);
   const [googleLoading,setGoogleLoading]=useState(false);
   const [emailCodeSent,setEmailCodeSent]=useState(false);
   const [emailCode,setEmailCode]=useState('');
@@ -191,20 +193,66 @@ export default function Page(){
     if(lk){ const lg: Record<string,any[]> = {}; lk.forEach((l:any)=>{ if(!lg[l.post_id]) lg[l.post_id]=[]; lg[l.post_id].push(l); }); setLikes(lg); }
   }, []);
 
-  const signInWithGoogle = async () => {
-    setGoogleLoading(true);
-    setEmailAuthMessage('');
-    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/$/, '');
-    const redirectTo = siteUrl ? `${siteUrl}/` : `${window.location.origin}/`;
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo }
-    });
-    if(error){
-      setEmailAuthMessage(error.message || 'Google login could not start.');
-      setGoogleLoading(false);
+  // Use Google's browser button and exchange its ID token directly with
+  // Supabase. This keeps the account chooser on Google/NeighborlyKC and avoids
+  // advertising the raw project-id.supabase.co callback domain.
+  useEffect(()=>{
+    if(!showJoin) return;
+    let cancelled=false;
+
+    const renderGoogleButton=()=>{
+      const google=(window as any).google;
+      if(cancelled || !google?.accounts?.id || !googleButtonRef.current) return;
+      googleButtonRef.current.innerHTML='';
+      google.accounts.id.initialize({
+        client_id:GOOGLE_CLIENT_ID,
+        callback:async(response:any)=>{
+          if(!response?.credential) return;
+          setGoogleLoading(true);
+          setEmailAuthMessage('');
+          const {data,error}=await supabase.auth.signInWithIdToken({
+            provider:'google',
+            token:response.credential
+          });
+          if(error){
+            setEmailAuthMessage(error.message || 'Google login could not complete.');
+            setGoogleLoading(false);
+            return;
+          }
+          if(data.user) {
+            const pr=await syncCommunityProfile(data.user);
+            if(pr) setProfile(pr);
+          }
+          setGoogleLoading(false);
+          setShowJoin(false);
+        }
+      });
+      google.accounts.id.renderButton(googleButtonRef.current,{
+        type:'standard',
+        theme:'outline',
+        size:'large',
+        text:'continue_with',
+        shape:'pill',
+        logo_alignment:'left',
+        width:320
+      });
+    };
+
+    const existing=document.getElementById('google-identity-services');
+    if((window as any).google?.accounts?.id) renderGoogleButton();
+    else if(existing) existing.addEventListener('load',renderGoogleButton,{once:true});
+    else {
+      const script=document.createElement('script');
+      script.id='google-identity-services';
+      script.src='https://accounts.google.com/gsi/client';
+      script.async=true;
+      script.defer=true;
+      script.onload=renderGoogleButton;
+      script.onerror=()=>setEmailAuthMessage('Could not load Google sign in. Please try email instead.');
+      document.head.appendChild(script);
     }
-  };
+    return()=>{cancelled=true;existing?.removeEventListener('load',renderGoogleButton);};
+  },[showJoin]);
 
   const sendEmailLoginCode = async () => {
     const target = email.trim().toLowerCase();
@@ -1029,7 +1077,11 @@ export default function Page(){
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 nkc-pop-in">
           <div className="rounded-[28px] w-full max-w-sm p-6 shadow-2xl border" style={{backgroundColor: theme.card, borderColor: theme.border}}>
             <h2 className="font-black text-xl">Join {cur?.name}</h2><p className="text-xs opacity-60">{theme.id==='royals'? 'THE K • 64155 • ROYALS BLUE & WHITE' : theme.id==='chiefs'? 'ARROWHEAD • CHIEFS KINGDOM' : '40 mile radius KC network'}</p>
-            <button onClick={signInWithGoogle} disabled={googleLoading} className="mt-5 w-full bg-white border-2 border-black text-black py-3.5 rounded-full font-bold text-sm flex items-center justify-center gap-2">{googleLoading? 'Redirecting...' : 'Continue with Google'}</button>
+            <div className="mt-5 min-h-[44px] flex items-center justify-center">
+              {googleLoading
+                ? <div className="w-full bg-white border-2 border-black text-black py-3.5 rounded-full font-bold text-sm text-center">Signing in…</div>
+                : <div ref={googleButtonRef} className="flex justify-center w-full" aria-label="Continue with Google" />}
+            </div>
             <div className="flex items-center gap-3 my-5"><div className="h-px flex-1 bg-black/10"></div><span className="text-xs font-bold opacity-30">OR EMAIL CODE</span><div className="h-px flex-1 bg-black/10"></div></div>
             <div className="space-y-3">
               <input value={name} onChange={e=>setName(e.target.value)} placeholder="Full name (optional)" className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-sm outline-none"/>
