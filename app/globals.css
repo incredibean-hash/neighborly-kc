@@ -327,8 +327,20 @@ body { overscroll-behavior-y: none; }
 /* Stronger text contrast inside the post composer, including Safari placeholder text. */
 .nkc-post-composer::placeholder{color:currentColor!important;opacity:.72!important}
 .nkc-post-composer{caret-color:currentColor}
-.nkc-themed-field{caret-color:currentColor}
-.nkc-themed-field::placeholder{color:currentColor!important;opacity:.62!important}
+.nkc-themed-field{caret-color:currentColor;font-size:16px}
+.nkc-themed-field::placeholder{color:currentColor!important;opacity:.82!important}
+.nkc-auth-divider{color:var(--nkc-auth-muted,currentColor);opacity:.72}
+.nkc-auth-action:disabled{opacity:.78!important}
+@media (max-width:639px){
+  .nkc-auth-overlay{padding:10px!important;align-items:center}
+  .nkc-auth-card{padding:18px!important;border-radius:24px!important;max-height:calc(100dvh - 20px);overflow-y:auto}
+  .nkc-auth-card h2{font-size:1.15rem;line-height:1.2}
+  .nkc-auth-card .nkc-auth-google{margin-top:14px}
+  .nkc-auth-card .nkc-auth-divider-row{margin-top:14px;margin-bottom:14px}
+  .nkc-auth-card .nkc-themed-field{padding:11px 13px!important;border-radius:14px!important}
+  .nkc-auth-buttons{gap:8px!important;padding-top:4px!important}
+  .nkc-auth-buttons button{min-height:46px;padding:10px 12px!important;font-size:13px!important;line-height:1.15}
+}
 
 /* Pip-Boy CRT composer: green-on-black, glowing and easy to read. */
 .nkc-post-composer[data-theme="pip-boy"]{font-family:monospace!important;letter-spacing:.01em;text-shadow:0 0 5px currentColor}

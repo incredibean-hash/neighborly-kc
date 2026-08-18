@@ -1097,7 +1097,7 @@ export default function Page(){
           type="button"
           aria-label="Explore"
           className={`nkc-bottom-nav-item ${showExplore?'is-active':''}`}
-          onClick={()=>{setShowExplore(true);setShowSettings(true);}}
+          onClick={()=>{setShowJoin(false);setReportingPost(null);setShowExplore(true);setShowSettings(true);}}
           style={showSettings?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{color:bottomInactiveColor}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="m15.8 8.2-2 5.6-5.6 2 2-5.6z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>
@@ -1106,7 +1106,7 @@ export default function Page(){
       </nav>
 
       {showSettings && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 nkc-pop-in">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[1050] flex items-center justify-center p-2 sm:p-4 nkc-pop-in">
           <div className="rounded-[24px] w-full max-w-sm p-3 sm:p-5 border max-h-[90vh] overflow-y-auto nkc-settings-modal" style={{backgroundColor: '#15181f', borderColor: '#262a33'}}>
             <div className="flex justify-between items-center mb-3 sm:mb-4">
               <h2 className="font-black text-white text-lg sm:text-xl">{showExplore?'Explore':'Settings'}</h2>
@@ -1198,15 +1198,15 @@ export default function Page(){
       {(postSuccess || toast) && <div role="status" aria-live="polite" className="fixed left-1/2 -translate-x-1/2 bottom-[86px] sm:bottom-6 z-[120] rounded-2xl px-5 py-3 shadow-xl font-bold text-sm nkc-pop-in max-w-[calc(100vw-32px)] text-center" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>{postSuccess?'✓ Post published':toast}</div>}
 
       {showJoin && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 nkc-pop-in">
-          <div className="rounded-[28px] w-full max-w-sm p-6 shadow-2xl border" style={{backgroundColor: theme.card, borderColor: theme.border}}>
+        <div className="nkc-auth-overlay fixed inset-0 bg-black/70 backdrop-blur-md z-[900] flex items-center justify-center p-4 nkc-pop-in">
+          <div className="nkc-auth-card rounded-[28px] w-full max-w-sm p-6 shadow-2xl border" style={{backgroundColor: theme.card, borderColor: theme.border, '--nkc-auth-muted':theme.subtext} as any}>
             <h2 className="font-black text-xl">Join {cur?.name}</h2><p className="text-xs opacity-60">{theme.id==='royals'? 'THE K • 64155 • ROYALS BLUE & WHITE' : theme.id==='chiefs'? 'ARROWHEAD • CHIEFS KINGDOM' : '40 mile radius KC network'}</p>
-            <div className="mt-5 min-h-[44px] flex items-center justify-center">
+            <div className="nkc-auth-google mt-5 min-h-[44px] flex items-center justify-center">
               {googleLoading
                 ? <div className="w-full bg-white border-2 border-black text-black py-3.5 rounded-full font-bold text-sm text-center">Signing in…</div>
                 : <div ref={googleButtonRef} className="flex justify-center w-full" aria-label="Continue with Google" />}
             </div>
-            <div className="flex items-center gap-3 my-5"><div className="h-px flex-1 bg-black/10"></div><span className="text-xs font-bold opacity-30">OR EMAIL CODE</span><div className="h-px flex-1 bg-black/10"></div></div>
+            <div className="nkc-auth-divider-row flex items-center gap-3 my-5"><div className="h-px flex-1" style={{backgroundColor:theme.border}}></div><span className="nkc-auth-divider text-xs font-bold">OR EMAIL CODE</span><div className="h-px flex-1" style={{backgroundColor:theme.border}}></div></div>
             <div className="space-y-3">
               <input value={name} onChange={e=>setName(e.target.value)} placeholder="Full name (optional)" className="nkc-themed-field w-full border rounded-xl px-4 py-3 text-sm outline-none" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}/>
               <input value={email} onChange={e=>setEmail(e.target.value)} inputMode="email" autoComplete="email" placeholder="Email address" className="nkc-themed-field w-full border rounded-xl px-4 py-3 text-sm outline-none" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}/>
@@ -1214,7 +1214,7 @@ export default function Page(){
               {emailCodeSent && <input value={emailCode} onChange={e=>setEmailCode(e.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="Enter the 6-digit code" className="nkc-themed-field w-full border rounded-xl px-4 py-3 text-center tracking-[0.45em] font-black text-lg outline-none" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}/>}
               {emailCodeSent && <div className="rounded-xl p-3 text-xs leading-5" style={{backgroundColor:theme.input,color:theme.text}}><b>Check your email</b><br/>Use the 6-digit code in the message. If a Sign In link is provided, tapping the link will also finish login.</div>}
               {emailAuthMessage && <p className="text-xs font-semibold text-center opacity-70">{emailAuthMessage}</p>}
-              <div className="flex gap-2 pt-2"><button type="button" onClick={()=>{setShowJoin(false);setEmailCodeSent(false);setEmailCode('');setEmailAuthMessage('')}} className="flex-1 bg-[#f8f5ee] py-3.5 rounded-full font-bold text-sm">Cancel</button>{emailCodeSent ? <button type="button" disabled={emailAuthLoading} onClick={verifyEmailLoginCode} className="flex-1 text-white py-3.5 rounded-full font-bold text-sm disabled:opacity-60" style={{backgroundColor: theme.accent}}>{emailAuthLoading?'Checking…':'Verify & Sign In'}</button> : <button type="button" disabled={emailAuthLoading||!email.trim()} onClick={sendEmailLoginCode} className="flex-1 text-white py-3.5 rounded-full font-bold text-sm disabled:opacity-60" style={{backgroundColor: theme.accent}}>{emailAuthLoading?'Sending…':'Send Login Code'}</button>}</div>
+              <div className="nkc-auth-buttons flex gap-2 pt-2"><button type="button" onClick={()=>{setShowJoin(false);setEmailCodeSent(false);setEmailCode('');setEmailAuthMessage('')}} className="flex-1 py-3 rounded-full font-bold text-sm" style={{backgroundColor:'#f8f5ee',color:'#1f2937'}}>Cancel</button>{emailCodeSent ? <button type="button" disabled={emailAuthLoading} onClick={verifyEmailLoginCode} className="nkc-auth-action flex-1 py-3 rounded-full font-bold text-sm" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{emailAuthLoading?'Checking…':'Verify & Sign In'}</button> : <button type="button" disabled={emailAuthLoading||!email.trim()} onClick={sendEmailLoginCode} className="nkc-auth-action flex-1 py-3 rounded-full font-bold text-sm" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{emailAuthLoading?'Sending…':'Send Code'}</button>}</div>
               {emailCodeSent && <button type="button" disabled={emailAuthLoading} onClick={sendEmailLoginCode} className="w-full text-xs font-bold underline opacity-60">Send a new code</button>}
             </div>
           </div>
