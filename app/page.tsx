@@ -208,6 +208,29 @@ export default function Page(){
     themeMeta?.setAttribute('content',theme.header);
   },[theme.bg,theme.header]);
 
+  // Android Chrome/PWA can occasionally leave the document's scrolling layer
+  // frozen after a permission prompt or after the app resumes. Reassert the
+  // normal page-scrolling styles whenever the feed becomes active again.
+  useEffect(()=>{
+    const restorePageScroll=()=>{
+      document.documentElement.style.overflowY='auto';
+      document.documentElement.style.touchAction='pan-y';
+      document.body.style.overflowY='visible';
+      document.body.style.position='static';
+      document.body.style.touchAction='pan-y';
+    };
+    const onVisibility=()=>{if(document.visibilityState==='visible')restorePageScroll();};
+    restorePageScroll();
+    window.addEventListener('pageshow',restorePageScroll);
+    window.addEventListener('focus',restorePageScroll);
+    document.addEventListener('visibilitychange',onVisibility);
+    return()=>{
+      window.removeEventListener('pageshow',restorePageScroll);
+      window.removeEventListener('focus',restorePageScroll);
+      document.removeEventListener('visibilitychange',onVisibility);
+    };
+  },[]);
+
   // Optimized viewport handler with debounce
   useEffect(()=>{
     let timeoutId: NodeJS.Timeout;

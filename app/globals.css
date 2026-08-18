@@ -19,6 +19,9 @@ button:active:not(:disabled),a:active{transform:scale(.98)}
 
 html, body { min-height: 100%; }
 body { overscroll-behavior-y: none; }
+.nkc-app-shell,.nkc-page-content{touch-action:pan-y}
+html{overflow-y:auto;touch-action:pan-y}
+body{overflow-y:visible;touch-action:pan-y}
 .nkc-subpage-header{padding-top:calc(1rem + env(safe-area-inset-top))!important}
 .nkc-app-shell { min-height: 100svh; min-height: 100dvh; }
 .nkc-mobile-actions { display:none; }
