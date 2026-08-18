@@ -1132,7 +1132,7 @@ export default function Page(){
                 Choose your Neighborly KC look · tap a theme to apply & close
               </p>
               <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
-                {['aim','sporting','royals','chiefs','pip-boy','space','kc-current','kcpd','kcfd','army','navy','marines','air-force'].map(id=>{ 
+                {['aim','sporting','royals','chiefs','pip-boy','space','kc-current','kcpd','kcfd','army','navy','marines','air-force','cowtown','kc-bbq','city-fountains'].map(id=>{ 
                   const t=THEMES[id]; 
                   const active=themeId===id; 
                   return <button 
