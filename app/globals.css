@@ -6,6 +6,7 @@ html{background:#070a0f;overscroll-behavior:none}
 body{background:#070a0f;font-family:system-ui;transition:background-color .25s ease,color .25s ease;overscroll-behavior:none}
 .card{@apply bg-white rounded-xl border border-gray-200}
 button,a,label,input,textarea,select{transition:color .18s ease,background-color .18s ease,border-color .18s ease,box-shadow .18s ease,opacity .18s ease,transform .18s ease}
+.nkc-theme-booting,.nkc-theme-booting *{transition:none!important;animation:none!important}
 button:not(:disabled):hover,a:hover,label:hover{transform:none}
 button:active:not(:disabled),a:active{transform:scale(.98)}
 .nkc-surface{transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease}
@@ -337,6 +338,7 @@ body { overscroll-behavior-y: none; }
 .nkc-auth-google{width:100%;padding-inline:0;overflow:hidden}
 .nkc-google-button-slot{max-width:320px;margin-inline:auto;overflow:hidden;border-radius:999px}
 .nkc-google-button-slot>div,.nkc-google-button-slot iframe{max-width:100%!important}
+.nkc-auth-overlay,.nkc-auth-card{animation:none!important}
 .nkc-welcome-card{position:relative;overflow:hidden}
 .nkc-welcome-card::after{content:"";position:absolute;right:-75px;top:-90px;width:210px;height:210px;border-radius:999px;background:currentColor;opacity:.035;pointer-events:none}
 .nkc-welcome-benefits{display:flex;flex-wrap:wrap;gap:8px}

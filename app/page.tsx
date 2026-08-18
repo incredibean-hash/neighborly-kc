@@ -162,9 +162,15 @@ export default function Page(){
   // effect here lets the default theme flash first, which makes the whole
   // mobile layout appear to jitter on load.
   useLayoutEffect(()=>{
+    document.documentElement.classList.add('nkc-theme-booting');
     const saved=localStorage.getItem('nkc_theme');
     const migrated=saved==='kc-sunset'?'kc-current':saved;
     setThemeId(migrated && THEMES[migrated] ? migrated : DEFAULT_THEME_ID);
+    const frame=window.requestAnimationFrame(()=>document.documentElement.classList.remove('nkc-theme-booting'));
+    return()=>{
+      window.cancelAnimationFrame(frame);
+      document.documentElement.classList.remove('nkc-theme-booting');
+    };
   },[]);
 
   const trackSignupEvent = useCallback((name:string, method?:string) => {
@@ -287,7 +293,7 @@ export default function Page(){
         text:'continue_with',
         shape:'pill',
         logo_alignment:'left',
-        width:window.innerWidth < 640 ? Math.max(220,Math.min(320,window.innerWidth-56)) : 320
+        width:window.innerWidth < 640 ? Math.max(220,Math.min(296,window.innerWidth-80)) : 320
       });
     };
 
@@ -1250,7 +1256,7 @@ export default function Page(){
       {(postSuccess || toast) && <div role="status" aria-live="polite" className="fixed left-1/2 -translate-x-1/2 bottom-[86px] sm:bottom-6 z-[120] rounded-2xl px-5 py-3 shadow-xl font-bold text-sm nkc-pop-in max-w-[calc(100vw-32px)] text-center" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>{postSuccess?'✓ Post published':toast}</div>}
 
       {showJoin && (
-        <div className="nkc-auth-overlay fixed inset-0 bg-black/70 backdrop-blur-md z-[900] flex items-center justify-center p-4 nkc-pop-in">
+        <div className="nkc-auth-overlay fixed inset-0 bg-black/70 backdrop-blur-md z-[900] flex items-center justify-center p-4">
           <div className="nkc-auth-card rounded-[28px] w-full max-w-sm p-6 shadow-2xl border" style={{backgroundColor: theme.card, borderColor: theme.border, '--nkc-auth-muted':theme.subtext} as any}>
             <h2 className="font-black text-xl">Join NeighborlyKC</h2><p className="text-xs opacity-70 mt-1">Connect with neighbors across the Kansas City area.</p>
             <div className="nkc-auth-google mt-5 min-h-[44px] flex items-center justify-center">
