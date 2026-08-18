@@ -15,7 +15,9 @@ export async function POST(req:Request){
   const url=process.env.NEXT_PUBLIC_SUPABASE_URL,serviceKey=process.env.SUPABASE_SERVICE_ROLE_KEY;
   if(!url||!serviceKey)return NextResponse.json({error:'Server database credentials are not configured'},{status:503});
   const admin=createClient(url,serviceKey,{auth:{persistSession:false}});
-  await admin.from('push_subscriptions').delete().eq('user_id',user.id).eq('endpoint',endpoint);
+  // One browser subscription can belong to only one signed-in NeighborlyKC
+  // account. This safely transfers a shared device when accounts are switched.
+  await admin.from('push_subscriptions').delete().eq('endpoint',endpoint);
   const {error}=await admin.from('push_subscriptions').insert({user_id:user.id,endpoint,p256dh,auth,user_agent:req.headers.get('user-agent')||null,updated_at:new Date().toISOString()});
   if(error)throw error;
   return NextResponse.json({subscribed:true});

@@ -21,8 +21,19 @@ function DmsContent(){
  useEffect(()=>{
   if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)){setPushState('unsupported');return;}
   if(Notification.permission==='denied'){setPushState('blocked');return;}
-  navigator.serviceWorker.register('/sw.js').then(r=>r.pushManager.getSubscription()).then(s=>setPushState(s?'on':'off')).catch(()=>setPushState('off'));
- },[]);
+  if(!me){setPushState('checking');return;}
+  navigator.serviceWorker.register('/sw.js').then(async registration=>{
+   const subscription=await registration.pushManager.getSubscription();
+   if(!subscription){setPushState('off');return;}
+   // A browser may remember its local subscription after a previous server
+   // save failed or after the person switches accounts. Re-sync it every time
+   // a signed-in account opens Messages.
+   const {data:{session}}=await supabase.auth.getSession();
+   const response=await fetch('/api/push/subscribe',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${session?.access_token||''}`},body:JSON.stringify(subscription.toJSON())});
+   if(!response.ok)throw new Error('Subscription sync failed');
+   setPushState('on');
+  }).catch(()=>setPushState('off'));
+ },[me]);
  const enablePush=async()=>{
   try{
    if(!me)return;
