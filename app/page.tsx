@@ -234,7 +234,7 @@ export default function Page(){
         text:'continue_with',
         shape:'pill',
         logo_alignment:'left',
-        width:320
+        width:window.innerWidth < 640 ? Math.max(220,Math.min(280,window.innerWidth-72)) : 320
       });
     };
 
@@ -811,7 +811,7 @@ export default function Page(){
   }
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden nkc-app-shell" style={{backgroundColor: theme.bg, color: theme.text}}>
+    <div className="min-h-screen w-full overflow-x-hidden nkc-app-shell" style={{backgroundColor: theme.bg, color: theme.text, colorScheme: theme.id==='aim' ? 'light' : 'dark'}}>
       <header className="relative z-40 overflow-hidden border-b nkc-main-header sm:hidden" style={{backgroundColor: theme.header, borderColor: theme.border}}>
         <div className="nkc-header-banner-wrap">
           <button type="button" className="block nkc-header-banner-link" aria-label="Neighborly KC home" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})}>
@@ -826,6 +826,7 @@ export default function Page(){
           {profile
             ? <a href="/profile" className="nkc-mobile-account-btn">🙂 <span>Profile</span></a>
             : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-mobile-account-btn">🙂 <span>Profile</span></button>}
+          <button type="button" onClick={()=>setShowSettings(true)} className="nkc-mobile-account-btn">🎨 <span>Themes</span></button>
         </div>
       </header>
 
@@ -842,6 +843,7 @@ export default function Page(){
             {profile
               ? <a href="/profile" className="nkc-header-control">🙂 Profile</a>
               : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-header-control">🙂 Profile</button>}
+            <button type="button" onClick={()=>setShowSettings(true)} className="nkc-header-control">🎨 Themes</button>
           </div>
         </div>
       </header>
@@ -1084,10 +1086,10 @@ export default function Page(){
             </div>
             <div className="flex items-center gap-3 my-5"><div className="h-px flex-1 bg-black/10"></div><span className="text-xs font-bold opacity-30">OR EMAIL CODE</span><div className="h-px flex-1 bg-black/10"></div></div>
             <div className="space-y-3">
-              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Full name (optional)" className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-sm outline-none"/>
-              <input value={email} onChange={e=>setEmail(e.target.value)} inputMode="email" autoComplete="email" placeholder="Email address" className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-sm outline-none"/>
-              {!emailCodeSent && <input value={addr} onChange={e=>setAddr(e.target.value)} placeholder={`Address in ${cur?.zip} (optional)`} className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-sm outline-none"/>}
-              {emailCodeSent && <input value={emailCode} onChange={e=>setEmailCode(e.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="Enter the 6-digit code" className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-center tracking-[0.45em] font-black text-lg outline-none"/>}
+              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Full name (optional)" className="nkc-themed-field w-full border rounded-xl px-4 py-3 text-sm outline-none" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}/>
+              <input value={email} onChange={e=>setEmail(e.target.value)} inputMode="email" autoComplete="email" placeholder="Email address" className="nkc-themed-field w-full border rounded-xl px-4 py-3 text-sm outline-none" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}/>
+              {!emailCodeSent && <input value={addr} onChange={e=>setAddr(e.target.value)} placeholder={`Address in ${cur?.zip} (optional)`} className="nkc-themed-field w-full border rounded-xl px-4 py-3 text-sm outline-none" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}/>}
+              {emailCodeSent && <input value={emailCode} onChange={e=>setEmailCode(e.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="Enter the 6-digit code" className="nkc-themed-field w-full border rounded-xl px-4 py-3 text-center tracking-[0.45em] font-black text-lg outline-none" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}/>}
               {emailCodeSent && <div className="rounded-xl p-3 text-xs leading-5" style={{backgroundColor:theme.input,color:theme.text}}><b>Check your email</b><br/>Use the 6-digit code in the message. If a Sign In link is provided, tapping the link will also finish login.</div>}
               {emailAuthMessage && <p className="text-xs font-semibold text-center opacity-70">{emailAuthMessage}</p>}
               <div className="flex gap-2 pt-2"><button type="button" onClick={()=>{setShowJoin(false);setEmailCodeSent(false);setEmailCode('');setEmailAuthMessage('')}} className="flex-1 bg-[#f8f5ee] py-3.5 rounded-full font-bold text-sm">Cancel</button>{emailCodeSent ? <button type="button" disabled={emailAuthLoading} onClick={verifyEmailLoginCode} className="flex-1 text-white py-3.5 rounded-full font-bold text-sm disabled:opacity-60" style={{backgroundColor: theme.accent}}>{emailAuthLoading?'Checking…':'Verify & Sign In'}</button> : <button type="button" disabled={emailAuthLoading||!email.trim()} onClick={sendEmailLoginCode} className="flex-1 text-white py-3.5 rounded-full font-bold text-sm disabled:opacity-60" style={{backgroundColor: theme.accent}}>{emailAuthLoading?'Sending…':'Send Login Code'}</button>}</div>

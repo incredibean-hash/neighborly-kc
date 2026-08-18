@@ -142,7 +142,7 @@ export default function MyProfilePage() {
   const selectedHood = hoods.find(h => String(h.id) === String(neighborhoodId));
 
   return (
-    <main className="min-h-screen" style={{ backgroundColor: theme.bg, color: theme.text }}>
+    <main className="min-h-screen" style={{ backgroundColor: theme.bg, color: theme.text, colorScheme: theme.id === 'aim' ? 'light' : 'dark' }}>
       <header className="border-b" style={{ backgroundColor: theme.header, borderColor: theme.border }}>
         <div className="max-w-3xl mx-auto px-5 py-5 flex items-center justify-between gap-3">
           <div>
