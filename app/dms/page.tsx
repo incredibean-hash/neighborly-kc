@@ -11,6 +11,7 @@ function DmsContent(){
  const [me,setMe]=useState<any>(null),[people,setPeople]=useState<any[]>([]),[messages,setMessages]=useState<any[]>([]),[selected,setSelected]=useState<string|null>(target),[text,setText]=useState(''),[loading,setLoading]=useState(true),[sending,setSending]=useState(false),[errorText,setErrorText]=useState('');
  const [unread,setUnread]=useState<Record<string,number>>({});
  const [pushState,setPushState]=useState<'checking'|'unsupported'|'off'|'on'|'blocked'>('checking');
+ const [pushMessage,setPushMessage]=useState('');
  // The realtime handler must read the *current* selection without being torn
  // down and resubscribed every time the user switches conversations.
  const selectedRef=useRef<string|null>(target);
@@ -30,27 +31,39 @@ function DmsContent(){
    // a signed-in account opens Messages.
    const {data:{session}}=await supabase.auth.getSession();
    const response=await fetch('/api/push/subscribe',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${session?.access_token||''}`},body:JSON.stringify(subscription.toJSON())});
-   if(!response.ok)throw new Error('Subscription sync failed');
+   if(!response.ok){const detail=await response.json().catch(()=>({}));throw new Error(detail.error||'Subscription sync failed');}
    setPushState('on');
-  }).catch(()=>setPushState('off'));
+   setPushMessage('Message alerts are enabled on this device.');
+  }).catch(e=>{setPushState('off');setPushMessage(e?.message||'Tap Enable alerts to reconnect this device.');});
  },[me]);
  const enablePush=async()=>{
   try{
-   if(!me)return;
-   if(!('serviceWorker' in navigator)||!('PushManager' in window)){setPushState('unsupported');return;}
+   setPushMessage('');
+   setPushState('checking');
+   if(!me)throw new Error('Sign in before enabling message alerts.');
+   if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)){setPushState('unsupported');throw new Error('This browser does not support push alerts. On iPhone, open NeighborlyKC from its Home Screen icon.');}
    const permission=await Notification.requestPermission();
-   if(permission!=='granted'){setPushState(permission==='denied'?'blocked':'off');return;}
+   if(permission!=='granted'){setPushState(permission==='denied'?'blocked':'off');throw new Error(permission==='denied'?'Notifications are blocked in this device’s settings.':'Notification permission was not granted.');}
    const publicKey=process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
    if(!publicKey)throw new Error('Push alerts are not configured yet.');
    const registration=await navigator.serviceWorker.register('/sw.js');
    await navigator.serviceWorker.ready;
    let subscription=await registration.pushManager.getSubscription();
-   if(!subscription)subscription=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(publicKey)});
+   // Recreate a remembered subscription so it always uses the VAPID key from
+   // the current deployment (important after keys were regenerated).
+   if(subscription)await subscription.unsubscribe();
+   subscription=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(publicKey)});
    const {data:{session}}=await supabase.auth.getSession();
    const response=await fetch('/api/push/subscribe',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${session?.access_token||''}`},body:JSON.stringify(subscription.toJSON())});
    if(!response.ok)throw new Error((await response.json().catch(()=>({}))).error||'Could not enable alerts.');
    setPushState('on');
-  }catch(e:any){setErrorText(e.message||'Could not enable alerts.');}
+   setPushMessage('Message alerts are enabled on this device.');
+  }catch(e:any){
+   if(typeof Notification==='undefined')setPushState('unsupported');
+   else if(Notification.permission==='denied')setPushState('blocked');
+   else setPushState('off');
+   setPushMessage(e.message||'Could not enable alerts.');
+  }
  };
  const load=async()=>{
   setLoading(true);setErrorText('');
@@ -138,7 +151,7 @@ function DmsContent(){
  if(!me)return <main className="min-h-screen grid place-items-center" style={{backgroundColor:theme.bg,color:theme.text}}><div className="text-center"><p className="font-bold">Sign in to use Messages.</p><Link href="/" className="underline">Back to Neighborly KC</Link></div></main>;
  const border={borderColor:theme.border};
  return <main className="min-h-screen w-full overflow-x-hidden" style={{backgroundColor:theme.bg,color:theme.text}}>
-  <header className="nkc-subpage-header p-4" style={{backgroundColor:theme.header,color:'#fff'}}><div className="max-w-4xl mx-auto flex justify-between items-center gap-3"><div className="min-w-0"><Link href="/" className="text-xs opacity-70">← Feed</Link><h1 className="font-black text-2xl">Messages</h1></div><div className="flex items-center gap-2"><button type="button" disabled={pushState==='checking'||pushState==='on'||pushState==='unsupported'} onClick={enablePush} className="shrink-0 rounded-full px-3 py-2 text-xs font-bold whitespace-nowrap disabled:opacity-70" style={{backgroundColor:theme.card,color:theme.accent,border:`1px solid ${theme.border}`}}>{pushState==='on'?'🔔 Alerts on':pushState==='blocked'?'🔕 Blocked':pushState==='unsupported'?'Alerts unavailable':'🔔 Enable alerts'}</button><Link href="/people" className="shrink-0 rounded-full px-3 sm:px-4 py-2 text-sm font-bold whitespace-nowrap" style={{backgroundColor:theme.card,color:theme.accent,border:`1px solid ${theme.border}`}}>Find People</Link></div></div></header>
+  <header className="nkc-subpage-header p-4" style={{backgroundColor:theme.header,color:'#fff'}}><div className="max-w-4xl mx-auto flex justify-between items-center gap-3"><div className="min-w-0"><Link href="/" className="text-xs opacity-70">← Feed</Link><h1 className="font-black text-2xl">Messages</h1></div><div className="flex items-center gap-2"><button type="button" disabled={pushState==='checking'||pushState==='on'||pushState==='unsupported'} onClick={enablePush} className="shrink-0 rounded-full px-3 py-2 text-xs font-bold whitespace-nowrap disabled:opacity-70" style={{backgroundColor:theme.card,color:theme.accent,border:`1px solid ${theme.border}`}}>{pushState==='checking'?'Connecting…':pushState==='on'?'🔔 Alerts on':pushState==='blocked'?'🔕 Blocked':pushState==='unsupported'?'Alerts unavailable':'🔔 Enable alerts'}</button><Link href="/people" className="shrink-0 rounded-full px-3 sm:px-4 py-2 text-sm font-bold whitespace-nowrap" style={{backgroundColor:theme.card,color:theme.accent,border:`1px solid ${theme.border}`}}>Find People</Link></div></div>{pushMessage&&<div role="status" className="max-w-4xl mx-auto mt-2 rounded-xl px-3 py-2 text-xs font-bold" style={{backgroundColor:'rgba(255,255,255,.14)'}}>{pushMessage}</div>}</header>
   <div className="w-full max-w-4xl mx-auto p-3 sm:p-4 grid md:grid-cols-[280px_minmax(0,1fr)] gap-4 min-w-0">
    <aside className={`rounded-2xl p-3 ${selected?'hidden md:block':''}`} style={{backgroundColor:theme.card,...border}}><p className="text-xs font-bold opacity-50 px-2 pb-2">NEIGHBORS</p>{!people.length?<p className="p-3 text-sm opacity-50">No other members yet.</p>:people.map(p=><button key={p.auth_user_id} onClick={()=>loadMessages(p.auth_user_id)} className="w-full text-left rounded-xl p-3" style={selected===p.auth_user_id?{backgroundColor:theme.accent,color:theme.pillTextActive}:{}}><b className="block text-sm">{displayName(p)}</b><span className="text-xs opacity-60">Kansas City{p.zip?` • ${p.zip}`:''}</span>{!!unread[p.auth_user_id]&&<span className="ml-2 inline-flex items-center justify-center text-[10px] font-black rounded-full px-2 py-0.5" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{unread[p.auth_user_id]}</span>}</button>)}</aside>
    <section className={`rounded-2xl min-h-[520px] flex flex-col min-w-0 overflow-hidden ${selected?'':'hidden md:flex'}`} style={{backgroundColor:theme.card,...border}}>
