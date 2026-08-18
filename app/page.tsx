@@ -544,7 +544,8 @@ export default function Page(){
   }, [scope, posts, hoods, cur?.id, blockedUsers]);
 
   const filtered = useMemo(() => {
-    return cat==='All'? scopedPosts : scopedPosts.filter((p:any)=>p.category===cat);
+    const matches = cat==='All'? scopedPosts : scopedPosts.filter((p:any)=>p.category===cat);
+    return [...matches].sort((a:any,b:any)=>Number(Boolean(b.is_pinned))-Number(Boolean(a.is_pinned)) || new Date(b.created_at).getTime()-new Date(a.created_at).getTime());
   }, [cat, scopedPosts]);
 
   const neighborhoodName = useCallback((id:any) => hoods.find((h:any)=>String(h.id)===String(id))?.name || cur?.name || 'Kansas City', [hoods, cur?.name]);
@@ -644,6 +645,7 @@ export default function Page(){
     }
     const text=commentText[postId]?.trim(); 
     if(!text) return;
+    if(posts.find((p:any)=>p.id===postId)?.comments_locked) return alert('Comments are locked on this post.');
     
     // Prevent duplicate submissions
     if(commenting[postId]) return;
@@ -742,6 +744,8 @@ export default function Page(){
     if(!user) return setShowJoin(true);
     const isOwner = post.user_id===user.id || (!post.user_id && post.author_name===profile.full_name);
     if(!isOwner && !isAdmin) return alert('You can only edit your own posts.');
+    const moderationReason=!isOwner&&isAdmin ? prompt('Reason for moderator edit:','Corrected for community standards')?.trim() : '';
+    if(!isOwner&&isAdmin&&!moderationReason) return;
     setEditSaving(true);
     try {
       let image_url=post.image_url || null;
@@ -758,9 +762,11 @@ export default function Page(){
           if(oldPath) await supabase.storage.from('post-images').remove([oldPath]); 
         } 
       }
-      const updatePayload={body:editBody.trim(),category:editCategory,image_url};
+      const updatePayload:any={body:editBody.trim(),category:editCategory,image_url};
+      if(!isOwner&&isAdmin){ updatePayload.moderator_edited_at=new Date().toISOString(); updatePayload.moderator_edited_by=user.id; }
       const {error}=await supabase.from('posts').update(updatePayload).eq('id',post.id);
       if(error) throw error;
+      if(!isOwner&&isAdmin) await recordModerationAction('moderator_edit',post,moderationReason||'Moderator edit');
       const {data:saved,error:readError}=await supabase.from('posts').select('*').eq('id',post.id).maybeSingle();
       if(readError) throw readError;
       setPosts(prev=>prev.map((x:any)=>x.id===post.id?{...x,...(saved||updatePayload)}:x));
@@ -770,8 +776,28 @@ export default function Page(){
     } catch(e:any) { alert('Could not update post: '+(e.message||e)); } finally { setEditSaving(false); }
   };
 
-  const deletePost = async (id:string, image_url:string|null) => { 
+  const recordModerationAction = async (action:string, post:any, reason:string, expiresAt:string|null=null) => {
+    if(!isAdmin || !profile?.user_id) throw new Error('Administrator access is required.');
+    const targetUserId=post?.user_id||post?.author_id||null;
+    const {error}=await supabase.from('moderation_actions').insert({
+      moderator_id:profile.user_id,
+      target_user_id:targetUserId,
+      post_id:post?.id||null,
+      action,
+      reason,
+      expires_at:expiresAt
+    });
+    if(error) throw error;
+  };
+
+  const deletePost = async (id:string, image_url:string|null, post?:any) => { 
     if(!confirm('Delete this post?')) return; 
+    const reason=isAdmin ? prompt('Reason for removing this post:','Community standards')?.trim() : '';
+    if(isAdmin && !reason) return;
+    if(isAdmin && post){
+      try { await recordModerationAction('post_removed',post,reason||'Community standards'); }
+      catch(e:any){ return alert('Could not record moderation action: '+(e.message||e)); }
+    }
     if(image_url){ 
       const path = image_url.split('/post-images/')[1]; 
       if(path) await supabase.storage.from('post-images').remove([path]); 
@@ -781,14 +807,41 @@ export default function Page(){
     setPosts(prev=>prev.filter((p:any)=>p.id!==id)); 
   };
 
-  const blockUser = async (userId:string, userName:string) => { 
-    if(!isAdmin || !userId) return; 
-    if(!confirm(`Block ${userName}? Their posts will be hidden from the feed.`)) return; 
-    const {error}=await supabase.from('user_blocks').upsert({blocker_id:profile.user_id,blocked_id:userId},{onConflict:'blocker_id,blocked_id'}); 
-    if(error) return alert('Could not block user: '+error.message); 
-    setBlockedUsers(prev=>new Set([...prev,userId])); 
-    setToast(`✓ ${userName} blocked`); 
-    window.setTimeout(()=>setToast(''),2600); 
+  const togglePostModeration = async (post:any,field:'comments_locked'|'is_pinned',label:string) => {
+    if(!isAdmin) return;
+    const next=!Boolean(post[field]);
+    const reason=prompt(`Reason to ${label.toLowerCase()}:`,'Community moderation')?.trim();
+    if(!reason) return;
+    try{
+      const {error}=await supabase.from('posts').update({[field]:next}).eq('id',post.id);
+      if(error) throw error;
+      const auditAction=field==='comments_locked'?(next?'comments_locked':'comments_unlocked'):(next?'post_pinned':'post_unpinned');
+      await recordModerationAction(auditAction,post,reason);
+      setPosts(prev=>prev.map((p:any)=>p.id===post.id?{...p,[field]:next}:p));
+      setToast(`✓ ${label}`);
+      window.setTimeout(()=>setToast(''),2600);
+    }catch(e:any){alert('Moderation action failed: '+(e.message||e));}
+  };
+
+  const moderateMember = async (action:'warn'|'mute'|'ban',post:any) => {
+    if(!isAdmin) return;
+    const userName=post.profiles?.full_name||post.author_name||'this member';
+    const target=post.user_id||post.author_id;
+    if(!target || target===profile?.user_id) return alert('You cannot moderate your own account.');
+    const reason=prompt(`Reason to ${action} ${userName}:`,'Community standards')?.trim();
+    if(!reason) return;
+    let expiresAt:string|null=null;
+    if(action==='mute'){
+      const hours=Math.max(1,Math.min(720,Number(prompt('Mute for how many hours?','24'))||24));
+      expiresAt=new Date(Date.now()+hours*60*60*1000).toISOString();
+    }
+    if(action==='ban' && !confirm(`Ban ${userName}? They will no longer be able to post or comment.`)) return;
+    try{
+      await recordModerationAction(action,post,reason,expiresAt);
+      if(action==='ban') setBlockedUsers(prev=>new Set([...prev,target]));
+      setToast(`✓ ${userName} ${action==='warn'?'warned':action==='mute'?'muted':'banned'}`);
+      window.setTimeout(()=>setToast(''),3000);
+    }catch(e:any){alert('Moderation action failed: '+(e.message||e));}
   };
 
   const deleteComment = async (id:string, postId:string) => { 
@@ -900,9 +953,28 @@ export default function Page(){
                     {p.profiles?.is_admin&&<span className="nkc-badge moderator">🛡️ Moderator</span>}
                     {topContributorIds.has(p.user_id||p.author_id)&&<span className="nkc-badge contributor">🔥 Top Contributor</span>}
                     {p.profiles?.is_verified&&<span className="nkc-badge verified">✓ Verified</span>}
-                  </div></div>{scope==='kc'&&<p className="text-[11px] font-bold mt-1 opacity-45">📍 {neighborhoodName(p.neighborhood_id)}</p>}</div></div>{canManage&&<div className="flex items-center gap-2"><button onClick={()=>beginEdit(p)} className="text-xs font-bold opacity-55 hover:opacity-100 transition-opacity">✏️ Edit</button><button onClick={()=>deletePost(p.id,p.image_url)} className="text-xs opacity-40 hover:text-red-600 transition-colors">🗑️ Delete</button>{isAdmin&&!isOwner&&<button onClick={()=>blockUser(p.user_id||p.author_id,p.profiles?.full_name||p.author_name||'Neighbor')} className="text-xs opacity-50 hover:text-red-600 transition-colors">🚫 Block</button>}</div>}</div>
+                  </div></div>{scope==='kc'&&<p className="text-[11px] font-bold mt-1 opacity-45">📍 {neighborhoodName(p.neighborhood_id)}</p>}</div></div>
+                {canManage&&<details className="nkc-admin-menu relative shrink-0">
+                  <summary className="nkc-admin-menu-trigger" aria-label="Post moderation menu">•••</summary>
+                  <div className="nkc-admin-menu-panel" style={{backgroundColor:theme.card,borderColor:theme.border,color:theme.text}}>
+                    <button type="button" onClick={()=>beginEdit(p)}>✏️ Edit post</button>
+                    <button type="button" onClick={()=>deletePost(p.id,p.image_url,p)}>🗑️ Remove post</button>
+                    {isAdmin&&<>
+                      <button type="button" onClick={()=>togglePostModeration(p,'comments_locked',p.comments_locked?'Unlock comments':'Lock comments')}>{p.comments_locked?'🔓 Unlock comments':'🔒 Lock comments'}</button>
+                      <button type="button" onClick={()=>togglePostModeration(p,'is_pinned',p.is_pinned?'Unpin post':'Pin post')}>{p.is_pinned?'📌 Unpin post':'📌 Pin post'}</button>
+                      {!isOwner&&<>
+                        <button type="button" onClick={()=>moderateMember('warn',p)}>⚠️ Warn member</button>
+                        <button type="button" onClick={()=>moderateMember('mute',p)}>🔇 Mute member</button>
+                        <button type="button" className="danger" onClick={()=>moderateMember('ban',p)}>⛔ Ban member</button>
+                        <a href={`/profile/${p.user_id||p.author_id}`}>📋 View activity</a>
+                      </>}
+                    </>}
+                  </div>
+                </details>}
+              </div>
               {isEditing?<div className="mt-3 rounded-2xl p-3 nkc-pop-in" style={{backgroundColor:theme.input}}><textarea value={editBody} onChange={e=>setEditBody(e.target.value)} className="w-full rounded-xl p-3 min-h-[120px] text-sm outline-none border" style={{backgroundColor:theme.card,color:theme.text,borderColor:theme.border}}/><div className="grid sm:grid-cols-2 gap-2 mt-2"><select value={editCategory} onChange={e=>setEditCategory(e.target.value)} className="rounded-xl px-3 py-2 text-sm border outline-none" style={{backgroundColor:theme.card,color:theme.text,borderColor:theme.border}}>{CATS.filter(c=>c!=='All').map(c=><option key={c}>{c}</option>)}</select><label className="rounded-xl px-3 py-2 text-sm border cursor-pointer" style={{backgroundColor:theme.card,borderColor:theme.border}}><span className="font-bold">📷 Replace image</span><input ref={editFileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setEditFile(e.target.files?.[0]||null)} className="sr-only"/>{editFile&&<span className="block text-xs opacity-60 truncate mt-1">{editFile.name}</span>}</label></div><div className="flex justify-end gap-2 mt-3"><button onClick={cancelEdit} className="px-4 py-2 rounded-full text-xs font-bold transition-colors" style={{backgroundColor:theme.card,border:`1px solid ${theme.border}`}}>Cancel</button><button disabled={editSaving||!editBody.trim()} onClick={()=>savePostEdit(p)} className="px-4 py-2 rounded-full text-xs font-bold disabled:opacity-50 transition-opacity" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{editSaving?'Saving...':'Save changes'}</button></div></div>:<>
-                <p className="mt-1 whitespace-pre-wrap break-words">{p.body||p.content}</p>{p.image_url&&<div className="mt-3 nkc-post-image-frame rounded-xl overflow-hidden border" style={{borderColor:theme.border}}><img src={p.image_url} alt="post" className="nkc-post-image w-full h-full object-cover" loading="lazy" /></div>}<p className="text-xs opacity-40 mt-2">{new Date(p.created_at).toLocaleString()}</p><div className="mt-3 pt-3 border-t flex gap-4" style={{borderColor:theme.border}}><button onClick={()=>togglePostLike(p.id)} className="text-xs font-bold transition-colors hover:opacity-70">{liked?'❤️':'🤍'} {pLikes.length}</button><button onClick={()=>setOpenComments(prev=>({...prev,[p.id]:!prev[p.id]}))} className="text-xs font-bold opacity-60 transition-opacity hover:opacity-100">💬 {cList.length} {isOpen?'▲':'▼'}</button></div>{isOpen&&<div className="mt-3 rounded-xl p-3 space-y-2" style={{backgroundColor:theme.input}}>{cList.map((c:any)=>{const cl=cLikes[c.id]||[];const cliked=cl.some((l:any)=>l.author_id===profile?.user_id||l.author_name===profile?.full_name);const canDelC=(profile&&c.author_name===profile.full_name)||isAdmin;return <div key={c.id} className="text-sm rounded-lg p-2 flex justify-between gap-2" style={{backgroundColor:theme.card}}><div><b className="text-xs">{c.author_name}:</b> <span className="break-words">{c.content||c.body}</span><button onClick={()=>toggleCommentLike(c.id)} className="ml-3 text-xs transition-colors hover:opacity-70">{cliked?'❤️':'🤍'} {cl.length}</button></div>{canDelC&&<button onClick={()=>deleteComment(c.id,p.id)} className="text-[10px] opacity-30 hover:opacity-100 transition-opacity">🗑️</button>}</div>})}<div className="flex gap-2 pt-2"><input value={commentText[p.id]||''} onChange={e=>setCommentText(prev=>({...prev,[p.id]:e.target.value}))} placeholder="Add a comment..." className="flex-1 border rounded-full px-3 py-2 text-sm outline-none transition-colors" style={{backgroundColor:theme.card,borderColor:theme.border,color:theme.text}} onKeyDown={(e)=>{if(e.key==='Enter' && !e.shiftKey){e.preventDefault();addComment(p.id);}}}/><button onClick={()=>addComment(p.id)} disabled={isCommenting || !commentText[p.id]?.trim()} className="px-4 py-2 rounded-full text-xs font-bold disabled:opacity-50 transition-opacity" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{isCommenting?'...':'Reply'}</button></div></div>}
+                <div className="flex items-center gap-2 mt-1">{p.is_pinned&&<span className="nkc-moderation-label">📌 Pinned</span>}{p.comments_locked&&<span className="nkc-moderation-label">🔒 Comments locked</span>}{p.moderator_edited_at&&<span className="nkc-moderation-label">Edited by moderator</span>}</div>
+                <p className="mt-1 whitespace-pre-wrap break-words">{p.body||p.content}</p>{p.image_url&&<div className="mt-3 nkc-post-image-frame rounded-xl overflow-hidden border" style={{borderColor:theme.border}}><img src={p.image_url} alt="post" className="nkc-post-image w-full h-full object-cover" loading="lazy" /></div>}<p className="text-xs opacity-40 mt-2">{new Date(p.created_at).toLocaleString()}</p><div className="mt-3 pt-3 border-t flex gap-4" style={{borderColor:theme.border}}><button onClick={()=>togglePostLike(p.id)} className="text-xs font-bold transition-colors hover:opacity-70">{liked?'❤️':'🤍'} {pLikes.length}</button><button onClick={()=>setOpenComments(prev=>({...prev,[p.id]:!prev[p.id]}))} className="text-xs font-bold opacity-60 transition-opacity hover:opacity-100">💬 {cList.length} {isOpen?'▲':'▼'}</button></div>{isOpen&&<div className="mt-3 rounded-xl p-3 space-y-2" style={{backgroundColor:theme.input}}>{cList.map((c:any)=>{const cl=cLikes[c.id]||[];const cliked=cl.some((l:any)=>l.author_id===profile?.user_id||l.author_name===profile?.full_name);const canDelC=(profile&&c.author_name===profile.full_name)||isAdmin;return <div key={c.id} className="text-sm rounded-lg p-2 flex justify-between gap-2" style={{backgroundColor:theme.card}}><div><b className="text-xs">{c.author_name}:</b> <span className="break-words">{c.content||c.body}</span><button onClick={()=>toggleCommentLike(c.id)} className="ml-3 text-xs transition-colors hover:opacity-70">{cliked?'❤️':'🤍'} {cl.length}</button></div>{canDelC&&<button onClick={()=>deleteComment(c.id,p.id)} className="text-[10px] opacity-30 hover:opacity-100 transition-opacity">🗑️</button>}</div>})}{p.comments_locked?<p className="text-xs font-bold opacity-60 text-center py-2">🔒 Comments are locked by a moderator.</p>:<div className="flex gap-2 pt-2"><input value={commentText[p.id]||''} onChange={e=>setCommentText(prev=>({...prev,[p.id]:e.target.value}))} placeholder="Add a comment..." className="flex-1 border rounded-full px-3 py-2 text-sm outline-none transition-colors" style={{backgroundColor:theme.card,borderColor:theme.border,color:theme.text}} onKeyDown={(e)=>{if(e.key==='Enter' && !e.shiftKey){e.preventDefault();addComment(p.id);}}/><button onClick={()=>addComment(p.id)} disabled={isCommenting || !commentText[p.id]?.trim()} className="px-4 py-2 rounded-full text-xs font-bold disabled:opacity-50 transition-opacity" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{isCommenting?'...':'Reply'}</button></div>}</div>}
               </>}
             </div>
           })}

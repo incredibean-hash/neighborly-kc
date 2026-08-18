@@ -375,6 +375,14 @@ body { overscroll-behavior-y: none; }
 .nkc-badge{display:inline-flex;align-items:center;gap:2px;border-radius:999px;padding:2px 6px;font-size:8px;font-weight:950;line-height:1;border:1px solid currentColor;white-space:nowrap}
 .nkc-badge.founder{color:#b8860b;background:rgba(255,215,0,.12)}
 .nkc-badge.moderator{color:#1769aa;background:rgba(23,105,170,.10)}
+.nkc-admin-menu summary{list-style:none}
+.nkc-admin-menu summary::-webkit-details-marker{display:none}
+.nkc-admin-menu-trigger{cursor:pointer;display:grid;place-items:center;width:34px;height:30px;border-radius:999px;font-weight:950;letter-spacing:1px;background:rgba(127,127,127,.12)}
+.nkc-admin-menu-panel{position:absolute;right:0;top:34px;z-index:45;width:190px;padding:6px;border:1px solid;border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.24)}
+.nkc-admin-menu-panel button,.nkc-admin-menu-panel a{display:block;width:100%;padding:9px 10px;border-radius:9px;text-align:left;font-size:12px;font-weight:800;text-decoration:none}
+.nkc-admin-menu-panel button:hover,.nkc-admin-menu-panel a:hover{background:rgba(127,127,127,.15)}
+.nkc-admin-menu-panel .danger{color:#dc2626}
+.nkc-moderation-label{display:inline-flex;align-items:center;border-radius:999px;padding:3px 7px;font-size:10px;font-weight:900;background:rgba(127,127,127,.14)}
 .nkc-badge.contributor{color:#d06a00;background:rgba(255,153,0,.10)}
 .nkc-badge.verified{color:#16834a;background:rgba(22,131,74,.10)}
 .nkc-post-composer::placeholder{color:currentColor!important;opacity:.86!important}
