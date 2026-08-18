@@ -147,11 +147,22 @@ export default function Page(){
   const [blockedUsers,setBlockedUsers]=useState<Set<string>>(new Set());
   const [isLoading,setIsLoading]=useState(true);
   const [commenting,setCommenting]=useState<Record<string,boolean>>({});
+  const [reportingPost,setReportingPost]=useState<any>(null);
+  const [reportReason,setReportReason]=useState('Harassment or bullying');
+  const [reportDetails,setReportDetails]=useState('');
+  const [reportSending,setReportSending]=useState(false);
 
   const theme = THEMES[themeId] || THEMES['royals'];
   const headerImage = theme.headerImage || '/neighborly-kc-header-banner.png';
   const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brooks Heights', zip:'64155', id: '5fb249cb-1667-475b-ab8c-43e1df245ace', slug:'meadow-brooks-heights'};
   const bottomInactiveColor = theme.id==='aim' ? '#111111' : theme.id==='pip-boy' ? theme.text : '#ffffff';
+
+  useEffect(()=>{
+    document.documentElement.style.backgroundColor=theme.bg;
+    document.body.style.backgroundColor=theme.bg;
+    const themeMeta=document.querySelector('meta[name="theme-color"]');
+    themeMeta?.setAttribute('content',theme.header);
+  },[theme.bg,theme.header]);
 
   // Optimized viewport handler with debounce
   useEffect(()=>{
@@ -534,6 +545,32 @@ export default function Page(){
       window.setTimeout(()=>setFeedbackSent(false), 3500);
     } catch(e:any) { alert(e.message || 'Could not send feedback.'); }
     finally { setFeedbackSending(false); }
+  };
+
+  const submitPostReport = async () => {
+    if(!profile){setReportingPost(null);setShowJoin(true);return;}
+    if(!reportingPost?.id || !reportReason) return;
+    const {data:{user}}=await supabase.auth.getUser();
+    if(!user) return setShowJoin(true);
+    setReportSending(true);
+    try{
+      const {error}=await supabase.from('post_reports').insert({post_id:reportingPost.id,reporter_id:user.id,reason:reportReason,details:reportDetails.trim()||null});
+      if(error){
+        if(error.code==='23505') throw new Error('You already reported this post.');
+        throw error;
+      }
+      setReportingPost(null);setReportDetails('');setReportReason('Harassment or bullying');
+      setToast('✓ Report sent to moderators');window.setTimeout(()=>setToast(''),3000);
+    }catch(e:any){alert(e.message||'Could not submit report.');}
+    finally{setReportSending(false);}
+  };
+
+  const viewPostReports = async (post:any) => {
+    if(!isAdmin) return;
+    const {data,error}=await supabase.from('post_reports').select('reason,details,status,created_at').eq('post_id',post.id).order('created_at',{ascending:false}).limit(20);
+    if(error) return alert('Could not load reports: '+error.message);
+    if(!data?.length) return alert('This post has no reports.');
+    alert(data.map((r:any,i:number)=>`${i+1}. ${r.reason}${r.details?` — ${r.details}`:''} (${r.status})`).join('\n\n'));
   };
 
   const scopedPosts = useMemo(() => {
@@ -961,6 +998,7 @@ export default function Page(){
                     <button type="button" onClick={()=>beginEdit(p)}>✏️ Edit post</button>
                     <button type="button" onClick={()=>deletePost(p.id,p.image_url,p)}>🗑️ Remove post</button>
                     {isAdmin&&<>
+                      <button type="button" onClick={()=>viewPostReports(p)}>🚩 View reports</button>
                       <button type="button" onClick={()=>togglePostModeration(p,'comments_locked',p.comments_locked?'Unlock comments':'Lock comments')}>{p.comments_locked?'🔓 Unlock comments':'🔒 Lock comments'}</button>
                       <button type="button" onClick={()=>togglePostModeration(p,'is_pinned',p.is_pinned?'Unpin post':'Pin post')}>{p.is_pinned?'📌 Unpin post':'📌 Pin post'}</button>
                       {!isOwner&&<>
@@ -975,7 +1013,7 @@ export default function Page(){
               </div>
               {isEditing?<div className="mt-3 rounded-2xl p-3 nkc-pop-in" style={{backgroundColor:theme.input}}><textarea value={editBody} onChange={e=>setEditBody(e.target.value)} className="w-full rounded-xl p-3 min-h-[120px] text-sm outline-none border" style={{backgroundColor:theme.card,color:theme.text,borderColor:theme.border}}/><div className="grid sm:grid-cols-2 gap-2 mt-2"><select value={editCategory} onChange={e=>setEditCategory(e.target.value)} className="rounded-xl px-3 py-2 text-sm border outline-none" style={{backgroundColor:theme.card,color:theme.text,borderColor:theme.border}}>{CATS.filter(c=>c!=='All').map(c=><option key={c}>{c}</option>)}</select><label className="rounded-xl px-3 py-2 text-sm border cursor-pointer" style={{backgroundColor:theme.card,borderColor:theme.border}}><span className="font-bold">📷 Replace image</span><input ref={editFileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setEditFile(e.target.files?.[0]||null)} className="sr-only"/>{editFile&&<span className="block text-xs opacity-60 truncate mt-1">{editFile.name}</span>}</label></div><div className="flex justify-end gap-2 mt-3"><button onClick={cancelEdit} className="px-4 py-2 rounded-full text-xs font-bold transition-colors" style={{backgroundColor:theme.card,border:`1px solid ${theme.border}`}}>Cancel</button><button disabled={editSaving||!editBody.trim()} onClick={()=>savePostEdit(p)} className="px-4 py-2 rounded-full text-xs font-bold disabled:opacity-50 transition-opacity" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{editSaving?'Saving...':'Save changes'}</button></div></div>:<>
                 <div className="flex items-center gap-2 mt-1">{p.is_pinned&&<span className="nkc-moderation-label">📌 Pinned</span>}{p.comments_locked&&<span className="nkc-moderation-label">🔒 Comments locked</span>}{p.moderator_edited_at&&<span className="nkc-moderation-label">Edited by moderator</span>}</div>
-                <p className="mt-1 whitespace-pre-wrap break-words">{p.body||p.content}</p>{p.image_url&&<div className="mt-3 nkc-post-image-frame rounded-xl overflow-hidden border" style={{borderColor:theme.border}}><img src={p.image_url} alt="post" className="nkc-post-image w-full h-full object-cover" loading="lazy" /></div>}<p className="text-xs opacity-40 mt-2">{new Date(p.created_at).toLocaleString()}</p><div className="mt-3 pt-3 border-t flex gap-4" style={{borderColor:theme.border}}><button onClick={()=>togglePostLike(p.id)} className="text-xs font-bold transition-colors hover:opacity-70">{liked?'❤️':'🤍'} {pLikes.length}</button><button onClick={()=>setOpenComments(prev=>({...prev,[p.id]:!prev[p.id]}))} className="text-xs font-bold opacity-60 transition-opacity hover:opacity-100">💬 {cList.length} {isOpen?'▲':'▼'}</button></div>{isOpen&&<div className="mt-3 rounded-xl p-3 space-y-2" style={{backgroundColor:theme.input}}>{cList.map((c:any)=>{const cl=cLikes[c.id]||[];const cliked=cl.some((l:any)=>l.author_id===profile?.user_id||l.author_name===profile?.full_name);const canDelC=(profile&&c.author_name===profile.full_name)||isAdmin;return <div key={c.id} className="text-sm rounded-lg p-2 flex justify-between gap-2" style={{backgroundColor:theme.card}}><div><b className="text-xs">{c.author_name}:</b> <span className="break-words">{c.content||c.body}</span><button onClick={()=>toggleCommentLike(c.id)} className="ml-3 text-xs transition-colors hover:opacity-70">{cliked?'❤️':'🤍'} {cl.length}</button></div>{canDelC&&<button onClick={()=>deleteComment(c.id,p.id)} className="text-[10px] opacity-30 hover:opacity-100 transition-opacity">🗑️</button>}</div>})}{p.comments_locked?<p className="text-xs font-bold opacity-60 text-center py-2">🔒 Comments are locked by a moderator.</p>:<div className="flex gap-2 pt-2"><input value={commentText[p.id]||''} onChange={e=>setCommentText(prev=>({...prev,[p.id]:e.target.value}))} placeholder="Add a comment..." className="flex-1 border rounded-full px-3 py-2 text-sm outline-none transition-colors" style={{backgroundColor:theme.card,borderColor:theme.border,color:theme.text}} onKeyDown={(e)=>{if(e.key==='Enter' && !e.shiftKey){e.preventDefault();addComment(p.id);}}}/><button onClick={()=>addComment(p.id)} disabled={isCommenting || !commentText[p.id]?.trim()} className="px-4 py-2 rounded-full text-xs font-bold disabled:opacity-50 transition-opacity" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{isCommenting?'...':'Reply'}</button></div>}</div>}
+                <p className="mt-1 whitespace-pre-wrap break-words">{p.body||p.content}</p>{p.image_url&&<div className="mt-3 nkc-post-image-frame rounded-xl overflow-hidden border" style={{borderColor:theme.border}}><img src={p.image_url} alt="post" className="nkc-post-image w-full h-full object-cover" loading="lazy" /></div>}<p className="text-xs opacity-40 mt-2">{new Date(p.created_at).toLocaleString()}</p><div className="mt-3 pt-3 border-t flex gap-4" style={{borderColor:theme.border}}><button onClick={()=>togglePostLike(p.id)} className="text-xs font-bold transition-colors hover:opacity-70">{liked?'❤️':'🤍'} {pLikes.length}</button><button onClick={()=>setOpenComments(prev=>({...prev,[p.id]:!prev[p.id]}))} className="text-xs font-bold opacity-60 transition-opacity hover:opacity-100">💬 {cList.length} {isOpen?'▲':'▼'}</button>{!isOwner&&<button onClick={()=>profile?setReportingPost(p):setShowJoin(true)} className="ml-auto text-xs font-bold opacity-55 hover:opacity-100">🚩 Report</button>}</div>{isOpen&&<div className="mt-3 rounded-xl p-3 space-y-2" style={{backgroundColor:theme.input}}>{cList.map((c:any)=>{const cl=cLikes[c.id]||[];const cliked=cl.some((l:any)=>l.author_id===profile?.user_id||l.author_name===profile?.full_name);const canDelC=(profile&&c.author_name===profile.full_name)||isAdmin;return <div key={c.id} className="text-sm rounded-lg p-2 flex justify-between gap-2" style={{backgroundColor:theme.card}}><div><b className="text-xs">{c.author_name}:</b> <span className="break-words">{c.content||c.body}</span><button onClick={()=>toggleCommentLike(c.id)} className="ml-3 text-xs transition-colors hover:opacity-70">{cliked?'❤️':'🤍'} {cl.length}</button></div>{canDelC&&<button onClick={()=>deleteComment(c.id,p.id)} className="text-[10px] opacity-30 hover:opacity-100 transition-opacity">🗑️</button>}</div>})}{p.comments_locked?<p className="text-xs font-bold opacity-60 text-center py-2">🔒 Comments are locked by a moderator.</p>:<div className="flex gap-2 pt-2"><input value={commentText[p.id]||''} onChange={e=>setCommentText(prev=>({...prev,[p.id]:e.target.value}))} placeholder="Add a comment..." className="flex-1 border rounded-full px-3 py-2 text-sm outline-none transition-colors" style={{backgroundColor:theme.card,borderColor:theme.border,color:theme.text}} onKeyDown={(e)=>{if(e.key==='Enter' && !e.shiftKey){e.preventDefault();addComment(p.id);}}}/><button onClick={()=>addComment(p.id)} disabled={isCommenting || !commentText[p.id]?.trim()} className="px-4 py-2 rounded-full text-xs font-bold disabled:opacity-50 transition-opacity" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{isCommenting?'...':'Reply'}</button></div>}</div>}
               </>}
             </div>
             );
@@ -1059,8 +1097,8 @@ export default function Page(){
           type="button"
           aria-label="Explore"
           className={`nkc-bottom-nav-item ${showExplore?'is-active':''}`}
-          onClick={()=>setShowExplore(v=>!v)}
-          style={showExplore?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{color:bottomInactiveColor}}
+          onClick={()=>{setShowExplore(true);setShowSettings(true);}}
+          style={showSettings?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{color:bottomInactiveColor}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="m15.8 8.2-2 5.6-5.6 2 2-5.6z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>
           <span>Explore</span>
@@ -1071,9 +1109,9 @@ export default function Page(){
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 nkc-pop-in">
           <div className="rounded-[24px] w-full max-w-sm p-3 sm:p-5 border max-h-[90vh] overflow-y-auto nkc-settings-modal" style={{backgroundColor: '#15181f', borderColor: '#262a33'}}>
             <div className="flex justify-between items-center mb-3 sm:mb-4">
-              <h2 className="font-black text-white text-lg sm:text-xl">Settings</h2>
+              <h2 className="font-black text-white text-lg sm:text-xl">{showExplore?'Explore':'Settings'}</h2>
               <button 
-                onClick={()=>setShowSettings(false)} 
+                onClick={()=>{setShowSettings(false);setShowExplore(false)}} 
                 className="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center text-sm hover:bg-white/20 transition-colors"
               >
                 ✕
@@ -1094,7 +1132,7 @@ export default function Page(){
                 Choose your Neighborly KC look · tap a theme to apply & close
               </p>
               <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
-                {['aim','sporting','royals','chiefs','pip-boy','space','kc-current','kcpd','kcfd'].map(id=>{ 
+                {['aim','sporting','royals','chiefs','pip-boy','space','kc-current','kcpd','kcfd','army','navy','marines','air-force'].map(id=>{ 
                   const t=THEMES[id]; 
                   const active=themeId===id; 
                   return <button 
@@ -1131,7 +1169,7 @@ export default function Page(){
             
             {profile&&<button onClick={signOut} className="mt-2 w-full py-3 rounded-full border border-red-300/20 bg-red-500/10 text-red-200 font-bold text-sm sm:text-base">🚪 Sign out</button>}
             
-            <button onClick={()=>setShowSettings(false)} className="mt-2 w-full py-3 rounded-full bg-white text-black font-bold text-sm sm:text-base">Done</button>
+            <button onClick={()=>{setShowSettings(false);setShowExplore(false)}} className="mt-2 w-full py-3 rounded-full bg-white text-black font-bold text-sm sm:text-base">Done</button>
           </div>
         </div>
       )}
@@ -1142,6 +1180,16 @@ export default function Page(){
           <textarea autoFocus maxLength={2000} value={feedbackText} onChange={e=>setFeedbackText(e.target.value)} placeholder="What should we improve?" className="mt-4 w-full min-h-[150px] rounded-2xl p-3 text-sm outline-none border" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}} />
           <div className="flex items-center justify-between mt-2 text-[10px] opacity-50"><span>Your account email will be included so we can reply.</span><span>{feedbackText.length}/2000</span></div>
           <div className="flex gap-2 mt-4"><button onClick={()=>setShowFeedback(false)} className="flex-1 py-3 rounded-full font-bold" style={{backgroundColor:theme.input}}>Cancel</button><button disabled={!feedbackText.trim()||feedbackSending} onClick={submitFeedback} className="flex-1 py-3 rounded-full font-bold disabled:opacity-50" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{feedbackSending?'Sending…':'Send Feedback'}</button></div>
+        </div>
+      </div>}
+
+      {reportingPost && <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[90] flex items-center justify-center p-4 nkc-pop-in">
+        <div className="rounded-[24px] w-full max-w-sm p-5 border" style={{backgroundColor:theme.card,borderColor:theme.border}}>
+          <div className="flex justify-between gap-3"><div><h2 className="font-black text-xl">Report post</h2><p className="text-xs opacity-60 mt-1">A moderator will review your report.</p></div><button onClick={()=>setReportingPost(null)} className="w-8 h-8 rounded-full" style={{backgroundColor:theme.input}}>✕</button></div>
+          <label className="block mt-4 text-xs font-black">Reason</label>
+          <select value={reportReason} onChange={e=>setReportReason(e.target.value)} className="mt-2 w-full rounded-xl p-3 border" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}><option>Harassment or bullying</option><option>Hate or abusive language</option><option>Threats or violence</option><option>Sexual or inappropriate content</option><option>Spam or scam</option><option>Private information</option><option>Other</option></select>
+          <textarea value={reportDetails} maxLength={500} onChange={e=>setReportDetails(e.target.value)} placeholder="Add details (optional)" className="mt-3 w-full min-h-[100px] rounded-xl p-3 border" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}/>
+          <div className="flex gap-2 mt-4"><button onClick={()=>setReportingPost(null)} className="flex-1 py-3 rounded-full font-bold" style={{backgroundColor:theme.input}}>Cancel</button><button disabled={reportSending} onClick={submitPostReport} className="flex-1 py-3 rounded-full font-bold disabled:opacity-50" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{reportSending?'Sending…':'Send report'}</button></div>
         </div>
       </div>}
 

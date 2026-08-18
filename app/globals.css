@@ -1,7 +1,8 @@
 @tailwind base;@tailwind components;@tailwind utilities;
 
-:root{scroll-behavior:smooth}
-body{background:#f6f7f8;font-family:system-ui;transition:background-color .25s ease,color .25s ease}
+:root{scroll-behavior:smooth;background:#070a0f}
+html{background:#070a0f;overscroll-behavior:none}
+body{background:#070a0f;font-family:system-ui;transition:background-color .25s ease,color .25s ease;overscroll-behavior:none}
 .card{@apply bg-white rounded-xl border border-gray-200}
 button,a,label,input,textarea,select{transition:color .18s ease,background-color .18s ease,border-color .18s ease,box-shadow .18s ease,opacity .18s ease,transform .18s ease}
 button:not(:disabled):hover,a:hover,label:hover{transform:none}
