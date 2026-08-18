@@ -5,6 +5,9 @@ import { THEMES, DEFAULT_THEME_ID } from '../lib/themes';
 
 const CATS = ['All','General','For Sale & Free','Safety Alert','Recommendation','Event','Lost & Found'];
 
+// A PKCE authorization code may only be redeemed once. React Strict Mode mounts
+// effects twice in development, and a fast double render can do the same in
+// production, so the exchange is guarded at module scope rather than per mount.
 let oauthCodeExchangeStarted = false;
 
 async function compressImage(file: File): Promise<File> {
@@ -148,6 +151,7 @@ export default function Page(){
   const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brooks Heights', zip:'64155', id: '5fb249cb-1667-475b-ab8c-43e1df245ace', slug:'meadow-brooks-heights'};
   const bottomInactiveColor = theme.id==='aim' ? '#111111' : theme.id==='pip-boy' ? theme.text : '#ffffff';
 
+  // Optimized viewport handler with debounce
   useEffect(()=>{
     let timeoutId: NodeJS.Timeout;
     const vv=window.visualViewport;
@@ -239,59 +243,66 @@ export default function Page(){
       setEmailCodeSent(false);
       setEmailAuthMessage('Signed in successfully.');
       setShowJoin(false);
+      // Force profile refresh
+      const { data: { user: refreshedUser } } = await supabase.auth.getUser();
+      if(refreshedUser) {
+        const profile = await syncCommunityProfile(refreshedUser);
+        setProfile(profile);
+      }
     }
     setEmailAuthLoading(false);
   };
 
-  // FIXED: Auth handler that waits for OAuth code exchange before marking ready
-  useEffect(() => {
+  // Initialize auth once. Re-running this effect when the profile changes can
+  // try to redeem the same one-use PKCE code twice and make Google sign-in
+  // appear to require a second attempt.
+  useEffect(()=>{
     const saved = localStorage.getItem('nkc_theme');
     const migrated = saved === 'kc-sunset' ? 'kc-current' : saved;
     setThemeId(migrated && THEMES[migrated] ? migrated : DEFAULT_THEME_ID);
-    if (new URLSearchParams(window.location.search).get('signin') === '1') setShowJoin(true);
+    if(new URLSearchParams(window.location.search).get('signin')==='1') setShowJoin(true);
 
     let alive = true;
     let subscription: { unsubscribe: () => void } | null = null;
 
-    const applySession = (user: any) => {
-      if (!user || !alive) return;
+    const applySession = (user:any) => {
+      if(!user || !alive) return;
       setGoogleLoading(false);
       setShowJoin(false);
 
       const quickProfile = {
-        user_id: user.id,
-        auth_user_id: user.id,
-        full_name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Neighbor',
-        email: user.email || '',
+        user_id:user.id,
+        auth_user_id:user.id,
+        full_name:user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Neighbor',
+        email:user.email || ''
       };
       setProfile(quickProfile);
 
-      // Background profile sync
-      setTimeout(() => {
-        if (!alive) return;
-        syncCommunityProfile(user)
-          .then((pr) => {
-            if (alive && pr) {
-              localStorage.setItem('nkc_profile', JSON.stringify(pr));
-              setProfile(pr);
-            }
-          })
-          .catch(console.warn);
-      }, 0);
+      // Supabase advises keeping onAuthStateChange callbacks lightweight.
+      // Complete the database profile sync outside the callback tick.
+      window.setTimeout(()=>{
+        if(!alive) return;
+        syncCommunityProfile(user).then(pr=>{
+          if(alive && pr){
+            localStorage.setItem('nkc_profile', JSON.stringify(pr));
+            setProfile(pr);
+          }
+        }).catch(err=>console.warn('Profile sync warning:', err));
+      },0);
     };
 
     const finishAuthReady = () => {
-      if (!alive) return;
+      if(!alive) return;
       setAuthReady(true);
       setIsLoading(false);
     };
 
-    const { data } = supabase.auth.onAuthStateChange((event, sess) => {
-      if (!alive) return;
-      if (sess?.user) {
+    const { data } = supabase.auth.onAuthStateChange((event, sess)=>{
+      if(!alive) return;
+      if(sess?.user){
         applySession(sess.user);
         finishAuthReady();
-      } else if (event === 'SIGNED_OUT') {
+      } else if(event === 'SIGNED_OUT'){
         localStorage.removeItem('nkc_profile');
         setProfile(null);
         setShowJoin(false);
@@ -300,66 +311,59 @@ export default function Page(){
     });
     subscription = data.subscription;
 
-    (async () => {
+    (async()=>{
       try {
-        // 1. Handle hash tokens (legacy / some email flows)
-        const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get('code');
+
+        const hash = new URLSearchParams(window.location.hash.replace(/^#/,''));
         const access_token = hash.get('access_token');
         const refresh_token = hash.get('refresh_token');
-        if (access_token && refresh_token) {
-          await supabase.auth.setSession({ access_token, refresh_token });
+        if(access_token && refresh_token){
+          const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+          if(error) console.warn('Hash session adopt warning:', error.message);
           window.history.replaceState({}, '', window.location.pathname);
         }
 
-        // 2. Handle PKCE code (Google OAuth) — do this BEFORE the initial getSession
-        const params = new URLSearchParams(window.location.search);
-        const code = params.get('code');
-        if (code && !oauthCodeExchangeStarted) {
+        if(code && !oauthCodeExchangeStarted){
           oauthCodeExchangeStarted = true;
           const { data: { session: preexisting } } = await supabase.auth.getSession();
-          if (!preexisting?.user) {
+          if(!preexisting?.user){
             const { error } = await supabase.auth.exchangeCodeForSession(code);
-            if (error) {
+            if(error) {
               console.warn('OAuth code exchange warning:', error.message);
               const { data: { session: after } } = await supabase.auth.getSession();
-              if (!after?.user && alive) {
+              if(!after?.user && alive){
                 setShowJoin(true);
                 setEmailAuthMessage('Google sign in did not complete. Please try again.');
               }
             }
           }
           window.history.replaceState({}, '', window.location.pathname);
-        } else if (code) {
+        } else if(code){
           window.history.replaceState({}, '', window.location.pathname);
         }
 
-        // 3. Auth error from provider
-        const authError =
-          new URLSearchParams(window.location.hash.replace(/^#/, '')).get('error_description') ||
-          new URLSearchParams(window.location.hash.replace(/^#/, '')).get('error');
-        if (authError) {
-          setShowJoin(true);
-          setEmailAuthMessage(authError.replace(/\+/g, ' '));
-          window.history.replaceState({}, '', window.location.pathname);
-        }
-
-        // 4. Now safe to read the final session
         const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) console.warn('Auth session restore warning:', error.message);
-        if (session?.user) {
-          applySession(session.user);
-        }
-      } catch (err) {
-        console.warn('Auth init error:', err);
+        if(!alive) return;
+        if(error) console.warn('Auth session restore warning:', error.message);
+        if(session?.user) applySession(session.user);
+      } catch(e) {
+        console.warn('Auth initialization warning:', e);
       } finally {
         finishAuthReady();
       }
     })();
 
-    return () => {
-      alive = false;
-      subscription?.unsubscribe();
-    };
+    const authHash = new URLSearchParams(window.location.hash.replace(/^#/,''));
+    const authError = authHash.get('error_description') || authHash.get('error');
+    if(authError){
+      setShowJoin(true);
+      setEmailAuthMessage(authError.replace(/\+/g,' '));
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
+    return ()=>{ alive=false; subscription?.unsubscribe(); };
   }, []);
 
   const postCountRef = useRef(0);
@@ -464,6 +468,8 @@ export default function Page(){
     await supabase.auth.signOut(); 
     setProfile(null); 
     setShowSettings(false);
+    // Clear any cached auth state
+    sessionStorage.clear();
   };
   
   const submitFeedback = async () => {
@@ -540,8 +546,12 @@ export default function Page(){
       let image_url: string | null = null;
       if (file) {
         const compressed = await compressImage(file);
-        const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
-        const { error: upErr } = await withTimeout(supabase.storage.from('post-images').upload(path, compressed), 30000);
+        const path = `${currentUser.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+        const { error: upErr } = await withTimeout(supabase.storage.from('post-images').upload(path, compressed, {
+          contentType: 'image/jpeg',
+          cacheControl: '3600',
+          upsert: false
+        }), 30000);
         if (upErr) throw upErr;
         const { data: { publicUrl } } = supabase.storage.from('post-images').getPublicUrl(path);
         image_url = publicUrl;
@@ -578,6 +588,7 @@ export default function Page(){
     }
   };
 
+  // FIXED: Comments now work properly
   const addComment = async (postId:string) => { 
     if(!profile) {
       setShowJoin(true);
@@ -586,6 +597,7 @@ export default function Page(){
     const text=commentText[postId]?.trim(); 
     if(!text) return;
     
+    // Prevent duplicate submissions
     if(commenting[postId]) return;
     setCommenting(prev => ({...prev, [postId]: true}));
     
@@ -599,7 +611,7 @@ export default function Page(){
       const { data, error } = await supabase.from('comments').insert({ 
         post_id: postId, 
         content: text,
-        body: text,
+        body: text, // Add both for compatibility
         author_name: profile.full_name, 
         author_id: user.id
       }).select().single(); 
@@ -687,8 +699,10 @@ export default function Page(){
       let image_url=post.image_url || null;
       if(editFile){ 
         const compressed=await compressImage(editFile); 
-        const path=`${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`; 
-        const {error:upErr}=await withTimeout(supabase.storage.from('post-images').upload(path,compressed),30000); 
+        const { data: { user: editUser } } = await supabase.auth.getUser();
+        if(!editUser) throw new Error('You must be signed in to replace an image.');
+        const path=`${editUser.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`; 
+        const {error:upErr}=await withTimeout(supabase.storage.from('post-images').upload(path,compressed,{contentType:'image/jpeg',cacheControl:'3600',upsert:false}),30000); 
         if(upErr) throw upErr; 
         image_url=supabase.storage.from('post-images').getPublicUrl(path).data.publicUrl; 
         if(post.image_url){ 
@@ -736,23 +750,300 @@ export default function Page(){
     setComments((prev)=>({...prev, [postId]: prev[postId].filter((c:any)=>c.id!==id)})); 
   };
 
-  // Show loading state
-  if (isLoading) {
+  // Loading state
+  if(isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: theme.bg }}>
+      <div className="min-h-screen flex items-center justify-center" style={{backgroundColor: theme.bg}}>
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin mx-auto mb-4" style={{ borderColor: theme.accent, borderTopColor: 'transparent' }}></div>
-          <p style={{ color: theme.text }}>Loading Neighborly KC...</p>
+          <div className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin mx-auto mb-4" style={{borderColor: theme.accent, borderTopColor: 'transparent'}}></div>
+          <p style={{color: theme.text}}>Loading Neighborly KC...</p>
         </div>
       </div>
     );
   }
 
-  // The rest of your JSX return goes here (the actual app UI)
   return (
     <div className="min-h-screen w-full overflow-x-hidden nkc-app-shell" style={{backgroundColor: theme.bg, color: theme.text}}>
-      {/* ... your existing JSX ... */}
-      {/* ... copy the rest of your JSX from your original file ... */}
+      <header className="relative z-40 overflow-hidden border-b nkc-main-header sm:hidden" style={{backgroundColor: theme.header, borderColor: theme.border}}>
+        <div className="nkc-header-banner-wrap">
+          <button type="button" className="block nkc-header-banner-link" aria-label="Neighborly KC home" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})}>
+            <img src={headerImage} alt="Neighborly KC" className="nkc-header-banner" draggable="false" />
+          </button>
+        </div>
+        <div className="nkc-mobile-account-row" aria-label="Account controls" style={{backgroundColor:theme.header,borderColor:theme.border}}>
+          {profile
+            ? <button type="button" onClick={signOut} className="nkc-mobile-account-btn">↪ <span>Sign out</span></button>
+            : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-mobile-account-btn">👤 <span>Sign in</span></button>}
+          <a href="/dms" className="nkc-mobile-account-btn">💬 <span>Messages</span></a>
+          {profile
+            ? <a href="/profile" className="nkc-mobile-account-btn">🙂 <span>Profile</span></a>
+            : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-mobile-account-btn">🙂 <span>Profile</span></button>}
+        </div>
+      </header>
+
+      <header className="hidden sm:block relative z-40 overflow-hidden border-b nkc-main-header" style={{backgroundColor: theme.header, borderColor: 'rgba(255,255,255,.12)'}}>
+        <div className="nkc-header-banner-wrap">
+          <button type="button" className="block nkc-header-banner-link" aria-label="Neighborly KC home" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})}>
+            <img src={headerImage} alt="Neighborly KC" className="nkc-header-banner" draggable="false" />
+          </button>
+          <div className="nkc-header-controls" aria-label="Account controls">
+            {profile
+              ? <button type="button" onClick={signOut} className="nkc-header-control">↪ Sign out</button>
+              : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-header-control">👤 Sign in</button>}
+            <a href="/dms" className="nkc-header-control">💬 Messages</a>
+            {profile
+              ? <a href="/profile" className="nkc-header-control">🙂 Profile</a>
+              : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-header-control">🙂 Profile</button>}
+          </div>
+        </div>
+      </header>
+
+      <section className="nkc-forecast-banner" aria-label="7 day Kansas City forecast" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>
+        <div className="nkc-forecast-inner">
+          <div className="nkc-forecast-title">
+            <span>🌤️ <b>KC 7-DAY FORECAST</b></span>
+            {weather && <span className="nkc-forecast-now">Now {Math.round(weather.temp)}° · feels {Math.round(weather.feels)}°</span>}
+          </div>
+          <div className="nkc-forecast-days">
+            {forecast.length ? forecast.map((f,i)=><div key={f.date} className="nkc-forecast-day" style={{backgroundColor:theme.card,borderColor:theme.border}}>
+              <b>{forecastDay(f.date,i)}</b><span className="nkc-forecast-icon">{weatherEmoji(f.code)}</span><strong>{Math.round(f.high)}°</strong><span className="nkc-forecast-low">{Math.round(f.low)}°</span>
+            </div>) : <div className="nkc-forecast-loading">Loading Kansas City forecast…</div>}
+          </div>
+        </div>
+      </section>
+
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-8 grid grid-cols-1 lg:grid-cols-[220px_1fr_300px] gap-4 sm:gap-6 nkc-page-content">
+        <aside className="rounded-2xl p-3 h-fit border hidden lg:block" style={{backgroundColor: theme.card, borderColor: theme.border}}>
+          <p className="text-xs font-bold px-3 py-2 opacity-40">FILTER</p>
+          {CATS.map(c=><button key={c} onClick={()=>setCat(c)} className="w-full text-left px-3 py-2.5 rounded-xl text-sm transition-colors" style={{backgroundColor: cat===c? theme.accent : 'transparent', color: cat===c? theme.pillTextActive : theme.text}}>{c}</button>)}
+        </aside>
+
+        <main className="space-y-3">
+          <div className="rounded-2xl p-4 border nkc-surface nkc-fade-in" style={{backgroundColor: theme.card, borderColor: theme.border}}>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+              <div><p className="text-xs font-black uppercase tracking-wider opacity-50">Neighborly KC Network</p><h2 className="text-xl font-black">{scope==='local'?cur?.name:'All Kansas City'}</h2><p className="text-xs opacity-55">{scope==='local'?'Your neighborhood and nearby local conversation':'Everyone inside the 40-mile Neighborly KC network'}</p></div>
+              <div className="nkc-scope-switch flex rounded-full p-0.5 gap-0.5" style={{backgroundColor:theme.input,border:`1px solid ${theme.border}`}}>
+                <button onClick={()=>setScope('local')} className="px-3 py-1.5 rounded-full text-xs font-black transition-colors" style={{backgroundColor:scope==='local'?theme.pillActive:'transparent',color:scope==='local'?theme.pillTextActive:theme.text}}>📍 My Area</button>
+                <button onClick={()=>setScope('kc')} className="px-3 py-1.5 rounded-full text-xs font-black transition-colors" style={{backgroundColor:scope==='kc'?theme.pillActive:'transparent',color:scope==='kc'?theme.pillTextActive:theme.text}}>🏙️ All KC</button>
+              </div>
+            </div>
+            <div className="mb-2 rounded-xl px-3 py-2 text-xs font-bold border" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>📍 Posting to: <span style={{color:theme.accent}}>{scope==='kc'?'All Kansas City':cur?.name || 'your neighborhood'}</span></div>
+            <textarea ref={postComposerRef} value={body} onChange={e=>setBody(e.target.value)} onFocus={()=>window.setTimeout(()=>postComposerRef.current?.scrollIntoView({behavior:'smooth',block:'center'}),120)} autoComplete="off" autoCorrect="on" autoCapitalize="sentences" spellCheck={true} inputMode="text" name="neighborly-post" data-lpignore="true" placeholder={profile?(scope==='kc'?'What should Kansas City know?':`What's up in ${cur?.name}?`):'Join Neighborly KC to post...'} className="nkc-post-composer w-full rounded-xl p-3 min-h-[80px] text-sm outline-none" data-theme={theme.id} style={{backgroundColor: theme.input, color: theme.text, border: `1px solid ${theme.border}`, scrollMarginBottom:'180px', caretColor: theme.accent, boxShadow: theme.id==='pip-boy' ? `inset 0 0 14px ${theme.accent}22, 0 0 8px ${theme.accent}22` : theme.id==='space' ? `inset 0 0 14px ${theme.accent}16` : undefined }} />
+            <div className="flex items-center gap-2 mt-3 min-w-0">
+              <label htmlFor="file-input" className="shrink-0 cursor-pointer rounded-full border px-3 py-1.5 text-xs font-bold transition-colors hover:opacity-80" style={{borderColor:theme.border}}>Choose image</label>
+              <input key={fileInputKey} ref={fileInputRef} id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="sr-only" />
+              {file && <div className="min-w-0 flex items-center gap-2 text-xs opacity-70"><span className="truncate max-w-[180px]" title={file.name}>{file.name}</span><button type="button" onClick={()=>{setFile(null); if(fileInputRef.current) fileInputRef.current.value=''; setFileInputKey(k=>k+1);}} className="shrink-0 font-black" aria-label="Remove selected image">✕</button></div>}
+            </div>
+            <div className="flex justify-end mt-2">
+              <button disabled={uploading} onClick={handleBePost} className="px-5 py-2 rounded-full text-sm font-bold disabled:opacity-50 transition-opacity" style={{backgroundColor: theme.accent, color: theme.pillTextActive}}>{uploading?'Uploading...':scope==='kc'?'Post to KC':'Post to neighbors'}</button>
+            </div>
+          </div>
+
+          {filtered.map((p:any)=>{
+            const cList=comments[p.id]||[]; const isOpen=openComments[p.id]; const pLikes=likes[p.id]||[]; const liked=pLikes.some((l:any)=>l.author_id===profile?.user_id || l.author_name===profile?.full_name);
+            const isOwner=Boolean(profile && ((p.user_id && p.user_id===profile.user_id) || (!p.user_id && p.author_name===profile.full_name))); const canManage=isOwner||isAdmin; const isEditing=editingPostId===p.id;
+            const isCommenting = commenting[p.id] || false;
+            return <div key={p.id} className="rounded-2xl p-4 border nkc-surface nkc-fade-in nkc-post-card" style={{backgroundColor:theme.card,borderColor:theme.border}}>
+              <div className="flex justify-between gap-3"><div className="flex items-center gap-2 min-w-0"><div className="w-9 h-9 shrink-0 rounded-full overflow-hidden grid place-items-center font-black text-xs border" style={{backgroundColor:theme.input,borderColor:theme.border}}>{p.profiles?.avatar_url?<img src={p.profiles.avatar_url} alt="" className="w-full h-full object-cover"/>:(p.profiles?.full_name||p.author_name||'N').slice(0,1).toUpperCase()}</div><div><div className="flex items-center gap-1.5 flex-wrap"><p className="text-xs font-bold opacity-60">{(p.user_id||p.author_id)?<a href={`/dms?user=${p.user_id||p.author_id}`} className="hover:underline">{p.profiles?.full_name||p.author_name||'Neighbor'}</a>:(p.profiles?.full_name||p.author_name||'Neighbor')} · {p.category}</p>
+                  <div className="nkc-badges">
+                    {p.profiles?.is_founder&&<span className="nkc-badge founder">⭐ Founder</span>}
+                    {p.profiles?.is_admin&&<span className="nkc-badge moderator">🛡️ Moderator</span>}
+                    {topContributorIds.has(p.user_id||p.author_id)&&<span className="nkc-badge contributor">🔥 Top Contributor</span>}
+                    {p.profiles?.is_verified&&<span className="nkc-badge verified">✓ Verified</span>}
+                  </div></div>{scope==='kc'&&<p className="text-[11px] font-bold mt-1 opacity-45">📍 {neighborhoodName(p.neighborhood_id)}</p>}</div></div>{canManage&&<div className="flex items-center gap-2"><button onClick={()=>beginEdit(p)} className="text-xs font-bold opacity-55 hover:opacity-100 transition-opacity">✏️ Edit</button><button onClick={()=>deletePost(p.id,p.image_url)} className="text-xs opacity-40 hover:text-red-600 transition-colors">🗑️ Delete</button>{isAdmin&&!isOwner&&<button onClick={()=>blockUser(p.user_id||p.author_id,p.profiles?.full_name||p.author_name||'Neighbor')} className="text-xs opacity-50 hover:text-red-600 transition-colors">🚫 Block</button>}</div>}</div>
+              {isEditing?<div className="mt-3 rounded-2xl p-3 nkc-pop-in" style={{backgroundColor:theme.input}}><textarea value={editBody} onChange={e=>setEditBody(e.target.value)} className="w-full rounded-xl p-3 min-h-[120px] text-sm outline-none border" style={{backgroundColor:theme.card,color:theme.text,borderColor:theme.border}}/><div className="grid sm:grid-cols-2 gap-2 mt-2"><select value={editCategory} onChange={e=>setEditCategory(e.target.value)} className="rounded-xl px-3 py-2 text-sm border outline-none" style={{backgroundColor:theme.card,color:theme.text,borderColor:theme.border}}>{CATS.filter(c=>c!=='All').map(c=><option key={c}>{c}</option>)}</select><label className="rounded-xl px-3 py-2 text-sm border cursor-pointer" style={{backgroundColor:theme.card,borderColor:theme.border}}><span className="font-bold">📷 Replace image</span><input ref={editFileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setEditFile(e.target.files?.[0]||null)} className="sr-only"/>{editFile&&<span className="block text-xs opacity-60 truncate mt-1">{editFile.name}</span>}</label></div><div className="flex justify-end gap-2 mt-3"><button onClick={cancelEdit} className="px-4 py-2 rounded-full text-xs font-bold transition-colors" style={{backgroundColor:theme.card,border:`1px solid ${theme.border}`}}>Cancel</button><button disabled={editSaving||!editBody.trim()} onClick={()=>savePostEdit(p)} className="px-4 py-2 rounded-full text-xs font-bold disabled:opacity-50 transition-opacity" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{editSaving?'Saving...':'Save changes'}</button></div></div>:<>
+                <p className="mt-1 whitespace-pre-wrap break-words">{p.body||p.content}</p>{p.image_url&&<div className="mt-3 nkc-post-image-frame rounded-xl overflow-hidden border" style={{borderColor:theme.border}}><img src={p.image_url} alt="post" className="nkc-post-image w-full h-full object-cover" loading="lazy" /></div>}<p className="text-xs opacity-40 mt-2">{new Date(p.created_at).toLocaleString()}</p><div className="mt-3 pt-3 border-t flex gap-4" style={{borderColor:theme.border}}><button onClick={()=>togglePostLike(p.id)} className="text-xs font-bold transition-colors hover:opacity-70">{liked?'❤️':'🤍'} {pLikes.length}</button><button onClick={()=>setOpenComments(prev=>({...prev,[p.id]:!prev[p.id]}))} className="text-xs font-bold opacity-60 transition-opacity hover:opacity-100">💬 {cList.length} {isOpen?'▲':'▼'}</button></div>{isOpen&&<div className="mt-3 rounded-xl p-3 space-y-2" style={{backgroundColor:theme.input}}>{cList.map((c:any)=>{const cl=cLikes[c.id]||[];const cliked=cl.some((l:any)=>l.author_id===profile?.user_id||l.author_name===profile?.full_name);const canDelC=(profile&&c.author_name===profile.full_name)||isAdmin;return <div key={c.id} className="text-sm rounded-lg p-2 flex justify-between gap-2" style={{backgroundColor:theme.card}}><div><b className="text-xs">{c.author_name}:</b> <span className="break-words">{c.content||c.body}</span><button onClick={()=>toggleCommentLike(c.id)} className="ml-3 text-xs transition-colors hover:opacity-70">{cliked?'❤️':'🤍'} {cl.length}</button></div>{canDelC&&<button onClick={()=>deleteComment(c.id,p.id)} className="text-[10px] opacity-30 hover:opacity-100 transition-opacity">🗑️</button>}</div>})}<div className="flex gap-2 pt-2"><input value={commentText[p.id]||''} onChange={e=>setCommentText(prev=>({...prev,[p.id]:e.target.value}))} placeholder="Add a comment..." className="flex-1 border rounded-full px-3 py-2 text-sm outline-none transition-colors" style={{backgroundColor:theme.card,borderColor:theme.border,color:theme.text}} onKeyDown={(e)=>{if(e.key==='Enter' && !e.shiftKey){e.preventDefault();addComment(p.id);}}}/><button onClick={()=>addComment(p.id)} disabled={isCommenting || !commentText[p.id]?.trim()} className="px-4 py-2 rounded-full text-xs font-bold disabled:opacity-50 transition-opacity" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{isCommenting?'...':'Reply'}</button></div></div>}
+              </>}
+            </div>
+          })}
+        </main>
+
+        <aside className="rounded-2xl p-5 border h-fit nkc-surface" style={{backgroundColor: theme.card, borderColor: theme.border}}>
+          <h3 className="font-black">{cur?.name}</h3>
+          <p className="text-xs opacity-60">{cur?.zip} · Kansas City, MO</p>
+          <div className="grid grid-cols-2 gap-2 mt-4">
+            <div className="rounded-xl p-3 text-center" style={{backgroundColor: theme.input}}>
+              <b className="text-lg">{neighborCount ?? cur?.member_count ?? 0}</b>
+              <p className="text-xs">NEIGHBORS</p>
+            </div>
+            <div className="rounded-xl p-3 text-center" style={{backgroundColor: theme.input}}>
+              <b className="text-lg">{scopedPosts.length}</b>
+              <p className="text-xs">{scope==='kc'?'KC POSTS':'LOCAL POSTS'}</p>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <footer className="max-w-6xl mx-auto px-6 pb-24 pt-2 text-center text-xs opacity-50">
+        <span>© 2026 Neighborly KC</span>
+        <span className="mx-2">·</span>
+        <a href="/privacy" className="underline underline-offset-2">Privacy Policy</a>
+        <span className="mx-2">·</span>
+        <a href="/terms" className="underline underline-offset-2">Terms of Service</a>
+      </footer>
+
+      <nav
+        className="nkc-mobile-actions nkc-mobile-bottom-nav"
+        aria-label="Mobile navigation"
+        style={{backgroundColor:theme.header,color:bottomInactiveColor,borderColor:theme.border}}
+      >
+        <button
+          type="button"
+          aria-label="Feed"
+          className={`nkc-bottom-nav-item ${cat==='All'?'is-active':''}`}
+          onClick={()=>{setCat('All');setShowExplore(false);window.scrollTo({top:0,behavior:'smooth'});}}
+          style={cat==='All'?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{color:bottomInactiveColor}}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>
+          <span>Feed</span>
+        </button>
+
+        <button
+          type="button"
+          aria-label="Safety"
+          className={`nkc-bottom-nav-item ${cat==='Safety Alert'?'is-active':''}`}
+          onClick={()=>{setCat('Safety Alert');setShowExplore(false);window.scrollTo({top:0,behavior:'smooth'});}}
+          style={cat==='Safety Alert'?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{color:bottomInactiveColor}}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 6v5c0 5.2-3.4 8.5-8 10-4.6-1.5-8-4.8-8-10V6z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="m9 12 2 2 4-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          <span>Safety</span>
+        </button>
+
+        <button
+          type="button"
+          aria-label="Create post"
+          title="Create post"
+          className="nkc-bottom-nav-plus"
+          onClick={()=>{ if(!profile){ setShowJoin(true); return; } postComposerRef.current?.focus(); postComposerRef.current?.scrollIntoView({behavior:'smooth',block:'center'}); }}
+          style={{backgroundColor:theme.accent,color:theme.pillTextActive,borderColor:theme.header,boxShadow:`0 8px 20px ${theme.accent}55`}}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/></svg>
+        </button>
+
+        <button
+          type="button"
+          aria-label="For Sale"
+          className={`nkc-bottom-nav-item ${cat==='For Sale & Free'?'is-active':''}`}
+          onClick={()=>{setCat('For Sale & Free');setShowExplore(false);window.scrollTo({top:0,behavior:'smooth'});}}
+          style={cat==='For Sale & Free'?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{color:bottomInactiveColor}}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5 12 4l8 4.5v8L12 21l-8-4.5z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M9 11h6M9 14h4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
+          <span>For Sale</span>
+        </button>
+
+        <button
+          type="button"
+          aria-label="Explore"
+          className={`nkc-bottom-nav-item ${showExplore?'is-active':''}`}
+          onClick={()=>setShowExplore(v=>!v)}
+          style={showExplore?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{color:bottomInactiveColor}}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="m15.8 8.2-2 5.6-5.6 2 2-5.6z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>
+          <span>Explore</span>
+        </button>
+      </nav>
+
+      {showSettings && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 nkc-pop-in">
+          <div className="rounded-[24px] w-full max-w-sm p-3 sm:p-5 border max-h-[90vh] overflow-y-auto nkc-settings-modal" style={{backgroundColor: '#15181f', borderColor: '#262a33'}}>
+            <div className="flex justify-between items-center mb-3 sm:mb-4">
+              <h2 className="font-black text-white text-lg sm:text-xl">Settings</h2>
+              <button 
+                onClick={()=>setShowSettings(false)} 
+                className="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center text-sm hover:bg-white/20 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <button 
+              type="button" 
+              onClick={()=>setShowThemePicker(v=>!v)} 
+              className="w-full flex items-center justify-between py-3 px-4 rounded-2xl border border-white/15 bg-white/10 text-white font-bold text-sm sm:text-base"
+            >
+              <span>🎨 Themes</span>
+              <span className="text-white/60">{showThemePicker?'▲':'▼'}</span>
+            </button>
+            
+            {showThemePicker && <div className="mt-3">
+              <p className="text-[8px] sm:text-[10px] font-black tracking-widest uppercase text-white/40 mb-2 text-center sm:text-left">
+                Choose your Neighborly KC look · tap a theme to apply & close
+              </p>
+              <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                {['aim','sporting','royals','chiefs','pip-boy','space','kc-current','kcpd','kcfd'].map(id=>{ 
+                  const t=THEMES[id]; 
+                  const active=themeId===id; 
+                  return <button 
+                    key={id} 
+                    type="button" 
+                    aria-label={`Use ${t.name} theme`} 
+                    onClick={()=>setTheme(id)} 
+                    className={`nkc-theme-choice relative aspect-square w-full overflow-hidden rounded-lg sm:rounded-xl border-2 transition-all hover:scale-105 active:scale-95 ${active?'is-active':''}`} 
+                    style={{
+                      borderColor: active ? t.accent : 'rgba(255,255,255,0.15)',
+                      boxShadow: active ? `0 0 0 2px ${t.accent}55` : 'none'
+                    }}
+                  >
+                    {t.themeButtonImage ? 
+                      <img 
+                        src={t.themeButtonImage} 
+                        alt={t.name} 
+                        className="w-full h-full object-cover" 
+                        loading="lazy"
+                      /> :
+                      <div className="nkc-theme-choice-fallback w-full h-full flex items-center justify-center p-1 text-center" style={{background:`linear-gradient(135deg,${t.header},${t.accent})`}}>
+                        <span className="text-white text-[8px] sm:text-[10px] font-bold leading-tight">{t.name}</span>
+                      </div>
+                    }
+                    {active && <span className="absolute top-0.5 right-0.5 w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center text-[8px] sm:text-xs font-bold shadow-lg" style={{backgroundColor:t.accent,color:t.pillTextActive}}>✓</span>}
+                  </button>
+                })}
+              </div>
+            </div>}
+            
+            {profile&&<a href="/profile" onClick={()=>setShowSettings(false)} className="mt-3 sm:mt-4 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center text-sm sm:text-base">👤 My Profile</a>}
+            
+            <button onClick={()=>{if(!profile){setShowJoin(true);return;}setShowFeedback(true)}} className="mt-2 w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-sm sm:text-base">💬 Leave Feedback</button>
+            
+            {profile&&<button onClick={signOut} className="mt-2 w-full py-3 rounded-full border border-red-300/20 bg-red-500/10 text-red-200 font-bold text-sm sm:text-base">🚪 Sign out</button>}
+            
+            <button onClick={()=>setShowSettings(false)} className="mt-2 w-full py-3 rounded-full bg-white text-black font-bold text-sm sm:text-base">Done</button>
+          </div>
+        </div>
+      )}
+
+      {showFeedback && <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[70] flex items-center justify-center p-4 nkc-pop-in">
+        <div className="rounded-[24px] w-full max-w-sm p-5 border" style={{backgroundColor:theme.card,borderColor:theme.border}}>
+          <div className="flex justify-between items-center"><div><h2 className="font-black text-xl">Leave Feedback</h2><p className="text-xs opacity-60 mt-1">Tell Jason what you think about Neighborly KC.</p></div><button onClick={()=>setShowFeedback(false)} className="w-8 h-8 rounded-full flex items-center justify-center" style={{backgroundColor:theme.input}}>✕</button></div>
+          <textarea autoFocus maxLength={2000} value={feedbackText} onChange={e=>setFeedbackText(e.target.value)} placeholder="What should we improve?" className="mt-4 w-full min-h-[150px] rounded-2xl p-3 text-sm outline-none border" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}} />
+          <div className="flex items-center justify-between mt-2 text-[10px] opacity-50"><span>Your account email will be included so we can reply.</span><span>{feedbackText.length}/2000</span></div>
+          <div className="flex gap-2 mt-4"><button onClick={()=>setShowFeedback(false)} className="flex-1 py-3 rounded-full font-bold" style={{backgroundColor:theme.input}}>Cancel</button><button disabled={!feedbackText.trim()||feedbackSending} onClick={submitFeedback} className="flex-1 py-3 rounded-full font-bold disabled:opacity-50" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{feedbackSending?'Sending…':'Send Feedback'}</button></div>
+        </div>
+      </div>}
+
+      {feedbackSent && <div className="fixed left-1/2 -translate-x-1/2 bottom-24 z-[80] rounded-full px-5 py-3 shadow-xl font-bold text-sm nkc-pop-in" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>✓ Feedback sent — thank you!</div>}
+
+      {(postSuccess || toast) && <div role="status" aria-live="polite" className="fixed left-1/2 -translate-x-1/2 bottom-[86px] sm:bottom-6 z-[120] rounded-2xl px-5 py-3 shadow-xl font-bold text-sm nkc-pop-in max-w-[calc(100vw-32px)] text-center" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>{postSuccess?'✓ Post published':toast}</div>}
+
+      {showJoin && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 nkc-pop-in">
+          <div className="rounded-[28px] w-full max-w-sm p-6 shadow-2xl border" style={{backgroundColor: theme.card, borderColor: theme.border}}>
+            <h2 className="font-black text-xl">Join {cur?.name}</h2><p className="text-xs opacity-60">{theme.id==='royals'? 'THE K • 64155 • ROYALS BLUE & WHITE' : theme.id==='chiefs'? 'ARROWHEAD • CHIEFS KINGDOM' : '40 mile radius KC network'}</p>
+            <button onClick={signInWithGoogle} disabled={googleLoading} className="mt-5 w-full bg-white border-2 border-black text-black py-3.5 rounded-full font-bold text-sm flex items-center justify-center gap-2">{googleLoading? 'Redirecting...' : 'Continue with Google'}</button>
+            <div className="flex items-center gap-3 my-5"><div className="h-px flex-1 bg-black/10"></div><span className="text-xs font-bold opacity-30">OR EMAIL CODE</span><div className="h-px flex-1 bg-black/10"></div></div>
+            <div className="space-y-3">
+              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Full name (optional)" className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-sm outline-none"/>
+              <input value={email} onChange={e=>setEmail(e.target.value)} inputMode="email" autoComplete="email" placeholder="Email address" className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-sm outline-none"/>
+              {!emailCodeSent && <input value={addr} onChange={e=>setAddr(e.target.value)} placeholder={`Address in ${cur?.zip} (optional)`} className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-sm outline-none"/>}
+              {emailCodeSent && <input value={emailCode} onChange={e=>setEmailCode(e.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="Enter the 6-digit code" className="w-full bg-[#f8f5ee] border rounded-xl px-4 py-3 text-center tracking-[0.45em] font-black text-lg outline-none"/>}
+              {emailCodeSent && <div className="rounded-xl p-3 text-xs leading-5" style={{backgroundColor:theme.input,color:theme.text}}><b>Check your email</b><br/>Use the 6-digit code in the message. If a Sign In link is provided, tapping the link will also finish login.</div>}
+              {emailAuthMessage && <p className="text-xs font-semibold text-center opacity-70">{emailAuthMessage}</p>}
+              <div className="flex gap-2 pt-2"><button type="button" onClick={()=>{setShowJoin(false);setEmailCodeSent(false);setEmailCode('');setEmailAuthMessage('')}} className="flex-1 bg-[#f8f5ee] py-3.5 rounded-full font-bold text-sm">Cancel</button>{emailCodeSent ? <button type="button" disabled={emailAuthLoading} onClick={verifyEmailLoginCode} className="flex-1 text-white py-3.5 rounded-full font-bold text-sm disabled:opacity-60" style={{backgroundColor: theme.accent}}>{emailAuthLoading?'Checking…':'Verify & Sign In'}</button> : <button type="button" disabled={emailAuthLoading||!email.trim()} onClick={sendEmailLoginCode} className="flex-1 text-white py-3.5 rounded-full font-bold text-sm disabled:opacity-60" style={{backgroundColor: theme.accent}}>{emailAuthLoading?'Sending…':'Send Login Code'}</button>}</div>
+              {emailCodeSent && <button type="button" disabled={emailAuthLoading} onClick={sendEmailLoginCode} className="w-full text-xs font-bold underline opacity-60">Send a new code</button>}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
