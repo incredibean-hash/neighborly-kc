@@ -93,7 +93,9 @@ export default function MyProfilePage() {
       if (profile?.id) {
         ({ data, error } = await supabase.from('profiles').update(payload).eq('id', profile.id).select('id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder').single());
       } else {
-        const profileId = globalThis.crypto?.randomUUID?.() || `${user.id}-${Date.now()}`;
+        // This NeighborlyKC schema links profiles.id directly to auth.users.id.
+        // A random UUID violates profiles_id_fkey for first-time profile saves.
+        const profileId = user.id;
         ({ data, error } = await supabase
           .from('profiles')
           .insert({ id: profileId, ...payload })
