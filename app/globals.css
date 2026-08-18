@@ -1,6 +1,7 @@
 @tailwind base;@tailwind components;@tailwind utilities;
 
 :root{scroll-behavior:smooth;background:#070a0f}
+*,*::before,*::after{box-sizing:border-box}
 html{background:#070a0f;overscroll-behavior:none}
 body{background:#070a0f;font-family:system-ui;transition:background-color .25s ease,color .25s ease;overscroll-behavior:none}
 .card{@apply bg-white rounded-xl border border-gray-200}
@@ -24,7 +25,8 @@ body { overscroll-behavior-y: none; }
 
 
 @media (max-width: 639px) {
-  html, body { width:100%; overflow-x:hidden; overscroll-behavior-x:none; }
+  html, body { width:100%; max-width:100%; overflow-x:hidden; overscroll-behavior-x:none; }
+  .nkc-app-shell,.nkc-page-content{width:100%;max-width:100%;min-width:0;overflow-x:hidden}
   body { padding-bottom: env(safe-area-inset-bottom); }
   .nkc-app-shell { min-height: 100svh; min-height: 100dvh; padding-bottom: calc(78px + env(safe-area-inset-bottom)); }
   header.sticky { position: sticky; top:0; }
@@ -332,7 +334,7 @@ body { overscroll-behavior-y: none; }
 .nkc-themed-field::placeholder{color:currentColor!important;opacity:.82!important}
 .nkc-auth-divider{color:var(--nkc-auth-muted,currentColor);opacity:.72}
 .nkc-auth-action:disabled{opacity:.78!important}
-.nkc-auth-google{width:100%;padding-inline:12px;overflow:hidden}
+.nkc-auth-google{width:100%;padding-inline:0;overflow:hidden}
 .nkc-google-button-slot{max-width:320px;margin-inline:auto;overflow:hidden;border-radius:999px}
 .nkc-google-button-slot>div,.nkc-google-button-slot iframe{max-width:100%!important}
 .nkc-welcome-card{position:relative;overflow:hidden}
@@ -343,10 +345,10 @@ body { overscroll-behavior-y: none; }
 .nkc-welcome-cta:hover{opacity:.94;transform:translateY(-1px)}
 .nkc-welcome-cta:active{transform:translateY(0)}
 @media (max-width:639px){
-  .nkc-auth-overlay{padding:10px!important;align-items:center}
-  .nkc-auth-card{padding:18px!important;border-radius:24px!important;max-height:calc(100dvh - 20px);overflow-y:auto}
+  .nkc-auth-overlay{width:100dvw;max-width:100dvw;padding:10px!important;align-items:center;overflow-x:hidden}
+  .nkc-auth-card{width:calc(100dvw - 20px)!important;max-width:384px!important;min-width:0;padding:18px!important;border-radius:24px!important;max-height:calc(100dvh - 20px);overflow-x:hidden;overflow-y:auto}
   .nkc-auth-card h2{font-size:1.15rem;line-height:1.2}
-  .nkc-auth-card .nkc-auth-google{margin-top:14px;padding-inline:10px}
+  .nkc-auth-card .nkc-auth-google{margin-top:14px;padding-inline:0}
   .nkc-auth-card .nkc-auth-divider-row{margin-top:14px;margin-bottom:14px}
   .nkc-auth-card .nkc-themed-field{padding:11px 13px!important;border-radius:14px!important}
   .nkc-auth-buttons{gap:8px!important;padding-top:4px!important}

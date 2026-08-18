@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import { track } from '@vercel/analytics';
 import { supabase } from '../lib/community';
 import { THEMES, DEFAULT_THEME_ID } from '../lib/themes';
@@ -158,9 +158,32 @@ export default function Page(){
   const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brooks Heights', zip:'64155', id: '5fb249cb-1667-475b-ab8c-43e1df245ace', slug:'meadow-brooks-heights'};
   const bottomInactiveColor = theme.id==='aim' ? '#111111' : theme.id==='pip-boy' ? theme.text : '#ffffff';
 
+  // Apply the saved theme before the browser paints the app. Using a normal
+  // effect here lets the default theme flash first, which makes the whole
+  // mobile layout appear to jitter on load.
+  useLayoutEffect(()=>{
+    const saved=localStorage.getItem('nkc_theme');
+    const migrated=saved==='kc-sunset'?'kc-current':saved;
+    setThemeId(migrated && THEMES[migrated] ? migrated : DEFAULT_THEME_ID);
+  },[]);
+
   const trackSignupEvent = useCallback((name:string, method?:string) => {
     if(typeof window==='undefined') return;
     track(name,method?{method}:undefined);
+  },[]);
+
+  const resetMobileViewAfterSignIn = useCallback(() => {
+    setShowJoin(false);
+    if(typeof window==='undefined') return;
+    const active=document.activeElement as HTMLElement | null;
+    active?.blur?.();
+    const reset=()=>{
+      window.scrollTo({top:0,left:0,behavior:'auto'});
+      document.documentElement.scrollLeft=0;
+      document.body.scrollLeft=0;
+    };
+    reset();
+    window.requestAnimationFrame(()=>window.requestAnimationFrame(reset));
   },[]);
 
   useEffect(()=>{
@@ -253,7 +276,7 @@ export default function Page(){
             if(pr) setProfile(pr);
           }
           setGoogleLoading(false);
-          setShowJoin(false);
+          resetMobileViewAfterSignIn();
           trackSignupEvent('Signup Completed','google');
         }
       });
@@ -264,7 +287,7 @@ export default function Page(){
         text:'continue_with',
         shape:'pill',
         logo_alignment:'left',
-        width:window.innerWidth < 640 ? Math.max(220,Math.min(280,window.innerWidth-72)) : 320
+        width:window.innerWidth < 640 ? Math.max(220,Math.min(320,window.innerWidth-56)) : 320
       });
     };
 
@@ -282,7 +305,7 @@ export default function Page(){
       document.head.appendChild(script);
     }
     return()=>{cancelled=true;existing?.removeEventListener('load',renderGoogleButton);};
-  },[showJoin]);
+  },[showJoin,resetMobileViewAfterSignIn,trackSignupEvent]);
 
   const sendEmailLoginCode = async () => {
     const target = email.trim().toLowerCase();
@@ -322,7 +345,7 @@ export default function Page(){
       setEmailCode('');
       setEmailCodeSent(false);
       setEmailAuthMessage('Signed in successfully.');
-      setShowJoin(false);
+      resetMobileViewAfterSignIn();
       trackSignupEvent('Signup Completed','email');
       // Force profile refresh
       const { data: { user: refreshedUser } } = await supabase.auth.getUser();
@@ -338,9 +361,6 @@ export default function Page(){
   // try to redeem the same one-use PKCE code twice and make Google sign-in
   // appear to require a second attempt.
   useEffect(()=>{
-    const saved = localStorage.getItem('nkc_theme');
-    const migrated = saved === 'kc-sunset' ? 'kc-current' : saved;
-    setThemeId(migrated && THEMES[migrated] ? migrated : DEFAULT_THEME_ID);
     if(new URLSearchParams(window.location.search).get('signin')==='1') setShowJoin(true);
 
     let alive = true;
@@ -349,7 +369,7 @@ export default function Page(){
     const applySession = (user:any) => {
       if(!user || !alive) return;
       setGoogleLoading(false);
-      setShowJoin(false);
+      resetMobileViewAfterSignIn();
 
       const quickProfile = {
         user_id:user.id,
@@ -445,7 +465,7 @@ export default function Page(){
     }
 
     return ()=>{ alive=false; subscription?.unsubscribe(); };
-  }, []);
+  }, [resetMobileViewAfterSignIn]);
 
   const postCountRef = useRef(0);
 
