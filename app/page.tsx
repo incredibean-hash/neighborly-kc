@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { track } from '@vercel/analytics';
 import { supabase } from '../lib/community';
 import { THEMES, DEFAULT_THEME_ID } from '../lib/themes';
 
@@ -159,8 +160,7 @@ export default function Page(){
 
   const trackSignupEvent = useCallback((name:string, method?:string) => {
     if(typeof window==='undefined') return;
-    const va=(window as any).va;
-    if(typeof va==='function') va('event',{name,data:method?{method}:undefined});
+    track(name,method?{method}:undefined);
   },[]);
 
   useEffect(()=>{
