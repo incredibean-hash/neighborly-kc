@@ -165,6 +165,11 @@ export default function Page(){
 
   useEffect(()=>{
     if(showJoin) trackSignupEvent('Signup Opened');
+    else {
+      setEmailCodeSent(false);
+      setEmailCode('');
+      setEmailAuthMessage('');
+    }
   },[showJoin,trackSignupEvent]);
 
   useEffect(()=>{
@@ -229,6 +234,8 @@ export default function Page(){
         client_id:GOOGLE_CLIENT_ID,
         callback:async(response:any)=>{
           if(!response?.credential) return;
+          setEmailCodeSent(false);
+          setEmailCode('');
           trackSignupEvent('Signup Started','google');
           setGoogleLoading(true);
           setEmailAuthMessage('');
@@ -1229,7 +1236,7 @@ export default function Page(){
             <div className="nkc-auth-google mt-5 min-h-[44px] flex items-center justify-center">
               {googleLoading
                 ? <div className="w-full bg-white border-2 border-black text-black py-3.5 rounded-full font-bold text-sm text-center">Signing in…</div>
-                : <div ref={googleButtonRef} className="flex justify-center w-full" aria-label="Continue with Google" />}
+                : <div ref={googleButtonRef} className="nkc-google-button-slot flex justify-center w-full" aria-label="Continue with Google" />}
             </div>
             <div className="nkc-auth-divider-row flex items-center gap-3 my-5"><div className="h-px flex-1" style={{backgroundColor:theme.border}}></div><span className="nkc-auth-divider text-xs font-bold">OR EMAIL CODE</span><div className="h-px flex-1" style={{backgroundColor:theme.border}}></div></div>
             <div className="space-y-3">
@@ -1240,7 +1247,7 @@ export default function Page(){
               {emailCodeSent && <input value={emailCode} onChange={e=>setEmailCode(e.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="Enter the 6-digit code" className="nkc-themed-field w-full border rounded-xl px-4 py-3 text-center tracking-[0.45em] font-black text-lg outline-none" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}/>}
               {emailCodeSent && <div className="rounded-xl p-3 text-xs leading-5" style={{backgroundColor:theme.input,color:theme.text}}><b>Check your email</b><br/>Use the 6-digit code in the message. If a Sign In link is provided, tapping the link will also finish login.</div>}
               {emailAuthMessage && <p className="text-xs font-semibold text-center opacity-70">{emailAuthMessage}</p>}
-              <div className="nkc-auth-buttons flex gap-2 pt-2"><button type="button" onClick={()=>{setShowJoin(false);setEmailCodeSent(false);setEmailCode('');setEmailAuthMessage('')}} className="flex-1 py-3 rounded-full font-bold text-sm" style={{backgroundColor:'#f8f5ee',color:'#1f2937'}}>Cancel</button>{emailCodeSent ? <button type="button" disabled={emailAuthLoading} onClick={verifyEmailLoginCode} className="nkc-auth-action flex-1 py-3 rounded-full font-bold text-sm" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{emailAuthLoading?'Checking…':'Verify & Sign In'}</button> : <button type="button" disabled={emailAuthLoading||!email.trim()} onClick={sendEmailLoginCode} className="nkc-auth-action flex-1 py-3 rounded-full font-bold text-sm" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{emailAuthLoading?'Sending…':'Send Code'}</button>}</div>
+              <div className="nkc-auth-buttons flex gap-2 pt-2"><button type="button" onClick={()=>setShowJoin(false)} className="flex-1 py-3 rounded-full font-bold text-sm" style={{backgroundColor:'#f8f5ee',color:'#1f2937'}}>Cancel</button>{emailCodeSent ? <button type="button" disabled={emailAuthLoading} onClick={verifyEmailLoginCode} className="nkc-auth-action flex-1 py-3 rounded-full font-bold text-sm" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{emailAuthLoading?'Checking…':'Verify & Sign In'}</button> : <button type="button" disabled={emailAuthLoading||!email.trim()} onClick={sendEmailLoginCode} className="nkc-auth-action flex-1 py-3 rounded-full font-bold text-sm" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{emailAuthLoading?'Sending…':'Email Me a Code'}</button>}</div>
               {emailCodeSent && <button type="button" disabled={emailAuthLoading} onClick={sendEmailLoginCode} className="w-full text-xs font-bold underline opacity-60">Send a new code</button>}
             </div>
           </div>

@@ -332,6 +332,9 @@ body { overscroll-behavior-y: none; }
 .nkc-themed-field::placeholder{color:currentColor!important;opacity:.82!important}
 .nkc-auth-divider{color:var(--nkc-auth-muted,currentColor);opacity:.72}
 .nkc-auth-action:disabled{opacity:.78!important}
+.nkc-auth-google{width:100%;padding-inline:12px;overflow:hidden}
+.nkc-google-button-slot{max-width:320px;margin-inline:auto;overflow:hidden;border-radius:999px}
+.nkc-google-button-slot>div,.nkc-google-button-slot iframe{max-width:100%!important}
 .nkc-welcome-card{position:relative;overflow:hidden}
 .nkc-welcome-card::after{content:"";position:absolute;right:-75px;top:-90px;width:210px;height:210px;border-radius:999px;background:currentColor;opacity:.035;pointer-events:none}
 .nkc-welcome-benefits{display:flex;flex-wrap:wrap;gap:8px}
@@ -343,7 +346,7 @@ body { overscroll-behavior-y: none; }
   .nkc-auth-overlay{padding:10px!important;align-items:center}
   .nkc-auth-card{padding:18px!important;border-radius:24px!important;max-height:calc(100dvh - 20px);overflow-y:auto}
   .nkc-auth-card h2{font-size:1.15rem;line-height:1.2}
-  .nkc-auth-card .nkc-auth-google{margin-top:14px}
+  .nkc-auth-card .nkc-auth-google{margin-top:14px;padding-inline:10px}
   .nkc-auth-card .nkc-auth-divider-row{margin-top:14px;margin-bottom:14px}
   .nkc-auth-card .nkc-themed-field{padding:11px 13px!important;border-radius:14px!important}
   .nkc-auth-buttons{gap:8px!important;padding-top:4px!important}
