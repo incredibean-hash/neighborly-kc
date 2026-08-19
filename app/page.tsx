@@ -1168,11 +1168,12 @@ export default function Page(){
         <Link
           href="/dms"
           aria-label="Messages"
-          className="nkc-bottom-nav-item"
-          style={{color:bottomInactiveColor}}
+          title="Messages"
+          className="nkc-bottom-nav-orb-item"
+          style={{backgroundColor:theme.accent,color:theme.pillTextActive,borderColor:theme.border,boxShadow:`0 8px 20px ${theme.accent}55`}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h16v11H9l-5 3v-14Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M8 9h8M8 12.5h5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/></svg>
-          <span>Messages</span>
+          <span className="sr-only">Messages</span>
         </Link>
 
         <button
@@ -1189,12 +1190,13 @@ export default function Page(){
         <button
           type="button"
           aria-label="Settings"
-          className={`nkc-bottom-nav-item ${showSettings?'is-active':''}`}
+          title="Settings"
+          className={`nkc-bottom-nav-orb-item ${showSettings?'is-active':''}`}
           onClick={()=>{setShowJoin(false);setReportingPost(null);setShowExplore(false);setShowSettings(true);}}
-          style={showSettings?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{color:bottomInactiveColor}}
+          style={{backgroundColor:theme.accent,color:theme.pillTextActive,borderColor:theme.border,boxShadow:`0 8px 20px ${theme.accent}55`}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.7 3.6h4.6l.6 2.1 1.8 1 2.1-.5 2.3 4-1.5 1.6v2.1l1.5 1.6-2.3 4-2.1-.5-1.8 1-.6 2.1H9.7L9.1 20l-1.8-1-2.1.5-2.3-4 1.5-1.6v-2.1L2.9 10l2.3-4 2.1.5 1.8-1z" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinejoin="round"/><circle cx="12" cy="12.8" r="2.7" fill="none" stroke="currentColor" strokeWidth="1.7"/></svg>
-          <span>Settings</span>
+          <span className="sr-only">Settings</span>
         </button>
       </nav>
 
