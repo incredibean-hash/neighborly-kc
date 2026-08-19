@@ -226,6 +226,7 @@ export default function Page(){
       setShowCreatePost(true);
     }
     if(params.get('settings')==='1'){
+      window.history.replaceState({},'',window.location.pathname);
       setShowExplore(false);
       setShowSettings(true);
     }

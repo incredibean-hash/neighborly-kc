@@ -102,6 +102,30 @@ body{overflow-y:visible;touch-action:pan-y pinch-zoom}
   .nkc-mobile-action:active { transform:scale(.94); }
 }
 
+/* Final header correction: free the theme heart from any tile, center and
+   enlarge the NeighborlyKC title. This must remain the final mobile rule. */
+@media(max-width:639px){
+  .nkc-mobile-top-row{position:relative!important;height:52px!important;padding:0 14px!important}
+  .nkc-mobile-brand{gap:0!important}
+  .nkc-mobile-theme-mark{
+    width:36px!important;height:36px!important;flex-basis:36px!important;
+    border:0!important;border-radius:0!important;background:transparent!important;
+    box-shadow:none!important;overflow:visible!important
+  }
+  .nkc-mobile-theme-mark img{
+    width:100%!important;height:100%!important;object-fit:contain!important;
+    object-position:center!important;transform:none!important;background:transparent!important;
+    filter:drop-shadow(0 0 5px color-mix(in srgb,var(--nkc-nav-accent,currentColor) 45%,transparent))
+  }
+  .nkc-mobile-wordmark{
+    position:absolute!important;left:50%!important;top:50%!important;
+    transform:translate(-50%,-50%)!important;margin:0!important;
+    font-size:21px!important;line-height:1!important;letter-spacing:-.7px!important;
+    text-align:center!important;white-space:nowrap!important;
+    text-shadow:0 1px 3px rgba(0,0,0,.65)!important
+  }
+}
+
 @media (max-width: 639px) {
   .nkc-scope-switch { width:100%; max-width:280px; }
   .nkc-scope-switch button { flex:1; white-space:nowrap; }
@@ -131,9 +155,11 @@ body{overflow-y:visible;touch-action:pan-y pinch-zoom}
     box-shadow:0 1px 0 var(--nkc-nav-border,currentColor),0 8px 24px rgba(0,0,0,.16)!important;
   }
   .nkc-mobile-top-row{height:48px!important;padding:0 14px!important}
-  .nkc-mobile-brand{gap:8px!important;font-size:16px!important}
-  .nkc-mobile-theme-mark{width:30px!important;height:30px!important;flex-basis:30px!important;border-radius:8px!important}
-  .nkc-mobile-wordmark{font-size:16px!important}
+  .nkc-mobile-top-row{position:relative!important}
+  .nkc-mobile-brand{gap:0!important;font-size:20px!important}
+  .nkc-mobile-theme-mark{width:34px!important;height:34px!important;flex-basis:34px!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important}
+  .nkc-mobile-theme-mark img{width:100%!important;height:100%!important;object-fit:contain!important;object-position:center!important;transform:none!important;filter:drop-shadow(0 0 5px var(--nkc-nav-accent,currentColor))!important}
+  .nkc-mobile-wordmark{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;font-size:20px!important;letter-spacing:-.8px!important;text-align:center!important;text-shadow:0 1px 3px rgba(0,0,0,.6)!important}
   .nkc-mobile-top-icons{gap:7px!important}
   .nkc-mobile-icon{width:27px!important;height:27px!important}
   .nkc-mobile-icon svg{width:20px!important;height:20px!important}
@@ -665,4 +691,14 @@ input::placeholder,textarea::placeholder{color:currentColor!important;opacity:.7
   .nkc-bottom-nav-orb-item svg,.nkc-bottom-nav-plus svg{width:30px!important;height:30px!important;filter:drop-shadow(0 0 4px var(--nkc-bottom-glow,currentColor))}
   .nkc-bottom-nav-orb-item.is-active{outline:2px solid color-mix(in srgb,var(--nkc-bottom-glow,currentColor) 70%,white)!important;outline-offset:2px!important}
   .nkc-mobile-bottom-nav[data-theme="pip-boy"]::after{content:"PIP-BOY 3000";position:absolute;left:50%;bottom:3px;transform:translateX(-50%);min-width:122px;padding:2px 12px;border:2px solid #5e6c2b;border-radius:5px;background:#18220c;color:#a7ff6f;font:800 10px/1.1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:2px;text-align:center;text-shadow:0 0 6px #5cff3d;box-shadow:inset 0 0 8px #000,0 0 7px rgba(92,255,61,.25)}
+}
+
+/* Final header correction: no tile behind the theme heart, and a centered,
+   readable NeighborlyKC title. Keep this at the physical end of this file. */
+@media(max-width:639px){
+  .nkc-mobile-top-row{position:relative!important;height:52px!important;padding:0 14px!important}
+  .nkc-mobile-brand{gap:0!important}
+  .nkc-mobile-theme-mark{width:36px!important;height:36px!important;flex-basis:36px!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important}
+  .nkc-mobile-theme-mark img{width:100%!important;height:100%!important;object-fit:contain!important;object-position:center!important;transform:none!important;background:transparent!important;filter:drop-shadow(0 0 5px color-mix(in srgb,var(--nkc-nav-accent,currentColor) 45%,transparent))}
+  .nkc-mobile-wordmark{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;margin:0!important;font-size:21px!important;line-height:1!important;letter-spacing:-.7px!important;text-align:center!important;white-space:nowrap!important;text-shadow:0 1px 3px rgba(0,0,0,.65)!important}
 }
