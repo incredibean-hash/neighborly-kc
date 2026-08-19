@@ -1180,17 +1180,18 @@ export default function Page(){
 
       <nav
         className="nkc-mobile-actions nkc-mobile-bottom-nav"
+        data-theme={theme.id}
         aria-label="Mobile navigation"
-        style={{backgroundColor:theme.header,color:navThemeColor,borderColor:theme.border,'--nkc-bottom-inactive':navThemeColor,'--nkc-bottom-glow':theme.accent} as any}
+        style={{backgroundColor:theme.header,color:navThemeColor,borderColor:theme.border,'--nkc-bottom-inactive':navThemeColor,'--nkc-bottom-glow':theme.accent,'--nkc-bottom-surface':theme.card} as any}
       >
         <Link
           href="/dms"
           aria-label="Messages"
-          className="nkc-bottom-nav-item"
+          className="nkc-bottom-nav-orb-item"
           style={{color:navThemeColor}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h16v11H9l-5 3v-14Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M8 9h8M8 12.5h5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/></svg>
-          <span>Messages</span>
+          <span className="sr-only">Messages</span>
         </Link>
 
         <button
@@ -1199,20 +1200,20 @@ export default function Page(){
           title="Create post"
           className="nkc-bottom-nav-plus"
           onClick={()=>{ if(!profile){ setShowJoin(true); return; } setShowSettings(false); setShowExplore(false); setShowCreatePost(true); }}
-          style={{backgroundColor:'transparent',color:theme.pillTextActive,borderColor:'transparent','--nkc-heart':theme.accent,filter:`drop-shadow(0 8px 12px ${theme.accent}55)`} as any}
+          style={{color:navThemeColor}}
         >
-          <svg viewBox="0 0 64 58" aria-hidden="true"><path d="M32 55C27 49 5 36 5 19 5 8 13 2 22 2c5 0 8 2 10 6 2-4 5-6 10-6 9 0 17 6 17 17 0 17-22 30-27 36Z" fill="var(--nkc-heart)" stroke="currentColor" strokeOpacity=".3" strokeWidth="2"/><path d="M32 18v20M22 28h20" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round"/></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/></svg>
         </button>
 
         <button
           type="button"
           aria-label="Settings"
-          className={`nkc-bottom-nav-item ${showSettings?'is-active':''}`}
+          className={`nkc-bottom-nav-orb-item ${showSettings?'is-active':''}`}
           onClick={()=>{setShowJoin(false);setReportingPost(null);setShowExplore(false);setShowSettings(true);}}
           style={showSettings?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{color:navThemeColor}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.7 3.6h4.6l.6 2.1 1.8 1 2.1-.5 2.3 4-1.5 1.6v2.1l1.5 1.6-2.3 4-2.1-.5-1.8 1-.6 2.1H9.7L9.1 20l-1.8-1-2.1.5-2.3-4 1.5-1.6v-2.1L2.9 10l2.3-4 2.1.5 1.8-1z" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinejoin="round"/><circle cx="12" cy="12.8" r="2.7" fill="none" stroke="currentColor" strokeWidth="1.7"/></svg>
-          <span>Settings</span>
+          <span className="sr-only">Settings</span>
         </button>
       </nav>
 
