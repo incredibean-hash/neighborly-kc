@@ -1017,15 +1017,10 @@ export default function Page(){
             <img src={headerImage} alt="Neighborly KC" className="nkc-header-banner" draggable="false" />
           </button>
         </div>
-        <div className="nkc-mobile-account-row" aria-label="Account controls" style={{backgroundColor:theme.header,borderColor:theme.border}}>
+        <div className="nkc-mobile-auth-row" style={{backgroundColor:theme.header,borderColor:theme.border}}>
           {profile
-            ? <button type="button" onClick={signOut} className="nkc-mobile-account-btn">↪ <span>Sign out</span></button>
-            : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-mobile-account-btn">👤 <span>Join free</span></button>}
-          <Link href="/dms" className="nkc-mobile-account-btn">💬 <span>Messages</span></Link>
-          {profile
-            ? <Link href="/profile" className="nkc-mobile-account-btn">🙂 <span>Profile</span></Link>
-            : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-mobile-account-btn">🙂 <span>Profile</span></button>}
-          <button type="button" onClick={()=>setShowSettings(true)} className="nkc-mobile-account-btn">🎨 <span>Themes</span></button>
+            ? <button type="button" onClick={signOut} className="nkc-mobile-auth-button" style={{backgroundColor:theme.pillActive,color:theme.pillTextActive,borderColor:theme.border}}>↪ Sign out</button>
+            : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-mobile-auth-button" style={{backgroundColor:theme.pillActive,color:theme.pillTextActive,borderColor:theme.border}}>👤 Sign in</button>}
         </div>
       </header>
 
@@ -1034,15 +1029,10 @@ export default function Page(){
           <button type="button" className="block nkc-header-banner-link" aria-label="Neighborly KC home" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})}>
             <img src={headerImage} alt="Neighborly KC" className="nkc-header-banner" draggable="false" />
           </button>
-          <div className="nkc-header-controls" aria-label="Account controls">
+          <div className="nkc-header-controls" aria-label="Account control">
             {profile
-              ? <button type="button" onClick={signOut} className="nkc-header-control">↪ Sign out</button>
-              : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-header-control">👤 Join free</button>}
-            <Link href="/dms" className="nkc-header-control">💬 Messages</Link>
-            {profile
-              ? <Link href="/profile" className="nkc-header-control">🙂 Profile</Link>
-              : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-header-control">🙂 Profile</button>}
-            <button type="button" onClick={()=>setShowSettings(true)} className="nkc-header-control">🎨 Themes</button>
+              ? <button type="button" onClick={signOut} className="nkc-header-control" style={{backgroundColor:theme.pillActive,color:theme.pillTextActive,borderColor:theme.border}}>↪ Sign out</button>
+              : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-header-control" style={{backgroundColor:theme.pillActive,color:theme.pillTextActive,borderColor:theme.border}}>👤 Sign in</button>}
           </div>
         </div>
       </header>
@@ -1109,7 +1099,7 @@ export default function Page(){
                 {canManage&&<details className="nkc-admin-menu relative shrink-0">
                   <summary className="nkc-admin-menu-trigger" aria-label="Post moderation menu">•••</summary>
                   <div className="nkc-admin-menu-panel" style={{backgroundColor:theme.card,borderColor:theme.border,color:theme.text}}>
-                    <button type="button" onClick={()=>beginEdit(p)}>✏️ Edit post</button>
+                    <button type="button" onClick={(event)=>{event.currentTarget.closest('details')?.removeAttribute('open');beginEdit(p)}}>✏️ Edit post</button>
                     <button type="button" onClick={()=>deletePost(p.id,p.image_url,p)}>🗑️ Remove post</button>
                     {isAdmin&&<>
                       <button type="button" onClick={()=>viewPostReports(p)}>🚩 View reports</button>
@@ -1161,7 +1151,7 @@ export default function Page(){
       <nav
         className="nkc-mobile-actions nkc-mobile-bottom-nav"
         aria-label="Mobile navigation"
-        style={{backgroundColor:theme.header,color:bottomInactiveColor,borderColor:theme.border}}
+        style={{backgroundColor:theme.header,color:bottomInactiveColor,borderColor:theme.border,'--nkc-bottom-inactive':bottomInactiveColor} as any}
       >
         <button
           type="button"
@@ -1191,7 +1181,7 @@ export default function Page(){
           title="Create post"
           className="nkc-bottom-nav-plus"
           onClick={()=>{ if(!profile){ setShowJoin(true); return; } postComposerRef.current?.scrollIntoView({behavior:'smooth',block:'start'}); window.setTimeout(()=>postComposerRef.current?.focus({preventScroll:true}),350); }}
-          style={{backgroundColor:theme.accent,color:theme.pillTextActive,borderColor:theme.header,boxShadow:`0 8px 20px ${theme.accent}55`}}
+          style={{backgroundColor:theme.accent,color:theme.pillTextActive,borderColor:theme.border,boxShadow:`0 8px 20px ${theme.accent}55`}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/></svg>
         </button>
@@ -1214,7 +1204,7 @@ export default function Page(){
           onClick={()=>{setShowJoin(false);setReportingPost(null);setShowExplore(false);setShowSettings(true);}}
           style={showSettings?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{color:bottomInactiveColor}}
         >
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="m15.8 8.2-2 5.6-5.6 2 2-5.6z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.7 3.6h4.6l.6 2.1 1.8 1 2.1-.5 2.3 4-1.5 1.6v2.1l1.5 1.6-2.3 4-2.1-.5-1.8 1-.6 2.1H9.7L9.1 20l-1.8-1-2.1.5-2.3-4 1.5-1.6v-2.1L2.9 10l2.3-4 2.1.5 1.8-1z" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinejoin="round"/><circle cx="12" cy="12.8" r="2.7" fill="none" stroke="currentColor" strokeWidth="1.7"/></svg>
           <span>Settings</span>
         </button>
       </nav>
@@ -1286,6 +1276,8 @@ export default function Page(){
             </div>}
             
             {profile&&<Link href="/profile" onClick={()=>setShowSettings(false)} className="mt-3 sm:mt-4 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center text-sm sm:text-base">👤 My Profile</Link>}
+
+            {profile&&<Link href="/dms" onClick={()=>setShowSettings(false)} className="mt-2 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center text-sm sm:text-base">💬 Messages</Link>}
             
             <button onClick={()=>{if(!profile){setShowJoin(true);return;}setShowFeedback(true)}} className="mt-2 w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-sm sm:text-base">💬 Leave Feedback</button>
             

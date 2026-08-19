@@ -131,10 +131,13 @@ body{overflow-y:visible;touch-action:pan-y pinch-zoom}
 .nkc-header-control{display:inline-flex;align-items:center;justify-content:center;padding:7px 12px;border-radius:999px;color:#fff;background:rgba(7,25,51,.58);border:1px solid rgba(255,255,255,.42);box-shadow:0 4px 14px rgba(0,0,0,.18);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);text-decoration:none;font-size:13px;font-weight:900;white-space:nowrap}
 .nkc-header-control:hover{background:rgba(7,25,51,.78);color:#fff}
 .nkc-main-header .nkc-desktop-nav{border-top:1px solid rgba(255,255,255,.10)}
+.nkc-mobile-auth-row{display:none}
 @media (max-width:639px){
   .nkc-header-banner{height:auto;aspect-ratio:1920/368;object-position:center}
   .nkc-header-controls{top:6px;right:8px}
   .nkc-header-control{box-shadow:0 3px 10px rgba(0,0,0,.16)}
+  .nkc-mobile-auth-row{display:flex;align-items:center;justify-content:center;padding:5px 10px;border-top:1px solid;border-bottom:1px solid}
+  .nkc-mobile-auth-button{display:flex;align-items:center;justify-content:center;width:min(220px,70vw);min-height:34px;padding:6px 18px;border:1px solid;border-radius:999px;font-size:12px;font-weight:950;line-height:1;box-shadow:0 3px 10px rgba(0,0,0,.14)}
 }
 
 
@@ -463,7 +466,7 @@ body{overflow-y:visible;touch-action:pan-y pinch-zoom}
   .nkc-auth-overlay{z-index:1200!important}
   .nkc-message-panel{height:calc(100dvh - 190px);min-height:420px!important;max-height:720px}
   .nkc-mobile-bottom-nav{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
-  .nkc-admin-menu-panel{right:0;width:min(230px,calc(100vw - 48px));max-height:70dvh;overflow-y:auto;padding:8px}
+  .nkc-admin-menu-panel{right:0;width:230px!important;max-width:none!important;min-width:230px;max-height:70dvh;overflow-y:auto;padding:8px}
   .nkc-admin-menu-panel button,.nkc-admin-menu-panel a{min-height:42px;padding:11px 12px;font-size:13px;white-space:normal}
   html,body,.nkc-app-shell{overflow-x:clip!important;overscroll-behavior-x:none!important}
   .nkc-surface,.nkc-surface:hover{transform:none!important;box-shadow:none;transition:none!important}
