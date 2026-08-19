@@ -8,6 +8,14 @@ import { THEMES, DEFAULT_THEME_ID } from '../lib/themes';
 const CATS = ['All','General','For Sale & Free','Safety Alert','Recommendation','Event','Lost & Found'];
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '493019301743-e2djce6rmlpntl05terd0uopslij1gtu.apps.googleusercontent.com';
 
+const colorLuminance=(hex:string)=>{
+  const value=(hex||'#000000').replace('#','').slice(0,6).padEnd(6,'0');
+  const channels=[0,2,4].map(i=>parseInt(value.slice(i,i+2),16)/255).map(v=>v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4));
+  return .2126*channels[0]+.7152*channels[1]+.0722*channels[2];
+};
+const contrastRatio=(a:string,b:string)=>{const x=colorLuminance(a),y=colorLuminance(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05)};
+const themedNavColor=(theme:any)=>[theme.accent,theme.text,theme.pillTextActive,'#ffffff','#000000'].filter(Boolean).sort((a,b)=>contrastRatio(theme.header,b)-contrastRatio(theme.header,a))[0];
+
 // A PKCE authorization code may only be redeemed once. React Strict Mode mounts
 // effects twice in development, and a fast double render can do the same in
 // production, so the exchange is guarded at module scope rather than per mount.
@@ -159,7 +167,8 @@ export default function Page(){
   const theme = THEMES[themeId] || THEMES['royals'];
   const headerImage = theme.headerImage || '/neighborly-kc-header-banner.png';
   const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brooks Heights', zip:'64155', id: '5fb249cb-1667-475b-ab8c-43e1df245ace', slug:'meadow-brooks-heights'};
-  const bottomInactiveColor = theme.id==='aim' ? '#111111' : theme.id==='pip-boy' ? theme.text : '#ffffff';
+  const navThemeColor = themedNavColor(theme);
+  const bottomInactiveColor = navThemeColor;
 
   // Apply the saved theme before the browser paints the app. Using a normal
   // effect here lets the default theme flash first, which makes the whole
@@ -1020,7 +1029,7 @@ export default function Page(){
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden nkc-app-shell" style={{backgroundColor: theme.bg, color: theme.text, colorScheme: theme.id==='aim' ? 'light' : 'dark'}}>
-      <header className="nkc-mobile-top-header sm:hidden sticky top-0 z-40 border-b" style={{backgroundColor:theme.header,color:theme.text,borderColor:theme.border}}>
+      <header className="nkc-mobile-top-header sm:hidden sticky top-0 z-40 border-b" style={{backgroundColor:theme.header,color:navThemeColor,borderColor:theme.border,'--nkc-nav-accent':navThemeColor,'--nkc-nav-border':theme.border} as any}>
         <div className="nkc-mobile-top-row">
           <button type="button" className="nkc-mobile-brand" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})} aria-label="NeighborlyKC home">
             <img src="/icon-192.png" alt="" />
