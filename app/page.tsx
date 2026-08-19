@@ -1162,27 +1162,15 @@ export default function Page(){
         aria-label="Mobile navigation"
         style={{backgroundColor:theme.header,color:bottomInactiveColor,borderColor:theme.border,'--nkc-bottom-inactive':bottomInactiveColor} as any}
       >
-        <button
-          type="button"
-          aria-label="Feed"
-          className={`nkc-bottom-nav-item ${cat==='All'?'is-active':''}`}
-          onClick={()=>{setCat('All');setPostCategory('General');setShowExplore(false);window.scrollTo({top:0,behavior:'smooth'});}}
-          style={cat==='All'?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{color:bottomInactiveColor}}
+        <Link
+          href="/dms"
+          aria-label="Messages"
+          className="nkc-bottom-nav-item"
+          style={{color:bottomInactiveColor}}
         >
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>
-          <span>Feed</span>
-        </button>
-
-        <button
-          type="button"
-          aria-label="Safety"
-          className={`nkc-bottom-nav-item ${cat==='Safety Alert'?'is-active':''}`}
-          onClick={()=>chooseCategory('Safety Alert')}
-          style={cat==='Safety Alert'?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{color:bottomInactiveColor}}
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 6v5c0 5.2-3.4 8.5-8 10-4.6-1.5-8-4.8-8-10V6z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="m9 12 2 2 4-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          <span>Safety</span>
-        </button>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h16v11H9l-5 3v-14Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M8 9h8M8 12.5h5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/></svg>
+          <span>Messages</span>
+        </Link>
 
         <button
           type="button"
@@ -1193,17 +1181,6 @@ export default function Page(){
           style={{backgroundColor:theme.accent,color:theme.pillTextActive,borderColor:theme.border,boxShadow:`0 8px 20px ${theme.accent}55`}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/></svg>
-        </button>
-
-        <button
-          type="button"
-          aria-label="For Sale"
-          className={`nkc-bottom-nav-item ${cat==='For Sale & Free'?'is-active':''}`}
-          onClick={()=>chooseCategory('For Sale & Free')}
-          style={cat==='For Sale & Free'?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{color:bottomInactiveColor}}
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5 12 4l8 4.5v8L12 21l-8-4.5z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M9 11h6M9 14h4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
-          <span>For Sale</span>
         </button>
 
         <button
@@ -1327,7 +1304,9 @@ export default function Page(){
               </div>
             </div>}
             
-            {profile&&<Link href="/profile" onClick={()=>setShowSettings(false)} className="mt-3 sm:mt-4 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center text-sm sm:text-base">👤 My Profile</Link>}
+            {profile
+              ? <Link href="/profile" onClick={()=>setShowSettings(false)} className="mt-3 sm:mt-4 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center text-sm sm:text-base">👤 My Profile</Link>
+              : <button type="button" onClick={()=>{setShowSettings(false);setShowJoin(true)}} className="mt-3 sm:mt-4 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center text-sm sm:text-base">👤 Profile · Sign in</button>}
 
             {profile&&<Link href="/dms" onClick={()=>setShowSettings(false)} className="mt-2 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center text-sm sm:text-base">💬 Messages</Link>}
             
