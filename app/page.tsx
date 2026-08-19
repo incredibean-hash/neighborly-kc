@@ -18,6 +18,29 @@ const themedNavColor=(theme:any)=>contrastRatio(theme.header,theme.accent)>=2.2
   ? theme.accent
   : [theme.text,theme.pillTextActive,'#ffffff','#000000'].filter(Boolean).sort((a,b)=>contrastRatio(theme.header,b)-contrastRatio(theme.header,a))[0];
 
+// Header-only colors sampled from the matching heart artwork. These do not
+// affect the bottom navigation, cards, composer, or the rest of each theme.
+const heartHeaderPalette=(theme:any)=>({
+  royals:{surface:'#061b4f',primary:'#f3c457',secondary:'#f7fbff'},
+  chiefs:{surface:'#260202',primary:'#ff9d42',secondary:'#fff4e6'},
+  sporting:{surface:'#061b3d',primary:'#5daeff',secondary:'#f0f7ff'},
+  'kc-current':{surface:'#00333d',primary:'#54eff5',secondary:'#efffff'},
+  'kc-sunset':{surface:'#00333d',primary:'#54eff5',secondary:'#efffff'},
+  space:{surface:'#160629',primary:'#c978ff',secondary:'#f7eaff'},
+  aim:{surface:'#261704',primary:'#ffc75b',secondary:'#fff7df'},
+  'pip-boy':{surface:'#001306',primary:'#68ff9a',secondary:'#d9ffe5'},
+  kcpd:{surface:'#061a42',primary:'#78baff',secondary:'#f3f8ff'},
+  kcfd:{surface:'#270202',primary:'#ff6945',secondary:'#fff0e9'},
+  army:{surface:'#121808',primary:'#d1b657',secondary:'#f5f0dc'},
+  navy:{surface:'#06142b',primary:'#f2c967',secondary:'#f5f9ff'},
+  marines:{surface:'#280302',primary:'#f1a642',secondary:'#fff2df'},
+  'air-force':{surface:'#061a3b',primary:'#83cfff',secondary:'#f1f8ff'},
+  cowtown:{surface:'#251006',primary:'#e89442',secondary:'#fff0dc'},
+  'kc-bbq':{surface:'#260a03',primary:'#ff7540',secondary:'#fff0e8'},
+  'city-fountains':{surface:'#002d38',primary:'#5af5f1',secondary:'#edffff'},
+  'kc-heartland':{surface:'#221806',primary:'#efbf57',secondary:'#fff7df'}
+} as Record<string,{surface:string;primary:string;secondary:string}>)[theme.id] || {surface:theme.header,primary:themedNavColor(theme),secondary:theme.text};
+
 // A PKCE authorization code may only be redeemed once. React Strict Mode mounts
 // effects twice in development, and a fast double render can do the same in
 // production, so the exchange is guarded at module scope rather than per mount.
@@ -170,6 +193,7 @@ export default function Page(){
   const headerImage = theme.headerImage || '/neighborly-kc-header-banner.png';
   const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brooks Heights', zip:'64155', id: '5fb249cb-1667-475b-ab8c-43e1df245ace', slug:'meadow-brooks-heights'};
   const navThemeColor = themedNavColor(theme);
+  const heartHeader = heartHeaderPalette(theme);
 
   // Apply the saved theme before the browser paints the app. Using a normal
   // effect here lets the default theme flash first, which makes the whole
@@ -226,7 +250,6 @@ export default function Page(){
       setShowCreatePost(true);
     }
     if(params.get('settings')==='1'){
-      window.history.replaceState({},'',window.location.pathname);
       setShowExplore(false);
       setShowSettings(true);
     }
@@ -1031,11 +1054,11 @@ export default function Page(){
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden nkc-app-shell" style={{backgroundColor: theme.bg, color: theme.text, colorScheme: theme.id==='aim' ? 'light' : 'dark'}}>
-      <header className="nkc-mobile-top-header sm:hidden z-40 border-b" style={{backgroundColor:theme.header,color:navThemeColor,borderColor:theme.border,'--nkc-nav-accent':navThemeColor,'--nkc-nav-border':theme.border} as any}>
+      <header className="nkc-mobile-top-header sm:hidden z-40 border-b" style={{backgroundColor:heartHeader.surface,color:heartHeader.primary,borderColor:heartHeader.primary,'--nkc-nav-accent':heartHeader.primary,'--nkc-nav-border':heartHeader.primary} as any}>
         <div className="nkc-mobile-top-row">
           <button type="button" className="nkc-mobile-brand" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})} aria-label="NeighborlyKC home">
             <span className="nkc-mobile-theme-mark"><img src={theme.themeButtonImage || '/icon-192.png'} alt="" /></span>
-            <span className="nkc-mobile-wordmark"><span>Neighborly</span><b style={{color:theme.accent}}>KC</b></span>
+            <span className="nkc-mobile-wordmark"><span style={{color:heartHeader.secondary}}>Neighborly</span><b style={{color:heartHeader.primary}}>KC</b></span>
           </button>
           <div className="nkc-mobile-top-icons">
             <Link href="/people" className="nkc-mobile-icon" aria-label="Search people"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.6" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="m16 16 4.2 4.2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg></Link>
