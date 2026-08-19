@@ -116,8 +116,6 @@ export default function Page(){
   const [showSettings,setShowSettings]=useState(false);
   const [showCreatePost,setShowCreatePost]=useState(false);
   const [showFeedback,setShowFeedback]=useState(false);
-  const [showFeedSearch,setShowFeedSearch]=useState(false);
-  const [feedQuery,setFeedQuery]=useState('');
   const [feedbackText,setFeedbackText]=useState('');
   const [feedbackSending,setFeedbackSending]=useState(false);
   const [feedbackSent,setFeedbackSent]=useState(false);
@@ -159,7 +157,7 @@ export default function Page(){
   const [reportSending,setReportSending]=useState(false);
 
   const theme = THEMES[themeId] || THEMES['royals'];
-  const headerHeartImage = theme.headerImage as string | undefined;
+  const headerImage = theme.headerImage || '/neighborly-kc-header-banner.png';
   const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brooks Heights', zip:'64155', id: '5fb249cb-1667-475b-ab8c-43e1df245ace', slug:'meadow-brooks-heights'};
   const bottomInactiveColor = theme.id==='aim' ? '#111111' : theme.id==='pip-boy' ? theme.text : '#ffffff';
 
@@ -220,9 +218,6 @@ export default function Page(){
     if(params.get('settings')==='1'){
       setShowExplore(false);
       setShowSettings(true);
-      params.delete('settings');
-      const cleanQuery=params.toString();
-      window.history.replaceState({},'',`${window.location.pathname}${cleanQuery?`?${cleanQuery}`:''}${window.location.hash||''}`);
     }
   },[]);
 
@@ -684,13 +679,9 @@ export default function Page(){
   }, [scope, posts, hoods, cur?.id, blockedUsers]);
 
   const filtered = useMemo(() => {
-    const categoryMatches = cat==='All'? scopedPosts : scopedPosts.filter((p:any)=>p.category===cat);
-    const query=feedQuery.trim().toLowerCase();
-    const matches = query
-      ? categoryMatches.filter((p:any)=>[p.body,p.content,p.author_name,p.profiles?.full_name,p.category].some(value=>String(value||'').toLowerCase().includes(query)))
-      : categoryMatches;
+    const matches = cat==='All'? scopedPosts : scopedPosts.filter((p:any)=>p.category===cat);
     return [...matches].sort((a:any,b:any)=>Number(Boolean(b.is_pinned))-Number(Boolean(a.is_pinned)) || new Date(b.created_at).getTime()-new Date(a.created_at).getTime());
-  }, [cat, scopedPosts, feedQuery]);
+  }, [cat, scopedPosts]);
 
   const neighborhoodName = useCallback((id:any) => hoods.find((h:any)=>String(h.id)===String(id))?.name || cur?.name || 'Kansas City', [hoods, cur?.name]);
   const composerPrompt = !profile
@@ -1028,36 +1019,46 @@ export default function Page(){
   }
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden nkc-app-shell" data-theme={theme.id} style={{backgroundColor: theme.bg, color: theme.text, colorScheme: theme.id==='aim' ? 'light' : 'dark'}}>
-      <header className="nkc-compact-feed-header" style={{backgroundColor:theme.header,color:theme.id==='aim'?'#111':'#fff',borderColor:theme.border,'--nkc-header-accent':theme.accent} as any}>
-        <div className="nkc-compact-header-row">
-          <button type="button" className="nkc-compact-brand" aria-label="NeighborlyKC home" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})}>
-            <span className="nkc-compact-heart" style={{color:theme.accent,backgroundColor:theme.header,borderColor:theme.accent,boxShadow:`0 5px 0 ${theme.border}, 0 8px 18px ${theme.accent}66`}} aria-hidden="true">
-              {headerHeartImage
-                ? <img src={headerHeartImage} alt="" className="nkc-old-header-heart" draggable="false" />
-                : <svg viewBox="0 0 48 48"><path className="nkc-heart-outline" d="M24 41S7 31.7 7 18.5C7 11.9 11.4 8 16.8 8c3.4 0 5.9 1.7 7.2 4.1C25.3 9.7 27.8 8 31.2 8 36.6 8 41 11.9 41 18.5 41 31.7 24 41 24 41Z"/><path className="nkc-heart-house" d="m16.5 23.5 7.5-6 7.5 6v8.2h-5.1v-5.4h-4.8v5.4h-5.1Z"/></svg>}
-            </span>
-            <span>NeighborlyKC</span>
+    <div className="min-h-screen w-full overflow-x-hidden nkc-app-shell" style={{backgroundColor: theme.bg, color: theme.text, colorScheme: theme.id==='aim' ? 'light' : 'dark'}}>
+      <header className="relative z-40 overflow-hidden border-b nkc-main-header sm:hidden" style={{backgroundColor: theme.header, borderColor: theme.border}}>
+        <div className="nkc-header-banner-wrap">
+          <button type="button" className="block nkc-header-banner-link" aria-label="Neighborly KC home" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})}>
+            <img src={headerImage} alt="Neighborly KC" className="nkc-header-banner" draggable="false" />
           </button>
-          <div className="nkc-compact-actions">
-            <button type="button" onClick={()=>setShowFeedSearch(value=>!value)} className="nkc-compact-action" aria-label="Search posts" title="Search posts"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m15.5 15.5 4.2 4.2"/></svg></button>
-            <Link href="/notifications" className="nkc-compact-action" aria-label="Notifications" title="Notifications"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.8 10.2a5.2 5.2 0 0 1 10.4 0v3.5l1.6 2.2H5.2l1.6-2.2z"/><path d="M10 19h4"/></svg></Link>
-          </div>
         </div>
-        <button type="button" className="nkc-header-quick-post" onClick={()=>{if(!profile){setShowJoin(true);return}setShowCreatePost(true)}} style={{backgroundColor:theme.card,color:theme.text,borderColor:theme.border}}>
-          <span className="nkc-quick-post-avatar" style={{backgroundColor:theme.input,borderColor:theme.border}}>{profile?.avatar_url?<img src={profile.avatar_url} alt=""/>:(profile?.full_name||'N').slice(0,1).toUpperCase()}</span>
-          <span>{profile?'What’s happening in KC?':'Join NeighborlyKC to post…'}</span>
-          <b style={{color:theme.accent}}>＋</b>
-        </button>
+        <div className="nkc-mobile-auth-row" style={{backgroundColor:theme.header,borderColor:theme.border}}>
+          {profile
+            ? <button type="button" onClick={signOut} className="nkc-mobile-auth-button" style={{backgroundColor:theme.pillActive,color:theme.pillTextActive,borderColor:theme.border}}>↪ Sign out</button>
+            : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-mobile-auth-button" style={{backgroundColor:theme.pillActive,color:theme.pillTextActive,borderColor:theme.border}}>👤 Sign in</button>}
+        </div>
       </header>
 
-      {showFeedSearch&&<section className="nkc-feed-search-wrap" style={{backgroundColor:theme.header,borderColor:theme.border}}>
-        <div className="nkc-feed-search" style={{backgroundColor:theme.input,borderColor:theme.border}}>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m15.5 15.5 4.2 4.2"/></svg>
-          <input autoFocus value={feedQuery} onChange={event=>setFeedQuery(event.target.value)} placeholder="Search the NeighborlyKC feed…" style={{color:theme.text,caretColor:theme.accent}} />
-          {(feedQuery||showFeedSearch)&&<button type="button" onClick={()=>{setFeedQuery('');setShowFeedSearch(false)}} aria-label="Close search">✕</button>}
+      <header className="hidden sm:block relative z-40 overflow-hidden border-b nkc-main-header" style={{backgroundColor: theme.header, borderColor: 'rgba(255,255,255,.12)'}}>
+        <div className="nkc-header-banner-wrap">
+          <button type="button" className="block nkc-header-banner-link" aria-label="Neighborly KC home" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})}>
+            <img src={headerImage} alt="Neighborly KC" className="nkc-header-banner" draggable="false" />
+          </button>
+          <div className="nkc-header-controls" aria-label="Account control">
+            {profile
+              ? <button type="button" onClick={signOut} className="nkc-header-control" style={{backgroundColor:theme.pillActive,color:theme.pillTextActive,borderColor:theme.border}}>↪ Sign out</button>
+              : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-header-control" style={{backgroundColor:theme.pillActive,color:theme.pillTextActive,borderColor:theme.border}}>👤 Sign in</button>}
+          </div>
         </div>
-      </section>}
+      </header>
+
+      <section className="nkc-forecast-banner" aria-label="7 day Kansas City forecast" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>
+        <div className="nkc-forecast-inner">
+          <div className="nkc-forecast-title">
+            <span>🌤️ <b>KC 7-DAY FORECAST</b></span>
+            {weather && <span className="nkc-forecast-now">Now {Math.round(weather.temp)}° · feels {Math.round(weather.feels)}°</span>}
+          </div>
+          <div className="nkc-forecast-days">
+            {forecast.length ? forecast.map((f,i)=><div key={f.date} className="nkc-forecast-day" style={{backgroundColor:theme.card,borderColor:theme.border}}>
+              <b>{forecastDay(f.date,i)}</b><span className="nkc-forecast-icon">{weatherEmoji(f.code)}</span><strong>{Math.round(f.high)}°</strong><span className="nkc-forecast-low">{Math.round(f.low)}°</span>
+            </div>) : <div className="nkc-forecast-loading">Loading Kansas City forecast…</div>}
+          </div>
+        </div>
+      </section>
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-8 grid grid-cols-1 lg:grid-cols-[220px_1fr_300px] gap-4 sm:gap-6 nkc-page-content">
         <aside className="rounded-2xl p-3 h-fit border hidden lg:block" style={{backgroundColor: theme.card, borderColor: theme.border}}>
@@ -1076,6 +1077,26 @@ export default function Page(){
             <button type="button" onClick={()=>setShowJoin(true)} className="nkc-welcome-cta mt-5 w-full sm:w-auto rounded-full px-6 py-3 font-black text-sm" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>Join NeighborlyKC — Free</button>
             <p className="mt-3 text-[11px] font-semibold opacity-60">Your exact address is never displayed publicly.</p>
           </section>}
+          <div id="composer" className="rounded-2xl p-4 border nkc-surface nkc-fade-in" style={{backgroundColor: theme.card, borderColor: theme.border}}>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+              <div><p className="text-xs font-black uppercase tracking-wider opacity-50">Neighborly KC Network</p><h2 className="text-xl font-black">{scope==='local'?cur?.name:'All Kansas City'}</h2><p className="text-xs opacity-55">{scope==='local'?'Your neighborhood and nearby local conversation':'Everyone inside the 40-mile Neighborly KC network'}</p></div>
+              <div className="nkc-scope-switch flex rounded-full p-0.5 gap-0.5" style={{backgroundColor:theme.input,border:`1px solid ${theme.border}`}}>
+                <button onClick={()=>setScope('local')} className="px-3 py-1.5 rounded-full text-xs font-black transition-colors" style={{backgroundColor:scope==='local'?theme.pillActive:'transparent',color:scope==='local'?theme.pillTextActive:theme.text}}>📍 My Area</button>
+                <button onClick={()=>setScope('kc')} className="px-3 py-1.5 rounded-full text-xs font-black transition-colors" style={{backgroundColor:scope==='kc'?theme.pillActive:'transparent',color:scope==='kc'?theme.pillTextActive:theme.text}}>🏙️ All KC</button>
+              </div>
+            </div>
+            <div className="mb-2 rounded-xl px-3 py-2 text-xs font-bold border" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>📍 Posting to: <span style={{color:theme.accent}}>{scope==='kc'?'All Kansas City':cur?.name || 'your neighborhood'}</span></div>
+            <textarea ref={postComposerRef} value={body} onChange={e=>setBody(e.target.value)} onFocus={()=>window.setTimeout(()=>postComposerRef.current?.scrollIntoView({behavior:'smooth',block:'center'}),120)} autoComplete="off" autoCorrect="on" autoCapitalize="sentences" spellCheck={true} inputMode="text" name="neighborly-community-post" data-lpignore="true" data-form-type="other" placeholder={composerPrompt} className="nkc-post-composer w-full rounded-xl p-3 min-h-[96px] text-base outline-none" data-theme={theme.id} style={{backgroundColor: theme.input, color: theme.text, border: `1px solid ${theme.border}`, '--nkc-composer-bg':theme.input, '--nkc-placeholder-color':theme.text, scrollMarginBottom:'180px', caretColor: theme.accent, boxShadow: theme.id==='pip-boy' ? `inset 0 0 14px ${theme.accent}22, 0 0 8px ${theme.accent}22` : theme.id==='space' ? `inset 0 0 14px ${theme.accent}16` : undefined } as any} />
+            <div className="flex items-center gap-2 mt-3 min-w-0">
+              <label htmlFor="file-input" className="shrink-0 cursor-pointer rounded-full border px-3 py-1.5 text-xs font-bold transition-colors hover:opacity-80" style={{borderColor:theme.border}}>Choose image</label>
+              <input key={fileInputKey} ref={fileInputRef} id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="sr-only" />
+              {file && <div className="min-w-0 flex items-center gap-2 text-xs opacity-70"><span className="truncate max-w-[180px]" title={file.name}>{file.name}</span><button type="button" onClick={()=>{setFile(null); if(fileInputRef.current) fileInputRef.current.value=''; setFileInputKey(k=>k+1);}} className="shrink-0 font-black" aria-label="Remove selected image">✕</button></div>}
+            </div>
+            <div className="flex justify-end mt-2">
+              <button disabled={uploading} onClick={handleBePost} className="px-5 py-2 rounded-full text-sm font-bold disabled:opacity-50 transition-opacity" style={{backgroundColor: theme.accent, color: theme.pillTextActive}}>{uploading?'Uploading...':scope==='kc'?'Post to KC':'Post to neighbors'}</button>
+            </div>
+          </div>
+
           {filtered.map((p:any)=>{
             const cList=comments[p.id]||[]; const isOpen=openComments[p.id]; const pLikes=likes[p.id]||[]; const liked=pLikes.some((l:any)=>l.author_id===profile?.user_id || l.author_name===profile?.full_name);
             const isOwner=Boolean(profile && ((p.user_id && p.user_id===profile.user_id) || (!p.user_id && p.author_name===profile.full_name))); const canManage=isOwner||isAdmin; const isEditing=editingPostId===p.id;
@@ -1138,19 +1159,17 @@ export default function Page(){
 
       <nav
         className="nkc-mobile-actions nkc-mobile-bottom-nav"
-        data-theme={theme.id}
         aria-label="Mobile navigation"
         style={{backgroundColor:theme.header,color:bottomInactiveColor,borderColor:theme.border,'--nkc-bottom-inactive':bottomInactiveColor} as any}
       >
         <Link
           href="/dms"
           aria-label="Messages"
-          title="Messages"
-          className="nkc-bottom-nav-orb-item"
-          style={{backgroundColor:theme.accent,color:theme.pillTextActive,borderColor:theme.border,boxShadow:`0 8px 20px ${theme.accent}55`}}
+          className="nkc-bottom-nav-item"
+          style={{color:bottomInactiveColor}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h16v11H9l-5 3v-14Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M8 9h8M8 12.5h5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/></svg>
-          <span className="sr-only">Messages</span>
+          <span>Messages</span>
         </Link>
 
         <button
@@ -1159,21 +1178,20 @@ export default function Page(){
           title="Create post"
           className="nkc-bottom-nav-plus"
           onClick={()=>{ if(!profile){ setShowJoin(true); return; } setShowSettings(false); setShowExplore(false); setShowCreatePost(true); }}
-          style={{backgroundColor:theme.accent,color:theme.pillTextActive,borderColor:theme.border,boxShadow:`0 8px 20px ${theme.accent}55`}}
+          style={{backgroundColor:'transparent',color:theme.pillTextActive,borderColor:'transparent','--nkc-heart':theme.accent,filter:`drop-shadow(0 8px 12px ${theme.accent}55)`} as any}
         >
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/></svg>
+          <svg viewBox="0 0 64 58" aria-hidden="true"><path d="M32 55C27 49 5 36 5 19 5 8 13 2 22 2c5 0 8 2 10 6 2-4 5-6 10-6 9 0 17 6 17 17 0 17-22 30-27 36Z" fill="var(--nkc-heart)" stroke="currentColor" strokeOpacity=".3" strokeWidth="2"/><path d="M32 18v20M22 28h20" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round"/></svg>
         </button>
 
         <button
           type="button"
           aria-label="Settings"
-          title="Settings"
-          className={`nkc-bottom-nav-orb-item ${showSettings?'is-active':''}`}
+          className={`nkc-bottom-nav-item ${showSettings?'is-active':''}`}
           onClick={()=>{setShowJoin(false);setReportingPost(null);setShowExplore(false);setShowSettings(true);}}
-          style={{backgroundColor:theme.accent,color:theme.pillTextActive,borderColor:theme.border,boxShadow:`0 8px 20px ${theme.accent}55`}}
+          style={showSettings?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{color:bottomInactiveColor}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.7 3.6h4.6l.6 2.1 1.8 1 2.1-.5 2.3 4-1.5 1.6v2.1l1.5 1.6-2.3 4-2.1-.5-1.8 1-.6 2.1H9.7L9.1 20l-1.8-1-2.1.5-2.3-4 1.5-1.6v-2.1L2.9 10l2.3-4 2.1.5 1.8-1z" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinejoin="round"/><circle cx="12" cy="12.8" r="2.7" fill="none" stroke="currentColor" strokeWidth="1.7"/></svg>
-          <span className="sr-only">Settings</span>
+          <span>Settings</span>
         </button>
       </nav>
 
@@ -1222,13 +1240,12 @@ export default function Page(){
 
       {showSettings && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[1050] flex items-center justify-center p-2 sm:p-4 nkc-pop-in">
-          <div className="rounded-[24px] w-full max-w-sm p-3 sm:p-5 border max-h-[90vh] overflow-y-auto nkc-settings-modal" style={{backgroundColor:theme.card,borderColor:theme.border,color:theme.text,boxShadow:`0 22px 60px ${theme.header}99`}}>
+          <div className="rounded-[24px] w-full max-w-sm p-3 sm:p-5 border max-h-[90vh] overflow-y-auto nkc-settings-modal" style={{backgroundColor: '#15181f', borderColor: '#262a33'}}>
             <div className="flex justify-between items-center mb-3 sm:mb-4">
-              <h2 className="font-black text-lg sm:text-xl">Settings</h2>
+              <h2 className="font-black text-white text-lg sm:text-xl">Settings</h2>
               <button 
                 onClick={()=>{setShowSettings(false);setShowExplore(false)}} 
-                className="w-8 h-8 rounded-full flex items-center justify-center text-sm transition-opacity hover:opacity-75 border"
-                style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}
+                className="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center text-sm hover:bg-white/20 transition-colors"
               >
                 ✕
               </button>
@@ -1237,11 +1254,10 @@ export default function Page(){
             <button 
               type="button" 
               onClick={()=>setShowThemePicker(v=>!v)} 
-              className="w-full flex items-center justify-between py-3 px-4 rounded-2xl border font-bold text-sm sm:text-base"
-              style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}
+              className="w-full flex items-center justify-between py-3 px-4 rounded-2xl border border-white/15 bg-white/10 text-white font-bold text-sm sm:text-base"
             >
               <span>🎨 Themes</span>
-              <span className="opacity-60">{showThemePicker?'▲':'▼'}</span>
+              <span className="text-white/60">{showThemePicker?'▲':'▼'}</span>
             </button>
 
             {showExplore&&<div className="nkc-explore-links mt-3 grid grid-cols-2 gap-2">
@@ -1252,7 +1268,7 @@ export default function Page(){
             </div>}
             
             {showThemePicker && <div className="mt-3">
-              <p className="text-[8px] sm:text-[10px] font-black tracking-widest uppercase opacity-50 mb-2 text-center sm:text-left">
+              <p className="text-[8px] sm:text-[10px] font-black tracking-widest uppercase text-white/40 mb-2 text-center sm:text-left">
                 Choose your Neighborly KC look · tap a theme to apply & close
               </p>
               <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
@@ -1289,16 +1305,16 @@ export default function Page(){
             </div>}
             
             {profile
-              ? <Link href="/profile" onClick={()=>setShowSettings(false)} className="mt-3 sm:mt-4 block w-full py-3 rounded-full border font-bold text-center text-sm sm:text-base" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>👤 My Profile</Link>
-              : <button type="button" onClick={()=>{setShowSettings(false);setShowJoin(true)}} className="mt-3 sm:mt-4 block w-full py-3 rounded-full border font-bold text-center text-sm sm:text-base" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>👤 Profile · Sign in</button>}
+              ? <Link href="/profile" onClick={()=>setShowSettings(false)} className="mt-3 sm:mt-4 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center text-sm sm:text-base">👤 My Profile</Link>
+              : <button type="button" onClick={()=>{setShowSettings(false);setShowJoin(true)}} className="mt-3 sm:mt-4 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center text-sm sm:text-base">👤 Profile · Sign in</button>}
 
-            {profile&&<Link href="/dms" onClick={()=>setShowSettings(false)} className="mt-2 block w-full py-3 rounded-full border font-bold text-center text-sm sm:text-base" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>💬 Messages</Link>}
+            {profile&&<Link href="/dms" onClick={()=>setShowSettings(false)} className="mt-2 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center text-sm sm:text-base">💬 Messages</Link>}
             
-            <button onClick={()=>{if(!profile){setShowJoin(true);return;}setShowFeedback(true)}} className="mt-2 w-full py-3 rounded-full border font-bold text-sm sm:text-base" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>💬 Leave Feedback</button>
+            <button onClick={()=>{if(!profile){setShowJoin(true);return;}setShowFeedback(true)}} className="mt-2 w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-sm sm:text-base">💬 Leave Feedback</button>
             
             {profile&&<button onClick={signOut} className="mt-2 w-full py-3 rounded-full border border-red-300/20 bg-red-500/10 text-red-200 font-bold text-sm sm:text-base">🚪 Sign out</button>}
             
-            <button onClick={()=>{setShowSettings(false);setShowExplore(false)}} className="mt-2 w-full py-3 rounded-full font-bold text-sm sm:text-base" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>Done</button>
+            <button onClick={()=>{setShowSettings(false);setShowExplore(false)}} className="mt-2 w-full py-3 rounded-full bg-white text-black font-bold text-sm sm:text-base">Done</button>
           </div>
         </div>
       )}
