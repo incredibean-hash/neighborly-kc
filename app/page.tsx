@@ -253,6 +253,18 @@ export default function Page(){
       setShowExplore(false);
       setShowSettings(true);
     }
+
+    // These URL flags are one-time navigation instructions. Remove them as
+    // soon as they have been consumed so browser refresh always returns to the
+    // main feed instead of reopening Create Post or Settings.
+    const hadTransientRoute=params.has('compose')||params.has('settings')||params.has('category')||window.location.hash==='#composer';
+    if(hadTransientRoute){
+      params.delete('compose');
+      params.delete('settings');
+      params.delete('category');
+      const remaining=params.toString();
+      window.history.replaceState({},'',`${window.location.pathname}${remaining?`?${remaining}`:''}`);
+    }
   },[]);
 
   useEffect(()=>{
