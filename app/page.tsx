@@ -1020,17 +1020,28 @@ export default function Page(){
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden nkc-app-shell" style={{backgroundColor: theme.bg, color: theme.text, colorScheme: theme.id==='aim' ? 'light' : 'dark'}}>
-      <header className="relative z-40 overflow-hidden border-b nkc-main-header sm:hidden" style={{backgroundColor: theme.header, borderColor: theme.border}}>
-        <div className="nkc-header-banner-wrap">
-          <button type="button" className="block nkc-header-banner-link" aria-label="Neighborly KC home" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})}>
-            <img src={headerImage} alt="Neighborly KC" className="nkc-header-banner" draggable="false" />
+      <header className="nkc-mobile-top-header sm:hidden sticky top-0 z-40 border-b" style={{backgroundColor:theme.header,color:theme.text,borderColor:theme.border}}>
+        <div className="nkc-mobile-top-row">
+          <button type="button" className="nkc-mobile-brand" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})} aria-label="NeighborlyKC home">
+            <img src="/icon-192.png" alt="" />
+            <span>NeighborlyKC</span>
           </button>
+          <div className="nkc-mobile-top-icons">
+            <Link href="/people" className="nkc-mobile-icon" aria-label="Search people"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.6" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="m16 16 4.2 4.2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg></Link>
+            <Link href="/notifications" className="nkc-mobile-icon" aria-label="Notifications"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 9.5a5.5 5.5 0 0 1 11 0v4l2 3H4.5l2-3zM9.5 19h5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg></Link>
+          </div>
         </div>
-        <div className="nkc-mobile-auth-row" style={{backgroundColor:theme.header,borderColor:theme.border}}>
-          {profile
-            ? <button type="button" onClick={signOut} className="nkc-mobile-auth-button" style={{backgroundColor:theme.pillActive,color:theme.pillTextActive,borderColor:theme.border}}>↪ Sign out</button>
-            : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-mobile-auth-button" style={{backgroundColor:theme.pillActive,color:theme.pillTextActive,borderColor:theme.border}}>👤 Sign in</button>}
-        </div>
+        <button type="button" className="nkc-mobile-whats" onClick={()=>profile?setShowCreatePost(true):setShowJoin(true)} style={{backgroundColor:theme.card,borderColor:theme.border,color:theme.text}}>
+          <span className="nkc-mobile-avatar" style={{backgroundColor:theme.input,borderColor:theme.border}}>{profile?.avatar_url?<img src={profile.avatar_url} alt=""/>:(profile?.full_name||'N').slice(0,1).toUpperCase()}</span>
+          <span>What’s happening in KC?</span>
+          <span className="nkc-mobile-whats-plus" style={{color:theme.accent}}>＋</span>
+        </button>
+        <nav className="nkc-mobile-tabs" aria-label="Feed views" style={{borderColor:theme.border}}>
+          <button type="button" className={`nkc-mobile-tab ${scope==='kc'&&cat==='All'?'is-active':''}`} onClick={()=>{setScope('kc');setCat('All')}} style={{'--nkc-tab-accent':theme.accent} as any}>All</button>
+          <button type="button" className={`nkc-mobile-tab ${scope==='local'&&cat==='All'?'is-active':''}`} onClick={()=>{setScope('local');setCat('All')}} style={{'--nkc-tab-accent':theme.accent} as any}>Nearby</button>
+          <Link href="/connections" className="nkc-mobile-tab">Following</Link>
+          <Link href="/people" className="nkc-mobile-tab">Groups</Link>
+        </nav>
       </header>
 
       <header className="hidden sm:block relative z-40 overflow-hidden border-b nkc-main-header" style={{backgroundColor: theme.header, borderColor: 'rgba(255,255,255,.12)'}}>
