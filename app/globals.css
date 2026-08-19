@@ -672,6 +672,14 @@ input::placeholder,textarea::placeholder{color:currentColor!important;opacity:.7
 /* Final header correction: show only the heart silhouette, without the
    rectangular source-image background, at twice the original header size. */
 @media(max-width:639px){
+  /* Use the same themed surface and glow treatment as the bottom navigation. */
+  .nkc-mobile-top-header{
+    background:
+      linear-gradient(180deg,color-mix(in srgb,var(--nkc-bottom-glow,currentColor) 24%,transparent),transparent 42%),
+      color-mix(in srgb,var(--nkc-bottom-surface,#071933) 88%,black)!important;
+    border-bottom:2px solid var(--nkc-bottom-glow,currentColor)!important;
+    box-shadow:0 8px 24px color-mix(in srgb,var(--nkc-bottom-glow,currentColor) 20%,transparent),inset 0 -1px 0 color-mix(in srgb,var(--nkc-bottom-glow,currentColor) 54%,transparent)!important;
+  }
   .nkc-mobile-top-row{height:68px!important}
   .nkc-mobile-theme-mark{width:60px!important;height:60px!important;flex-basis:60px!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important;clip-path:polygon(50% 96%,10% 59%,3% 46%,0 32%,3% 18%,11% 7%,22% 2%,34% 3%,43% 8%,50% 17%,57% 8%,66% 3%,78% 2%,89% 7%,97% 18%,100% 32%,97% 46%,90% 59%)}
   .nkc-mobile-theme-mark img{width:100%!important;height:100%!important;object-fit:cover!important;object-position:center!important;transform:scale(1.15)!important;background:transparent!important;filter:drop-shadow(0 0 5px color-mix(in srgb,var(--nkc-nav-accent,currentColor) 45%,transparent))}

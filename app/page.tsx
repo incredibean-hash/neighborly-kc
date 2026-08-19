@@ -1054,7 +1054,7 @@ export default function Page(){
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden nkc-app-shell" style={{backgroundColor: theme.bg, color: theme.text, colorScheme: theme.id==='aim' ? 'light' : 'dark'}}>
-      <header className="nkc-mobile-top-header sm:hidden z-40 border-b" style={{backgroundColor:heartHeader.surface,color:heartHeader.primary,borderColor:heartHeader.primary,'--nkc-nav-accent':heartHeader.primary,'--nkc-nav-border':heartHeader.primary} as any}>
+      <header className="nkc-mobile-top-header sm:hidden z-40 border-b" style={{backgroundColor:theme.header,color:heartHeader.primary,borderColor:theme.accent,'--nkc-nav-accent':heartHeader.primary,'--nkc-nav-border':theme.accent,'--nkc-bottom-glow':theme.accent,'--nkc-bottom-surface':theme.card} as any}>
         <div className="nkc-mobile-top-row">
           <button type="button" className="nkc-mobile-brand" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})} aria-label="NeighborlyKC home">
             <span className="nkc-mobile-theme-mark"><img src={theme.themeButtonImage || '/icon-192.png'} alt="" /></span>
