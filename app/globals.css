@@ -381,11 +381,14 @@ body{overflow-y:visible;touch-action:pan-y pinch-zoom}
 .nkc-heart-header-action:active{transform:scale(.94)}
 .nkc-compact-feed-header{position:relative;z-index:40;padding:8px 12px 10px;border-bottom:1px solid;box-shadow:0 5px 20px rgba(0,0,0,.18)}
 .nkc-compact-header-row{max-width:760px;height:48px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px}
-.nkc-compact-brand{min-width:0;display:flex;align-items:center;gap:8px;border:0;background:transparent;color:inherit;font-size:21px;font-weight:950;letter-spacing:-.8px;text-shadow:0 1px 2px rgba(0,0,0,.28)}
-.nkc-compact-heart{width:40px;height:40px;flex:0 0 40px;display:block;overflow:hidden;border:2px solid;border-radius:13px;background:#061325}
-.nkc-compact-heart img{width:100%;height:100%;object-fit:cover;object-position:center 25%;transform:scale(2.2)}
+.nkc-compact-brand{min-width:0;display:flex;align-items:center;gap:8px;border:0;background:transparent;color:inherit;font-size:21px;font-weight:950;letter-spacing:-.8px;text-shadow:0 1px 3px rgba(0,0,0,.58)}
+.nkc-compact-heart{width:40px;height:40px;flex:0 0 40px;display:grid;place-items:center;filter:drop-shadow(0 2px 3px rgba(0,0,0,.45))}
+.nkc-compact-heart svg{width:40px;height:40px;overflow:visible}
+.nkc-heart-outline{fill:color-mix(in srgb,currentColor 18%,transparent);stroke:currentColor;stroke-width:2.8;stroke-linejoin:round}
+.nkc-heart-house{fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.nkc-app-shell[data-theme="aim"] .nkc-heart-house{stroke:#111}
 .nkc-compact-actions{display:flex;align-items:center;gap:3px}
-.nkc-compact-action{width:38px;height:38px;display:grid;place-items:center;border:0;border-radius:999px;background:transparent;color:inherit;text-decoration:none}
+.nkc-compact-action{width:38px;height:38px;display:grid;place-items:center;border:0;border-radius:999px;background:color-mix(in srgb,currentColor 8%,transparent);color:inherit;text-decoration:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.48))}
 .nkc-compact-action svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .nkc-compact-action:active{background:rgba(255,255,255,.12);transform:scale(.94)}
 .nkc-header-quick-post{max-width:760px;width:100%;min-height:44px;margin:4px auto 0;padding:4px 9px;display:flex;align-items:center;gap:9px;border:1px solid;border-radius:999px;text-align:left;box-shadow:0 4px 14px rgba(0,0,0,.16)}
