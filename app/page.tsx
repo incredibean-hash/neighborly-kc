@@ -218,6 +218,9 @@ export default function Page(){
     if(params.get('settings')==='1'){
       setShowExplore(false);
       setShowSettings(true);
+      params.delete('settings');
+      const cleanQuery=params.toString();
+      window.history.replaceState({},'',`${window.location.pathname}${cleanQuery?`?${cleanQuery}`:''}${window.location.hash||''}`);
     }
   },[]);
 
@@ -1240,12 +1243,13 @@ export default function Page(){
 
       {showSettings && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[1050] flex items-center justify-center p-2 sm:p-4 nkc-pop-in">
-          <div className="rounded-[24px] w-full max-w-sm p-3 sm:p-5 border max-h-[90vh] overflow-y-auto nkc-settings-modal" style={{backgroundColor: '#15181f', borderColor: '#262a33'}}>
+          <div className="rounded-[24px] w-full max-w-sm p-3 sm:p-5 border max-h-[90vh] overflow-y-auto nkc-settings-modal" style={{backgroundColor:theme.card,borderColor:theme.border,color:theme.text,boxShadow:`0 22px 60px ${theme.header}99`}}>
             <div className="flex justify-between items-center mb-3 sm:mb-4">
-              <h2 className="font-black text-white text-lg sm:text-xl">Settings</h2>
+              <h2 className="font-black text-lg sm:text-xl">Settings</h2>
               <button 
                 onClick={()=>{setShowSettings(false);setShowExplore(false)}} 
-                className="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center text-sm hover:bg-white/20 transition-colors"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-sm transition-opacity hover:opacity-75 border"
+                style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}
               >
                 ✕
               </button>
@@ -1254,10 +1258,11 @@ export default function Page(){
             <button 
               type="button" 
               onClick={()=>setShowThemePicker(v=>!v)} 
-              className="w-full flex items-center justify-between py-3 px-4 rounded-2xl border border-white/15 bg-white/10 text-white font-bold text-sm sm:text-base"
+              className="w-full flex items-center justify-between py-3 px-4 rounded-2xl border font-bold text-sm sm:text-base"
+              style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}
             >
               <span>🎨 Themes</span>
-              <span className="text-white/60">{showThemePicker?'▲':'▼'}</span>
+              <span className="opacity-60">{showThemePicker?'▲':'▼'}</span>
             </button>
 
             {showExplore&&<div className="nkc-explore-links mt-3 grid grid-cols-2 gap-2">
@@ -1268,7 +1273,7 @@ export default function Page(){
             </div>}
             
             {showThemePicker && <div className="mt-3">
-              <p className="text-[8px] sm:text-[10px] font-black tracking-widest uppercase text-white/40 mb-2 text-center sm:text-left">
+              <p className="text-[8px] sm:text-[10px] font-black tracking-widest uppercase opacity-50 mb-2 text-center sm:text-left">
                 Choose your Neighborly KC look · tap a theme to apply & close
               </p>
               <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
@@ -1305,16 +1310,16 @@ export default function Page(){
             </div>}
             
             {profile
-              ? <Link href="/profile" onClick={()=>setShowSettings(false)} className="mt-3 sm:mt-4 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center text-sm sm:text-base">👤 My Profile</Link>
-              : <button type="button" onClick={()=>{setShowSettings(false);setShowJoin(true)}} className="mt-3 sm:mt-4 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center text-sm sm:text-base">👤 Profile · Sign in</button>}
+              ? <Link href="/profile" onClick={()=>setShowSettings(false)} className="mt-3 sm:mt-4 block w-full py-3 rounded-full border font-bold text-center text-sm sm:text-base" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>👤 My Profile</Link>
+              : <button type="button" onClick={()=>{setShowSettings(false);setShowJoin(true)}} className="mt-3 sm:mt-4 block w-full py-3 rounded-full border font-bold text-center text-sm sm:text-base" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>👤 Profile · Sign in</button>}
 
-            {profile&&<Link href="/dms" onClick={()=>setShowSettings(false)} className="mt-2 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center text-sm sm:text-base">💬 Messages</Link>}
+            {profile&&<Link href="/dms" onClick={()=>setShowSettings(false)} className="mt-2 block w-full py-3 rounded-full border font-bold text-center text-sm sm:text-base" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>💬 Messages</Link>}
             
-            <button onClick={()=>{if(!profile){setShowJoin(true);return;}setShowFeedback(true)}} className="mt-2 w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-sm sm:text-base">💬 Leave Feedback</button>
+            <button onClick={()=>{if(!profile){setShowJoin(true);return;}setShowFeedback(true)}} className="mt-2 w-full py-3 rounded-full border font-bold text-sm sm:text-base" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>💬 Leave Feedback</button>
             
             {profile&&<button onClick={signOut} className="mt-2 w-full py-3 rounded-full border border-red-300/20 bg-red-500/10 text-red-200 font-bold text-sm sm:text-base">🚪 Sign out</button>}
             
-            <button onClick={()=>{setShowSettings(false);setShowExplore(false)}} className="mt-2 w-full py-3 rounded-full bg-white text-black font-bold text-sm sm:text-base">Done</button>
+            <button onClick={()=>{setShowSettings(false);setShowExplore(false)}} className="mt-2 w-full py-3 rounded-full font-bold text-sm sm:text-base" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>Done</button>
           </div>
         </div>
       )}
