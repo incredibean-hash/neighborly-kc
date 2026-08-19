@@ -114,6 +114,7 @@ export default function Page(){
   const [profile,setProfile]=useState<any>(null);
   const [showJoin,setShowJoin]=useState(false);
   const [showSettings,setShowSettings]=useState(false);
+  const [showCreatePost,setShowCreatePost]=useState(false);
   const [showFeedback,setShowFeedback]=useState(false);
   const [feedbackText,setFeedbackText]=useState('');
   const [feedbackSending,setFeedbackSending]=useState(false);
@@ -142,6 +143,7 @@ export default function Page(){
   const [toast,setToast]=useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const postComposerRef = useRef<HTMLTextAreaElement>(null);
+  const fullPostComposerRef = useRef<HTMLTextAreaElement>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
   const [weather,setWeather]=useState<{temp:number;feels:number;precip:number;code:number}|null>(null);
   const [forecast,setForecast]=useState<{date:string;high:number;low:number;code:number}[]>([]);
@@ -210,15 +212,21 @@ export default function Page(){
       setPostCategory(category);
       window.requestAnimationFrame(()=>document.getElementById('composer')?.scrollIntoView({behavior:'auto',block:'center'}));
     }
-    if(params.get('compose')==='1') window.setTimeout(()=>{
-      postComposerRef.current?.scrollIntoView({behavior:'auto',block:'start'});
-      postComposerRef.current?.focus({preventScroll:true});
-    },80);
+    if(params.get('compose')==='1'){
+      setShowCreatePost(true);
+    }
     if(params.get('settings')==='1'){
       setShowExplore(false);
       setShowSettings(true);
     }
   },[]);
+
+  useEffect(()=>{
+    if(!showCreatePost) return;
+    const previous=document.body.style.overflow;
+    document.body.style.overflow='hidden';
+    return()=>{ document.body.style.overflow=previous; };
+  },[showCreatePost]);
 
   useEffect(()=>{
     document.documentElement.style.backgroundColor=theme.bg;
@@ -767,6 +775,7 @@ export default function Page(){
       setPostCategory('General');
       setCat('All');
       setShowExplore(false);
+      setShowCreatePost(false);
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
       document.documentElement.classList.remove('nkc-keyboard-open');
@@ -1180,7 +1189,7 @@ export default function Page(){
           aria-label="Create post"
           title="Create post"
           className="nkc-bottom-nav-plus"
-          onClick={()=>{ if(!profile){ setShowJoin(true); return; } postComposerRef.current?.scrollIntoView({behavior:'smooth',block:'start'}); window.setTimeout(()=>postComposerRef.current?.focus({preventScroll:true}),350); }}
+          onClick={()=>{ if(!profile){ setShowJoin(true); return; } setShowSettings(false); setShowExplore(false); setShowCreatePost(true); }}
           style={{backgroundColor:theme.accent,color:theme.pillTextActive,borderColor:theme.border,boxShadow:`0 8px 20px ${theme.accent}55`}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/></svg>
@@ -1208,6 +1217,49 @@ export default function Page(){
           <span>Settings</span>
         </button>
       </nav>
+
+      {showCreatePost && (
+        <div className="nkc-create-post-screen nkc-pop-in" style={{backgroundColor:theme.bg,color:theme.text}} role="dialog" aria-modal="true" aria-labelledby="create-post-title">
+          <header className="nkc-create-post-header" style={{backgroundColor:theme.header,borderColor:theme.border}}>
+            <button type="button" onClick={()=>setShowCreatePost(false)} className="nkc-create-post-close" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}} aria-label="Close create post">✕</button>
+            <div className="min-w-0 text-center">
+              <p className="text-[10px] font-black uppercase tracking-[.16em] opacity-60">NeighborlyKC</p>
+              <h2 id="create-post-title" className="text-lg font-black">Create a post</h2>
+            </div>
+            <div className="nkc-create-post-close-spacer" aria-hidden="true" />
+          </header>
+
+          <main className="nkc-create-post-content">
+            <section className="nkc-create-post-card" style={{backgroundColor:theme.card,borderColor:theme.border}}>
+              <label htmlFor="full-post-category" className="nkc-create-post-label">Post category</label>
+              <select id="full-post-category" value={postCategory} onChange={e=>setPostCategory(e.target.value)} className="nkc-create-post-select" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>
+                {CATS.filter(c=>c!=='All').map(c=><option key={c} value={c}>{c}</option>)}
+              </select>
+
+              <label className="nkc-create-post-label mt-5">Who should see this?</label>
+              <div className="nkc-create-post-scope" style={{backgroundColor:theme.input,borderColor:theme.border}}>
+                <button type="button" onClick={()=>setScope('local')} style={{backgroundColor:scope==='local'?theme.pillActive:'transparent',color:scope==='local'?theme.pillTextActive:theme.text}}>📍 My Area</button>
+                <button type="button" onClick={()=>setScope('kc')} style={{backgroundColor:scope==='kc'?theme.pillActive:'transparent',color:scope==='kc'?theme.pillTextActive:theme.text}}>🏙️ All KC</button>
+              </div>
+
+              <div className="nkc-create-post-destination" style={{backgroundColor:theme.input,borderColor:theme.border}}>
+                Posting to: <strong style={{color:theme.accent}}>{scope==='kc'?'All Kansas City':cur?.name || 'your neighborhood'}</strong>
+              </div>
+
+              <label htmlFor="full-post-body" className="nkc-create-post-label mt-5">Your post</label>
+              <textarea id="full-post-body" ref={fullPostComposerRef} value={body} onChange={e=>setBody(e.target.value)} autoComplete="off" autoCorrect="on" autoCapitalize="sentences" spellCheck={true} inputMode="text" placeholder={postCategory==='Safety Alert'?'Share a safety alert with Kansas City…':postCategory==='For Sale & Free'?'Describe what you are selling or giving away…':postCategory==='Event'?'Tell Kansas City about the event…':postCategory==='Lost & Found'?'Describe the lost or found item…':'What should Kansas City know?'} className="nkc-create-post-textarea" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border,caretColor:theme.accent,'--nkc-placeholder-color':theme.text} as any} />
+
+              <div className="nkc-create-post-file-row">
+                <label htmlFor="full-post-file" className="nkc-create-post-file" style={{backgroundColor:theme.input,borderColor:theme.border}}>📷 Choose image</label>
+                <input key={`full-${fileInputKey}`} id="full-post-file" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="sr-only" />
+                {file&&<div className="nkc-create-post-filename"><span>{file.name}</span><button type="button" onClick={()=>{setFile(null);setFileInputKey(k=>k+1)}} aria-label="Remove selected image">✕</button></div>}
+              </div>
+
+              <button type="button" disabled={uploading||(!body.trim()&&!file)} onClick={handleBePost} className="nkc-create-post-submit" style={{backgroundColor:theme.accent,color:theme.pillTextActive,boxShadow:`0 10px 28px ${theme.accent}44`}}>{uploading?'Posting…':scope==='kc'?'Post to Kansas City':'Post to My Area'}</button>
+            </section>
+          </main>
+        </div>
+      )}
 
       {showSettings && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[1050] flex items-center justify-center p-2 sm:p-4 nkc-pop-in">
