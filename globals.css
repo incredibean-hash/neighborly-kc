@@ -1,0 +1,532 @@
+@tailwind base;@tailwind components;@tailwind utilities;
+
+:root{scroll-behavior:smooth;background:#070a0f}
+*,*::before,*::after{box-sizing:border-box}
+html{background:#070a0f;overscroll-behavior:none}
+body{background:#070a0f;font-family:system-ui;transition:background-color .25s ease,color .25s ease;overscroll-behavior:none}
+.card{@apply bg-white rounded-xl border border-gray-200}
+button,a,label,input,textarea,select{transition:color .18s ease,background-color .18s ease,border-color .18s ease,box-shadow .18s ease,opacity .18s ease,transform .18s ease}
+.nkc-theme-booting,.nkc-theme-booting *{transition:none!important;animation:none!important}
+button:not(:disabled):hover,a:hover,label:hover{transform:none}
+button:active:not(:disabled),a:active{transform:scale(.98)}
+.nkc-surface{transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease}
+.nkc-surface:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,32,90,.08)}
+.nkc-fade-in{animation:nkcFadeIn .28s ease both}
+.nkc-pop-in{animation:nkcPopIn .22s ease both}
+@keyframes nkcFadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@keyframes nkcPopIn{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+html, body { min-height: 100%; }
+body { overscroll-behavior-y: none; }
+.nkc-app-shell,.nkc-page-content{touch-action:pan-y pinch-zoom}
+html{overflow-y:auto;touch-action:pan-y pinch-zoom}
+body{overflow-y:visible;touch-action:pan-y pinch-zoom}
+.nkc-subpage-header{padding-top:calc(1rem + env(safe-area-inset-top))!important}
+.nkc-app-shell { min-height: 100svh; min-height: 100dvh; }
+.nkc-mobile-actions { display:none; }
+.nkc-kc-mark{display:grid;place-items:center;width:42px;height:42px;border:2px solid rgba(255,255,255,.72);border-radius:14px;background:rgba(255,255,255,.08);color:#fff;font-weight:950;letter-spacing:-.08em;font-size:15px;line-height:1;box-shadow:0 6px 20px rgba(0,0,0,.12);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+
+
+@media (max-width: 639px) {
+  html, body { width:100%; max-width:100%; overflow-x:hidden; overscroll-behavior-x:none; }
+  .nkc-app-shell,.nkc-page-content{width:100%;max-width:100%;min-width:0;overflow-x:hidden}
+  body { padding-bottom: env(safe-area-inset-bottom); }
+  .nkc-app-shell { min-height: 100svh; min-height: 100dvh; padding-bottom: calc(78px + env(safe-area-inset-bottom)); }
+  header.sticky { position: sticky; top:0; }
+  header .relative.min-h-\[138px\] { min-height: 92px; }
+  header .absolute.inset-x-0.bottom-0 { height: 52px; }
+  header .max-w-6xl.mx-auto.px-3.sm\:px-6.pt-3.sm\:pt-4 { padding-top: 10px; }
+  header .group { gap:0; }
+  .nkc-kc-mark { width:34px; height:34px; border-radius:11px; font-size:12px; }
+  header .group h1 { font-size: 1.55rem; letter-spacing:-.035em; }
+  header .group p { font-size: 8px; margin-top: 3px; }
+  /* Mobile top navigation: all four controls stay centered and fit the viewport. */
+  .nkc-desktop-nav {
+    display:flex;
+    flex-wrap:nowrap;
+    justify-content:center;
+    align-items:center;
+    gap:4px;
+    width:100%;
+    overflow:hidden;
+    padding:6px 6px !important;
+  }
+  .nkc-desktop-nav > button {
+    flex:1 1 0;
+    min-width:0;
+    max-width:none;
+    padding:8px 4px !important;
+    font-size:11px !important;
+    line-height:1.05;
+    white-space:nowrap;
+    text-align:center;
+  }
+  header .flex.items-start.justify-between > div:last-child { gap: 4px; }
+  .nkc-page-content { padding: 12px 12px 28px; }
+  .nkc-mobile-actions {
+    display:flex;
+    position:fixed;
+    left:50%;
+    bottom:calc(10px + env(safe-area-inset-bottom) + var(--nkc-vv-bottom, 0px));
+    transform:translate3d(-50%,0,0);
+    z-index:70;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    pointer-events:none;
+    width:max-content;
+  }
+  .nkc-mobile-action {
+    pointer-events:auto;
+    width:48px;
+    height:48px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:9999px;
+    background:rgba(255,255,255,.42);
+    color:#111827;
+    border:1px solid rgba(255,255,255,.38);
+    box-shadow:0 6px 18px rgba(0,0,0,.12);
+    backdrop-filter:blur(14px) saturate(150%);
+    -webkit-backdrop-filter:blur(14px) saturate(150%);
+    font-size:20px;
+    line-height:1;
+    -webkit-tap-highlight-color:transparent;
+    text-decoration:none;
+  }
+  .nkc-mobile-action-post { width:54px; height:54px; font-size:30px; font-weight:800; background:rgba(255,255,255,.5); }
+  .nkc-mobile-action svg { width:21px; height:21px; display:block; }
+  .nkc-mobile-action-post svg { width:25px; height:25px; }
+  .nkc-mobile-action:active { transform:scale(.94); }
+}
+
+@media (max-width: 639px) {
+  .nkc-scope-switch { width:100%; max-width:280px; }
+  .nkc-scope-switch button { flex:1; white-space:nowrap; }
+  header .nkc-mobile-signin { display:inline-flex; }
+}
+
+/* Header stability: keep the brand row clear of the skyline and prevent the
+   sticky header from visually collapsing while the browser restores scroll. */
+.nkc-header-brand-row{min-height:72px}
+.nkc-header-skyline{height:76px}
+@media (min-width:640px){
+  .nkc-header-brand-row{min-height:78px}
+  .nkc-header-skyline{height:112px}
+}
+@media (max-width:639px){
+  .nkc-header-brand-row{min-height:50px}
+  .nkc-header-skyline{height:58px}
+  header.sticky{z-index:60}
+}
+
+/* Full-width NeighborlyKC banner */
+.nkc-main-header{isolation:isolate}
+.nkc-header-banner-wrap{position:relative;width:100%;background:#0b2b52}
+.nkc-header-banner-link{width:100%;line-height:0}
+.nkc-header-banner{display:block;width:100%;height:auto;aspect-ratio:1920/368;object-fit:cover;object-position:center;user-select:none}
+.nkc-header-controls{position:absolute;top:12px;right:16px;z-index:2;display:flex;align-items:center;gap:6px}
+.nkc-header-control{display:inline-flex;align-items:center;justify-content:center;padding:7px 12px;border-radius:999px;color:#fff;background:rgba(7,25,51,.58);border:1px solid rgba(255,255,255,.42);box-shadow:0 4px 14px rgba(0,0,0,.18);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);text-decoration:none;font-size:13px;font-weight:900;white-space:nowrap}
+.nkc-header-control:hover{background:rgba(7,25,51,.78);color:#fff}
+.nkc-main-header .nkc-desktop-nav{border-top:1px solid rgba(255,255,255,.10)}
+.nkc-mobile-auth-row{display:none}
+@media (max-width:639px){
+  .nkc-header-banner{height:auto;aspect-ratio:1920/368;object-position:center}
+  .nkc-header-controls{top:6px;right:8px}
+  .nkc-header-control{box-shadow:0 3px 10px rgba(0,0,0,.16)}
+  .nkc-mobile-auth-row{display:flex;align-items:center;justify-content:center;padding:5px 10px;border-top:1px solid;border-bottom:1px solid}
+  .nkc-mobile-auth-button{display:flex;align-items:center;justify-content:center;width:min(220px,70vw);min-height:34px;padding:6px 18px;border:1px solid;border-radius:999px;font-size:12px;font-weight:950;line-height:1;box-shadow:0 3px 10px rgba(0,0,0,.14)}
+}
+
+
+/* Theme-matched mobile bottom navigation. The bar uses the active theme's
+   header/accent colors and keeps the center + button floating above the bar. */
+.nkc-mobile-bottom-nav{
+  left:0;
+  right:0;
+  bottom:0;
+  transform:none;
+  width:100%;
+  height:68px;
+  padding:7px 10px calc(7px + env(safe-area-inset-bottom));
+  gap:6px;
+  border-top:1px solid;
+  border-radius:0;
+  box-shadow:0 -8px 24px rgba(0,0,0,.14);
+  backdrop-filter:blur(16px) saturate(145%);
+  -webkit-backdrop-filter:blur(16px) saturate(145%);
+  pointer-events:auto;
+  justify-content:space-around;
+}
+.nkc-bottom-nav-item{
+  flex:1 1 0;
+  min-width:0;
+  max-width:92px;
+  height:50px;
+  border:0;
+  border-radius:16px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:2px;
+  background:transparent;
+  color:inherit;
+  font-size:10px;
+  font-weight:950;
+  line-height:1;
+  -webkit-tap-highlight-color:transparent;
+}
+.nkc-bottom-nav-item svg{width:21px;height:21px;display:block}
+.nkc-bottom-nav-item.is-active{box-shadow:0 4px 14px rgba(0,0,0,.12)}
+.nkc-bottom-nav-plus{
+  flex:0 0 68px;
+  width:68px;
+  height:62px;
+  margin-top:-20px;
+  border-radius:0;
+  border:0;
+  display:grid;
+  place-items:center;
+  box-shadow:none;
+  -webkit-tap-highlight-color:transparent;
+}
+
+/* Full-screen mobile post composer opened by the floating + orb. */
+.nkc-create-post-screen{
+  position:fixed;
+  inset:0;
+  z-index:1200;
+  display:flex;
+  flex-direction:column;
+  width:100%;
+  min-height:100dvh;
+  overflow:hidden;
+}
+.nkc-create-post-header{
+  flex:0 0 auto;
+  min-height:64px;
+  padding:calc(10px + env(safe-area-inset-top)) 14px 10px;
+  border-bottom:1px solid;
+  display:grid;
+  grid-template-columns:44px minmax(0,1fr) 44px;
+  align-items:center;
+  gap:10px;
+}
+.nkc-create-post-close,.nkc-create-post-close-spacer{width:40px;height:40px}
+.nkc-create-post-close{display:grid;place-items:center;border:1px solid;border-radius:999px;font-size:16px;font-weight:900}
+.nkc-create-post-content{flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain;padding:18px 14px calc(28px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
+.nkc-create-post-card{width:min(100%,680px);margin:0 auto;padding:18px;border:1px solid;border-radius:24px;box-shadow:0 16px 44px rgba(0,0,0,.14)}
+.nkc-create-post-label{display:block;font-size:12px;font-weight:950;letter-spacing:.08em;text-transform:uppercase;opacity:.72}
+.nkc-create-post-select{display:block;width:100%;min-height:52px;margin-top:8px;padding:0 16px;border:1px solid;border-radius:16px;font-size:16px;font-weight:850;outline:none}
+.nkc-create-post-scope{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:8px;padding:4px;border:1px solid;border-radius:999px}
+.nkc-create-post-scope button{min-height:44px;padding:8px 12px;border:0;border-radius:999px;font-size:13px;font-weight:950}
+.nkc-create-post-destination{margin-top:12px;padding:11px 13px;border:1px solid;border-radius:14px;font-size:12px;font-weight:800}
+.nkc-create-post-textarea{display:block;width:100%;min-height:clamp(180px,34dvh,360px);margin-top:8px;padding:16px;border:1px solid;border-radius:18px;font-size:17px;line-height:1.45;outline:none;resize:vertical}
+.nkc-create-post-textarea::placeholder{color:var(--nkc-placeholder-color);opacity:.62}
+.nkc-create-post-file-row{display:flex;align-items:center;gap:10px;min-width:0;margin-top:14px}
+.nkc-create-post-file{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 15px;border:1px solid;border-radius:999px;font-size:13px;font-weight:900;cursor:pointer}
+.nkc-create-post-filename{display:flex;align-items:center;gap:8px;min-width:0;font-size:12px;font-weight:750;opacity:.78}
+.nkc-create-post-filename span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nkc-create-post-filename button{flex:0 0 auto;width:28px;height:28px;border-radius:999px;font-weight:950}
+.nkc-create-post-submit{display:block;width:100%;min-height:52px;margin-top:20px;padding:12px 18px;border:0;border-radius:999px;font-size:15px;font-weight:950}
+.nkc-create-post-submit:disabled{opacity:.48;box-shadow:none!important}
+@media (min-width:700px){
+  .nkc-create-post-content{padding-top:30px}
+  .nkc-create-post-card{padding:26px}
+}
+.nkc-bottom-nav-plus svg{display:block;width:68px;height:62px;overflow:visible}
+.nkc-bottom-nav-item:active,.nkc-bottom-nav-plus:active{transform:scale(.94)}
+@media (min-width:640px){.nkc-mobile-bottom-nav{display:none!important}}
+@media (max-width:639px){
+  .nkc-mobile-bottom-nav{
+    position:fixed!important;
+    left:0!important;
+    right:0!important;
+    bottom:0!important;
+    z-index:999!important;
+    width:100vw!important;
+    transform:none!important;
+    margin:0!important;
+    pointer-events:auto!important;
+  }
+  html.nkc-keyboard-open .nkc-mobile-bottom-nav{display:none!important}
+}
+
+/* iOS keyboard: keep the composer usable and keep Neighborly's own floating
+   quick-action buttons completely out of the way while typing.
+   NOTE: the keyboard/autofill bar itself is drawn by iOS/Safari and cannot be
+   styled or made transparent by a website. */
+@media (max-width:639px){
+  html.nkc-keyboard-open .nkc-mobile-actions{display:none!important}
+  html.nkc-keyboard-open .nkc-app-shell{padding-bottom:24px}
+  html.nkc-keyboard-open .nkc-page-content{padding-bottom:24px}
+  textarea:focus,input:focus,select:focus{scroll-margin-top:96px;scroll-margin-bottom:180px}
+  /* Give the text field a clean, slightly translucent surface so the typing
+     area stays visually distinct when Safari shifts the page above the KB. */
+  .nkc-post-composer{
+    background-color:color-mix(in srgb, var(--nkc-composer-bg, #eef5ff) 88%, transparent)!important;
+    -webkit-backdrop-filter:blur(8px);
+    backdrop-filter:blur(8px);
+  }
+}
+
+/* Keep feed post media consistent so the first three image posts line up cleanly. */
+.nkc-post-image-frame{aspect-ratio:16/9;background:#eaf1fb;}
+.nkc-post-image{display:block;object-fit:cover;}
+@media (min-width:640px){
+  .nkc-post-card .nkc-post-image-frame{max-height:360px;}
+}
+@media (max-width:639px){
+  .nkc-post-image-frame{aspect-ratio:16/10;}
+}
+
+/* Theme picker cards supplied by Neighborly KC. */
+.nkc-theme-choice{
+  position:relative;
+  display:block;
+  width:100%;
+  padding:0;
+  overflow:hidden;
+  border:2px solid;
+  border-radius:16px;
+  background:#0b1020;
+  line-height:0;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.nkc-theme-choice img{display:block;width:100%;height:100%;aspect-ratio:173/191;object-fit:fill;object-position:center}
+.nkc-theme-choice:hover{transform:translateY(-1px)}
+.nkc-theme-choice-check{position:absolute;right:7px;top:7px;width:26px;height:26px;border-radius:9999px;display:grid;place-items:center;font-weight:950;font-size:15px;line-height:1;box-shadow:0 4px 12px rgba(0,0,0,.3)}
+.nkc-theme-choice-fallback{width:100%;height:100%;aspect-ratio:173/191;display:grid;place-items:center;color:#fff;font-size:13px;padding:8px;line-height:1.1}
+
+/* Compact theme-matched weather strip below the header artwork. */
+.nkc-weather-ticker{position:relative;overflow:hidden;width:100%;border-top:1px solid;border-bottom:1px solid;white-space:nowrap;font-size:11px;font-weight:800;line-height:1;padding:7px 0}
+.nkc-weather-track{display:flex;width:max-content;align-items:center;gap:28px;animation:nkcWeatherSlide 24s linear infinite;padding-left:18px}
+.nkc-weather-track span{display:inline-flex;align-items:center;gap:4px}
+.nkc-weather-static{animation:none;justify-content:center;width:100%;padding:0}
+@keyframes nkcWeatherSlide{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.nkc-weather-track{animation:none;justify-content:center;width:100%;padding-left:0}}
+
+/* Prevent the clickable header artwork from carrying browser button chrome. */
+.nkc-header-banner-link{display:block;border:0;padding:0;margin:0;background:transparent;cursor:pointer}
+
+@media (max-width:639px){
+  .nkc-theme-choice{border-radius:13px}
+  .nkc-theme-choice img{aspect-ratio:173/191}
+  .nkc-weather-ticker{font-size:10px;padding:6px 0}
+  .nkc-weather-track{gap:20px;animation-duration:20s}
+}
+
+
+/* Mobile top navigation modeled on the compact social-feed layout: brand row,
+   quick post prompt, then All/Nearby/Following/Groups tabs. The full artwork
+   header remains the desktop/tablet header so the artwork is never squeezed. */
+.nkc-mobile-top-header{box-shadow:0 6px 20px color-mix(in srgb,var(--nkc-nav-accent,currentColor) 18%,transparent)}
+.nkc-mobile-top-row{height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 10px}
+.nkc-mobile-brand{display:flex;align-items:center;gap:6px;min-width:0;color:inherit;background:transparent;border:0;padding:0;font-weight:950;font-size:15px;letter-spacing:-.6px}
+.nkc-mobile-theme-mark{width:27px;height:27px;display:block;overflow:hidden;flex:0 0 27px;border-radius:7px;border:1px solid var(--nkc-nav-accent,currentColor);box-shadow:0 0 8px color-mix(in srgb,var(--nkc-nav-accent,currentColor) 30%,transparent)}
+.nkc-mobile-theme-mark img{display:block;width:100%;height:100%;border:0;border-radius:0;object-fit:cover;object-position:center 22%;box-shadow:none}
+.nkc-mobile-wordmark{display:flex;align-items:baseline;min-width:0;font-style:italic;font-weight:900;line-height:1;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.28)}
+.nkc-mobile-wordmark>span{font-weight:900}
+.nkc-mobile-wordmark>b{font-weight:950}
+.nkc-mobile-top-icons{display:flex;align-items:center;gap:4px}
+.nkc-mobile-icon{width:29px;height:29px;border:0;border-radius:0;background:transparent;color:inherit;display:grid;place-items:center;text-decoration:none}
+.nkc-mobile-icon svg{width:18px;height:18px}
+.nkc-mobile-whats{margin:0 10px 6px;width:calc(100% - 20px);height:38px;border:1px solid currentColor;border-radius:20px;display:flex;align-items:center;gap:8px;padding:0 10px;color:inherit;text-align:left;font-size:12px;font-weight:800;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--nkc-nav-accent,currentColor) 10%,transparent)}
+.nkc-mobile-avatar{width:24px;height:24px;border-radius:999px;display:grid;place-items:center;flex:0 0 24px;overflow:hidden;border:1px solid;background:color-mix(in srgb,currentColor 18%,transparent);font-size:10px}
+.nkc-mobile-avatar img{display:block;width:100%;height:100%;object-fit:cover}
+.nkc-mobile-whats>span:nth-child(2){flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.75}
+.nkc-mobile-whats-plus{font-size:20px;line-height:1;opacity:.75}
+.nkc-mobile-tabs{display:grid;grid-template-columns:repeat(4,1fr);height:35px;padding:0 7px;gap:2px;border-bottom:1px solid}
+.nkc-mobile-tab{position:relative;border:0;background:transparent;color:inherit;opacity:.65;font-size:12px;font-weight:900;display:grid;place-items:center;text-decoration:none}
+.nkc-mobile-tab.is-active{opacity:1}
+.nkc-mobile-tab.is-active::after{content:"";position:absolute;left:20%;right:20%;bottom:0;height:2px;border-radius:2px;background:var(--nkc-tab-accent,currentColor)}
+.nkc-mobile-weather{height:28px;display:flex;align-items:center;justify-content:center;gap:12px;border-bottom:1px solid;font-size:10px;font-weight:800}
+
+/* Inactive bottom-nav labels/icons need strong contrast against every theme
+   header, especially the light KC Current and Daylight variants. */
+.nkc-mobile-bottom-nav .nkc-bottom-nav-item:not(.is-active){color:var(--nkc-bottom-inactive,#fff)!important;text-shadow:0 1px 3px rgba(0,0,0,.35)}
+.nkc-mobile-bottom-nav .nkc-bottom-nav-item:not(.is-active) span{opacity:1}
+.nkc-mobile-bottom-nav{background-image:linear-gradient(180deg,color-mix(in srgb,var(--nkc-bottom-glow,currentColor) 10%,transparent),transparent 72%);box-shadow:0 -8px 24px color-mix(in srgb,var(--nkc-bottom-glow,currentColor) 22%,transparent),inset 0 1px 0 color-mix(in srgb,var(--nkc-bottom-glow,currentColor) 34%,transparent)}
+@media (max-width:639px){
+  .nkc-mobile-bottom-nav{height:70px;padding-left:8px;padding-right:8px}
+  .nkc-bottom-nav-item{height:50px;max-width:82px;font-size:10px}
+}
+
+/* Compact social-feed header on phones. Desktop keeps the full themed banner. */
+@media (max-width:639px){
+  .nkc-mobile-top-header{display:block!important}
+  .nkc-mobile-nav{display:block!important;border-top:1px solid rgba(255,255,255,.10);border-bottom:1px solid rgba(255,255,255,.10);padding:4px 0;background:rgba(7,25,51,.34)}
+  .nkc-mobile-nav-scroll{display:flex;align-items:center;justify-content:center;gap:4px;overflow-x:auto;scrollbar-width:none;padding:0 6px;-webkit-overflow-scrolling:touch}
+  .nkc-mobile-nav-scroll::-webkit-scrollbar{display:none}
+  .nkc-mobile-nav-btn{flex:0 0 auto;min-height:32px;padding:5px 9px;border-radius:9999px;font-size:11px;font-weight:800;white-space:nowrap;-webkit-tap-highlight-color:transparent}
+  .nkc-header-banner{aspect-ratio:1920/368;object-position:center}
+  .nkc-header-controls{top:6px;right:8px}
+  .nkc-header-control{box-shadow:0 3px 10px rgba(0,0,0,.16)}
+  .nkc-forecast-banner{display:block!important}
+  .nkc-page-content #composer{display:none!important}
+  .nkc-page-content{padding-top:10px!important}
+  .nkc-post-card{padding:12px!important;border-radius:20px!important}
+  .nkc-post-card .nkc-post-image-frame{margin-top:10px!important;border-radius:16px!important}
+}
+
+/* Mobile account controls live below the artwork so they never cover the NeighborlyKC header. */
+.nkc-mobile-account-row{display:none}
+@media (max-width:639px){
+  .nkc-mobile-account-row{display:flex;align-items:center;justify-content:center;gap:5px;padding:4px 6px;background:color-mix(in srgb, var(--nkc-header-color, #071933) 88%, black);border-bottom:1px solid rgba(255,255,255,.12)}
+  .nkc-mobile-account-btn{min-width:0;flex:1;display:flex;align-items:center;justify-content:center;gap:3px;min-height:31px;padding:3px 5px;border:1px solid rgba(255,255,255,.16);border-radius:999px;background:rgba(255,255,255,.08);color:#fff;text-decoration:none;font-size:10px;font-weight:850;white-space:nowrap}
+  .nkc-mobile-account-status{font-size:10px;color:rgba(255,255,255,.65);padding:0 6px}
+  .nkc-mobile-account-btn:active{transform:scale(.97)}
+}
+
+/* Stronger text contrast inside the post composer, including Safari placeholder text. */
+.nkc-post-composer::placeholder{color:var(--nkc-placeholder-color,currentColor)!important;opacity:.92!important;-webkit-text-fill-color:var(--nkc-placeholder-color,currentColor)!important}
+.nkc-post-composer{caret-color:currentColor}
+.nkc-themed-field{caret-color:currentColor;font-size:16px}
+.nkc-themed-field::placeholder{color:currentColor!important;opacity:.82!important}
+.nkc-auth-divider{color:var(--nkc-auth-muted,currentColor);opacity:.72}
+.nkc-auth-action:disabled{opacity:.78!important}
+.nkc-auth-google{width:100%;padding-inline:0;overflow:visible;background:transparent!important}
+.nkc-google-button-slot{width:320px;max-width:100%;height:44px;margin-inline:auto;overflow:hidden;border-radius:999px;background:transparent!important;clip-path:inset(0 round 999px)}
+.nkc-google-button-slot>div,.nkc-google-button-slot iframe{display:block!important;width:100%!important;max-width:100%!important;height:44px!important;margin:0 auto!important}
+.nkc-auth-overlay,.nkc-auth-card{animation:none!important}
+.nkc-welcome-card{position:relative;overflow:hidden}
+.nkc-welcome-card::after{content:"";position:absolute;right:-75px;top:-90px;width:210px;height:210px;border-radius:999px;background:currentColor;opacity:.035;pointer-events:none}
+.nkc-welcome-benefits{display:flex;flex-wrap:wrap;gap:8px}
+.nkc-welcome-benefits span{display:inline-flex;align-items:center;min-height:34px;padding:7px 11px;border:1px solid currentColor;border-radius:999px;font-size:11px;font-weight:800;opacity:.78}
+.nkc-welcome-cta{min-height:48px;box-shadow:0 8px 20px rgba(0,0,0,.16);transition:transform .15s ease,opacity .15s ease}
+.nkc-welcome-cta:hover{opacity:.94;transform:translateY(-1px)}
+.nkc-welcome-cta:active{transform:translateY(0)}
+@media (max-width:639px){
+  .nkc-auth-overlay{width:100dvw;max-width:100dvw;padding:10px!important;align-items:center;overflow-x:hidden}
+  .nkc-auth-card{width:calc(100dvw - 20px)!important;max-width:384px!important;min-width:0;padding:18px!important;border-radius:24px!important;max-height:calc(100dvh - 20px);overflow-x:hidden;overflow-y:auto}
+  .nkc-auth-card h2{font-size:1.15rem;line-height:1.2}
+  .nkc-auth-card .nkc-auth-google{margin-top:14px;padding-inline:0}
+  .nkc-auth-card .nkc-auth-divider-row{margin-top:14px;margin-bottom:14px}
+  .nkc-auth-card .nkc-themed-field{padding:11px 13px!important;border-radius:14px!important}
+  .nkc-auth-buttons{gap:8px!important;padding-top:4px!important}
+  .nkc-auth-buttons button{min-height:46px;padding:10px 12px!important;font-size:13px!important;line-height:1.15}
+}
+
+/* Pip-Boy CRT composer: green-on-black, glowing and easy to read. */
+.nkc-post-composer[data-theme="pip-boy"]{font-family:monospace!important;letter-spacing:.01em;text-shadow:0 0 5px currentColor}
+.nkc-post-composer[data-theme="pip-boy"]::placeholder{color:#1aff61!important;opacity:.62!important}
+.nkc-post-composer[data-theme="space"]{color:#f5eaff!important}
+.nkc-post-composer[data-theme="space"]::placeholder{color:#d9b8ff!important;opacity:.78!important}
+
+
+/* Cleaner header scrolling: the full artwork scrolls with the page so Safari
+   cannot expose a white sticky-header strip during momentum scrolling. */
+.nkc-main-header{position:relative!important;top:auto!important}
+
+/* Seven-day Kansas City forecast banner directly below the header artwork. */
+.nkc-forecast-banner{
+  width:100%;
+  border-top:1px solid;
+  border-bottom:1px solid;
+  overflow:hidden;
+}
+.nkc-forecast-inner{max-width:1200px;margin:0 auto;padding:8px 12px}
+.nkc-forecast-title{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:11px;line-height:1;margin-bottom:7px}
+.nkc-forecast-now{opacity:.65;font-weight:800}
+.nkc-forecast-days{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.nkc-forecast-days::-webkit-scrollbar{display:none}
+.nkc-forecast-day{
+  flex:1 0 82px;
+  min-width:82px;
+  min-height:62px;
+  border:1px solid;
+  border-radius:13px;
+  padding:6px 7px;
+  display:grid;
+  grid-template-columns:1fr auto;
+  grid-template-rows:auto 1fr;
+  align-items:center;
+  column-gap:5px;
+  font-size:10px;
+}
+.nkc-forecast-day>b{opacity:.65}
+.nkc-forecast-icon{grid-row:1 / span 2;grid-column:2;font-size:21px;align-self:center}
+.nkc-forecast-day>strong{font-size:15px;line-height:1}
+.nkc-forecast-low{opacity:.45;font-weight:800}
+.nkc-forecast-loading{padding:14px 4px;font-size:11px;font-weight:800;opacity:.65}
+.nkc-badges{display:inline-flex;align-items:center;gap:3px;flex-wrap:wrap}
+.nkc-badge{display:inline-flex;align-items:center;gap:2px;border-radius:999px;padding:2px 6px;font-size:8px;font-weight:950;line-height:1;border:1px solid currentColor;white-space:nowrap}
+.nkc-badge.founder{color:#b8860b;background:rgba(255,215,0,.12)}
+.nkc-badge.moderator{color:#1769aa;background:rgba(23,105,170,.10)}
+.nkc-admin-menu summary{list-style:none}
+.nkc-admin-menu summary::-webkit-details-marker{display:none}
+.nkc-admin-menu-trigger{cursor:pointer;display:grid;place-items:center;width:34px;height:30px;border-radius:999px;font-weight:950;letter-spacing:1px;background:rgba(127,127,127,.12)}
+.nkc-admin-menu-panel{position:absolute;right:0;top:34px;z-index:45;width:190px;padding:6px;border:1px solid;border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.24)}
+.nkc-admin-menu-panel button,.nkc-admin-menu-panel a{display:block;width:100%;padding:9px 10px;border-radius:9px;text-align:left;font-size:12px;font-weight:800;text-decoration:none}
+.nkc-admin-menu-panel button:hover,.nkc-admin-menu-panel a:hover{background:rgba(127,127,127,.15)}
+.nkc-admin-menu-panel .danger{color:#dc2626}
+.nkc-moderation-label{display:inline-flex;align-items:center;border-radius:999px;padding:3px 7px;font-size:10px;font-weight:900;background:rgba(127,127,127,.14)}
+.nkc-badge.contributor{color:#d06a00;background:rgba(255,153,0,.10)}
+.nkc-badge.verified{color:#16834a;background:rgba(22,131,74,.10)}
+.nkc-post-composer::placeholder{color:currentColor!important;opacity:.86!important}
+@media(max-width:639px){
+  .nkc-forecast-inner{padding:7px 10px}
+  .nkc-forecast-title{font-size:10px;margin-bottom:5px}
+  .nkc-forecast-day{flex-basis:70px;min-width:70px;min-height:56px;padding:5px 6px}
+  .nkc-forecast-icon{font-size:18px}
+  .nkc-forecast-day>strong{font-size:14px}
+  .nkc-badge{font-size:7px;padding:2px 5px}
+}
+
+/* 2026 mobile stability pass: one final responsive layer prevents older,
+   overlapping component rules from pushing controls beyond the viewport. */
+.nkc-messages-header-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.nkc-messages-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0}
+.nkc-person-avatar{width:40px;height:40px;flex:0 0 40px;border-radius:999px;overflow:hidden;display:grid;place-items:center;font-weight:950}
+.nkc-person-avatar img{display:block;width:100%;height:100%;object-fit:cover}
+.nkc-message-avatar{width:26px;height:26px;flex:0 0 26px;border-radius:999px;overflow:hidden;display:grid;place-items:center;font-size:10px;font-weight:900}
+.nkc-message-avatar img{display:block;width:100%;height:100%;object-fit:cover}
+.nkc-person-avatar-lg{width:48px;height:48px;flex-basis:48px;font-size:18px}
+.nkc-explore-links a,.nkc-explore-links button{min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+
+@media(max-width:639px){
+  main,header,section,nav,aside,footer,form,div{max-width:100%}
+  .nkc-page-content{margin-inline:auto!important;padding-inline:10px!important}
+  .nkc-surface{min-width:0;width:100%;overflow:hidden}
+  .nkc-post-card{min-width:0;width:100%;overflow:visible}
+  .nkc-post-composer{display:block;width:100%!important;max-width:100%!important;min-width:0!important;font-size:16px!important;line-height:1.45!important;padding:13px!important;opacity:1!important;-webkit-text-fill-color:currentColor}
+  .nkc-post-composer::placeholder{opacity:.68!important;-webkit-text-fill-color:currentColor}
+  .nkc-scope-switch{max-width:100%!important}
+  .nkc-mobile-account-row{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));width:100%;gap:4px;padding:5px 6px}
+  .nkc-mobile-account-btn{width:100%;font-size:9px;padding-inline:2px;overflow:hidden;text-overflow:ellipsis}
+  .nkc-mobile-bottom-nav{box-sizing:border-box;width:100%!important;max-width:100%!important;height:68px;padding:6px 5px calc(6px + env(safe-area-inset-bottom));gap:2px}
+  .nkc-bottom-nav-item{min-width:0;max-width:70px;height:48px;padding:3px 1px;font-size:9px}
+  .nkc-bottom-nav-plus{flex-basis:54px;width:54px;height:54px;margin-top:-15px}
+  .nkc-settings-modal{box-sizing:border-box;width:calc(100vw - 20px)!important;max-width:380px!important;max-height:calc(100dvh - 24px)!important;margin:auto;padding:14px!important;overscroll-behavior:contain}
+  .nkc-auth-card{width:calc(100vw - 24px)!important;max-width:360px!important;margin:auto!important}
+  .nkc-auth-google{display:flex!important;justify-content:center!important;width:100%!important;max-width:100%!important}
+  .nkc-google-button-slot{width:min(300px,calc(100vw - 72px))!important;max-width:100%!important;margin-inline:auto!important;overflow:hidden!important}
+  .nkc-google-button-slot>div,.nkc-google-button-slot iframe{width:100%!important;max-width:100%!important}
+  .nkc-messages-header{padding:12px!important}
+  .nkc-messages-header-row{align-items:flex-start;flex-direction:column;gap:9px}
+  .nkc-messages-header-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);width:100%;gap:7px}
+  .nkc-messages-header-actions>*{min-width:0!important;width:100%;padding:8px 6px!important;text-align:center;font-size:11px!important;overflow:hidden;text-overflow:ellipsis}
+  [role="status"].fixed{left:16px!important;right:16px!important;bottom:calc(82px + env(safe-area-inset-bottom))!important;width:auto!important;max-width:none!important;transform:none!important;margin:0!important}
+}
+
+@media(max-width:639px){
+  .nkc-fade-in,.nkc-pop-in{animation:none!important}
+  .nkc-theme-choice[data-theme-choice="city-fountains"] img{transform:scale(1.13);transform-origin:center}
+  .nkc-subpage-with-nav{padding-bottom:calc(82px + env(safe-area-inset-bottom))!important}
+  .nkc-auth-overlay{z-index:1200!important}
+  .nkc-message-panel{height:calc(100dvh - 190px);min-height:420px!important;max-height:720px}
+  .nkc-mobile-bottom-nav{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+  .nkc-admin-menu-panel{right:0;width:230px!important;max-width:none!important;min-width:230px;max-height:70dvh;overflow-y:auto;padding:8px}
+  .nkc-admin-menu-panel button,.nkc-admin-menu-panel a{min-height:42px;padding:11px 12px;font-size:13px;white-space:normal}
+  html,body,.nkc-app-shell{overflow-x:clip!important;overscroll-behavior-x:none!important}
+  .nkc-surface,.nkc-surface:hover{transform:none!important;box-shadow:none;transition:none!important}
+  .nkc-bottom-nav-item:active,.nkc-bottom-nav-plus:active{transform:none!important}
+}
+
+input,textarea,select{color:inherit;caret-color:currentColor}
+input::placeholder,textarea::placeholder{color:currentColor!important;opacity:.72!important;-webkit-text-fill-color:currentColor!important}
+.nkc-themed-input{background:inherit;color:inherit}

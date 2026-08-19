@@ -1,0 +1,16 @@
+'use client';
+
+import Link from 'next/link';
+
+const luminance=(hex:string)=>{const v=(hex||'#000000').replace('#','').slice(0,6).padEnd(6,'0');const c=[0,2,4].map(i=>parseInt(v.slice(i,i+2),16)/255).map(x=>x<=.03928?x/12.92:Math.pow((x+.055)/1.055,2.4));return .2126*c[0]+.7152*c[1]+.0722*c[2]};
+const contrast=(a:string,b:string)=>{const x=luminance(a),y=luminance(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05)};
+
+export default function MobileBottomNav({theme,active=''}:{theme:any;active?:string}){
+  const inactive=contrast(theme.header,theme.accent)>=2.2?theme.accent:theme.text;
+  const item=(key:string)=>active===key?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{color:inactive};
+  return <nav className="nkc-mobile-actions nkc-mobile-bottom-nav" aria-label="Mobile navigation" style={{backgroundColor:theme.header,color:inactive,borderColor:theme.border,'--nkc-bottom-inactive':inactive,'--nkc-bottom-glow':theme.accent} as any}>
+    <Link href="/dms" className={`nkc-bottom-nav-item ${active==='messages'?'is-active':''}`} style={item('messages')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h16v11H9l-5 3v-14Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M8 9h8M8 12.5h5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/></svg><span>Messages</span></Link>
+    <Link href="/?compose=1#composer" className="nkc-bottom-nav-plus" aria-label="Create post" style={{backgroundColor:'transparent',color:theme.pillTextActive,borderColor:'transparent','--nkc-heart':theme.accent,filter:`drop-shadow(0 8px 12px ${theme.accent}55)`} as any}><svg viewBox="0 0 64 58" aria-hidden="true"><path d="M32 55C27 49 5 36 5 19 5 8 13 2 22 2c5 0 8 2 10 6 2-4 5-6 10-6 9 0 17 6 17 17 0 17-22 30-27 36Z" fill="var(--nkc-heart)" stroke="currentColor" strokeOpacity=".3" strokeWidth="2"/><path d="M32 18v20M22 28h20" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round"/></svg></Link>
+    <Link href="/?settings=1" className={`nkc-bottom-nav-item ${active==='settings'?'is-active':''}`} style={item('settings')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.7 3.6h4.6l.6 2.1 1.8 1 2.1-.5 2.3 4-1.5 1.6v2.1l1.5 1.6-2.3 4-2.1-.5-1.8 1-.6 2.1H9.7L9.1 20l-1.8-1-2.1.5-2.3-4 1.5-1.6v-2.1L2.9 10l2.3-4 2.1.5 1.8-1z" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinejoin="round"/><circle cx="12" cy="12.8" r="2.7" fill="none" stroke="currentColor" strokeWidth="1.7"/></svg><span>Settings</span></Link>
+  </nav>;
+}
