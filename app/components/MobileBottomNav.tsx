@@ -10,6 +10,6 @@ export default function MobileBottomNav({theme,active=''}:{theme:any;active?:str
     <Link href="/?category=Safety%20Alert#composer" className={`nkc-bottom-nav-item ${active==='safety'?'is-active':''}`} style={item('safety')}><span aria-hidden="true">♢</span><span>Safety</span></Link>
     <Link href="/?compose=1#composer" className="nkc-bottom-nav-plus" aria-label="Create post" style={{backgroundColor:theme.accent,color:theme.pillTextActive,borderColor:theme.header,boxShadow:`0 8px 20px ${theme.accent}55`}}><span aria-hidden="true">＋</span></Link>
     <Link href="/?category=For%20Sale%20%26%20Free#composer" className={`nkc-bottom-nav-item ${active==='sale'?'is-active':''}`} style={item('sale')}><span aria-hidden="true">▱</span><span>For Sale</span></Link>
-    <Link href="/?explore=1" className={`nkc-bottom-nav-item ${active==='explore'?'is-active':''}`} style={item('explore')}><span aria-hidden="true">◉</span><span>Explore</span></Link>
+    <Link href="/?settings=1" className={`nkc-bottom-nav-item ${active==='settings'?'is-active':''}`} style={item('settings')}><span aria-hidden="true">⚙</span><span>Settings</span></Link>
   </nav>;
 }

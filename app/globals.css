@@ -205,10 +205,7 @@ body{overflow-y:visible;touch-action:pan-y pinch-zoom}
     margin:0!important;
     pointer-events:auto!important;
   }
-  html.nkc-keyboard-open .nkc-mobile-bottom-nav,
-  body:has(input:focus) .nkc-mobile-bottom-nav,
-  body:has(textarea:focus) .nkc-mobile-bottom-nav,
-  body:has(select:focus) .nkc-mobile-bottom-nav{display:none!important}
+  html.nkc-keyboard-open .nkc-mobile-bottom-nav{display:none!important}
 }
 
 /* iOS keyboard: keep the composer usable and keep Neighborly's own floating
@@ -216,10 +213,7 @@ body{overflow-y:visible;touch-action:pan-y pinch-zoom}
    NOTE: the keyboard/autofill bar itself is drawn by iOS/Safari and cannot be
    styled or made transparent by a website. */
 @media (max-width:639px){
-  html.nkc-keyboard-open .nkc-mobile-actions,
-  body:has(input:focus) .nkc-mobile-actions,
-  body:has(textarea:focus) .nkc-mobile-actions,
-  body:has(select:focus) .nkc-mobile-actions{display:none!important}
+  html.nkc-keyboard-open .nkc-mobile-actions{display:none!important}
   html.nkc-keyboard-open .nkc-app-shell{padding-bottom:24px}
   html.nkc-keyboard-open .nkc-page-content{padding-bottom:24px}
   textarea:focus,input:focus,select:focus{scroll-margin-top:96px;scroll-margin-bottom:180px}
@@ -338,8 +332,8 @@ body{overflow-y:visible;touch-action:pan-y pinch-zoom}
 .nkc-themed-field::placeholder{color:currentColor!important;opacity:.82!important}
 .nkc-auth-divider{color:var(--nkc-auth-muted,currentColor);opacity:.72}
 .nkc-auth-action:disabled{opacity:.78!important}
-.nkc-auth-google{width:100%;padding-inline:0;overflow:hidden}
-.nkc-google-button-slot{width:320px;max-width:100%;height:44px;margin-inline:auto;overflow:visible;border-radius:999px}
+.nkc-auth-google{width:100%;padding-inline:0;overflow:visible;background:transparent!important}
+.nkc-google-button-slot{width:320px;max-width:100%;height:44px;margin-inline:auto;overflow:hidden;border-radius:999px;background:transparent!important;clip-path:inset(0 round 999px)}
 .nkc-google-button-slot>div,.nkc-google-button-slot iframe{display:block!important;width:100%!important;max-width:100%!important;height:44px!important;margin:0 auto!important}
 .nkc-auth-overlay,.nkc-auth-card{animation:none!important}
 .nkc-welcome-card{position:relative;overflow:hidden}
@@ -432,13 +426,16 @@ body{overflow-y:visible;touch-action:pan-y pinch-zoom}
 .nkc-messages-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0}
 .nkc-person-avatar{width:40px;height:40px;flex:0 0 40px;border-radius:999px;overflow:hidden;display:grid;place-items:center;font-weight:950}
 .nkc-person-avatar img{display:block;width:100%;height:100%;object-fit:cover}
+.nkc-message-avatar{width:26px;height:26px;flex:0 0 26px;border-radius:999px;overflow:hidden;display:grid;place-items:center;font-size:10px;font-weight:900}
+.nkc-message-avatar img{display:block;width:100%;height:100%;object-fit:cover}
 .nkc-person-avatar-lg{width:48px;height:48px;flex-basis:48px;font-size:18px}
 .nkc-explore-links a,.nkc-explore-links button{min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 
 @media(max-width:639px){
   main,header,section,nav,aside,footer,form,div{max-width:100%}
   .nkc-page-content{margin-inline:auto!important;padding-inline:10px!important}
-  .nkc-surface,.nkc-post-card{min-width:0;width:100%;overflow:hidden}
+  .nkc-surface{min-width:0;width:100%;overflow:hidden}
+  .nkc-post-card{min-width:0;width:100%;overflow:visible}
   .nkc-post-composer{display:block;width:100%!important;max-width:100%!important;min-width:0!important;font-size:16px!important;line-height:1.45!important;padding:13px!important;opacity:1!important;-webkit-text-fill-color:currentColor}
   .nkc-post-composer::placeholder{opacity:.68!important;-webkit-text-fill-color:currentColor}
   .nkc-scope-switch{max-width:100%!important}
@@ -450,7 +447,7 @@ body{overflow-y:visible;touch-action:pan-y pinch-zoom}
   .nkc-settings-modal{box-sizing:border-box;width:calc(100vw - 20px)!important;max-width:380px!important;max-height:calc(100dvh - 24px)!important;margin:auto;padding:14px!important;overscroll-behavior:contain}
   .nkc-auth-card{width:calc(100vw - 24px)!important;max-width:360px!important;margin:auto!important}
   .nkc-auth-google{display:flex!important;justify-content:center!important;width:100%!important;max-width:100%!important}
-  .nkc-google-button-slot{width:min(300px,calc(100vw - 72px))!important;max-width:100%!important;margin-inline:auto!important;overflow:visible!important}
+  .nkc-google-button-slot{width:min(300px,calc(100vw - 72px))!important;max-width:100%!important;margin-inline:auto!important;overflow:hidden!important}
   .nkc-google-button-slot>div,.nkc-google-button-slot iframe{width:100%!important;max-width:100%!important}
   .nkc-messages-header{padding:12px!important}
   .nkc-messages-header-row{align-items:flex-start;flex-direction:column;gap:9px}
@@ -464,4 +461,15 @@ body{overflow-y:visible;touch-action:pan-y pinch-zoom}
   .nkc-theme-choice[data-theme-choice="city-fountains"] img{transform:scale(1.13);transform-origin:center}
   .nkc-subpage-with-nav{padding-bottom:calc(82px + env(safe-area-inset-bottom))!important}
   .nkc-auth-overlay{z-index:1200!important}
+  .nkc-message-panel{height:calc(100dvh - 190px);min-height:420px!important;max-height:720px}
+  .nkc-mobile-bottom-nav{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+  .nkc-admin-menu-panel{right:0;width:min(230px,calc(100vw - 48px));max-height:70dvh;overflow-y:auto;padding:8px}
+  .nkc-admin-menu-panel button,.nkc-admin-menu-panel a{min-height:42px;padding:11px 12px;font-size:13px;white-space:normal}
+  html,body,.nkc-app-shell{overflow-x:clip!important;overscroll-behavior-x:none!important}
+  .nkc-surface,.nkc-surface:hover{transform:none!important;box-shadow:none;transition:none!important}
+  .nkc-bottom-nav-item:active,.nkc-bottom-nav-plus:active{transform:none!important}
 }
+
+input,textarea,select{color:inherit;caret-color:currentColor}
+input::placeholder,textarea::placeholder{color:currentColor!important;opacity:.72!important;-webkit-text-fill-color:currentColor!important}
+.nkc-themed-input{background:inherit;color:inherit}

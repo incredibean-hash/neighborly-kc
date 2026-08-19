@@ -170,7 +170,7 @@ export default function MyProfilePage() {
             </div>
             <div>
               <p className="text-xs uppercase tracking-widest font-black opacity-45">Neighborly KC member</p>
-              <h2 className="text-xl font-black">{name || 'Your name'}</h2>
+              <div className="flex items-center gap-2 flex-wrap"><h2 className="text-xl font-black">{name || 'Your name'}</h2>{profile?.is_founder&&<span className="nkc-badge founder">⭐ Founder</span>}{profile?.is_admin&&<span className="nkc-badge moderator">🛡️ Moderator</span>}</div>
               <p className="text-sm opacity-55">{selectedHood?.name || 'Choose your neighborhood below'}</p>
               <p className="text-xs opacity-45 mt-1">Tap 📷 to add your photo. It can appear next to your posts.</p>
             </div>

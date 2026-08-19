@@ -210,9 +210,12 @@ export default function Page(){
       setPostCategory(category);
       window.requestAnimationFrame(()=>document.getElementById('composer')?.scrollIntoView({behavior:'auto',block:'center'}));
     }
-    if(params.get('compose')==='1') window.requestAnimationFrame(()=>postComposerRef.current?.scrollIntoView({behavior:'auto',block:'center'}));
-    if(params.get('explore')==='1'){
-      setShowExplore(true);
+    if(params.get('compose')==='1') window.setTimeout(()=>{
+      postComposerRef.current?.scrollIntoView({behavior:'auto',block:'start'});
+      postComposerRef.current?.focus({preventScroll:true});
+    },80);
+    if(params.get('settings')==='1'){
+      setShowExplore(false);
       setShowSettings(true);
     }
   },[]);
@@ -482,7 +485,7 @@ export default function Page(){
               const { data: { session: after } } = await supabase.auth.getSession();
               if(!after?.user && alive){
                 setShowJoin(true);
-                setEmailAuthMessage('Google sign in did not complete. Please try again.');
+                setEmailAuthMessage('The sign-in link did not complete. Please request a new link and try again.');
               }
             }
           }
@@ -1084,7 +1087,7 @@ export default function Page(){
               </div>
             </div>
             <div className="mb-2 rounded-xl px-3 py-2 text-xs font-bold border" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>📍 Posting to: <span style={{color:theme.accent}}>{scope==='kc'?'All Kansas City':cur?.name || 'your neighborhood'}</span></div>
-            <textarea ref={postComposerRef} value={body} onChange={e=>setBody(e.target.value)} onFocus={()=>window.setTimeout(()=>postComposerRef.current?.scrollIntoView({behavior:'smooth',block:'center'}),120)} autoComplete="off" autoCorrect="on" autoCapitalize="sentences" spellCheck={true} inputMode="text" name="neighborly-community-post" data-lpignore="true" data-form-type="other" placeholder={composerPrompt} className="nkc-post-composer w-full rounded-xl p-3 min-h-[96px] text-base outline-none" data-theme={theme.id} style={{backgroundColor: theme.input, color: theme.text, border: `1px solid ${theme.border}`, '--nkc-placeholder-color':theme.text, scrollMarginBottom:'180px', caretColor: theme.accent, boxShadow: theme.id==='pip-boy' ? `inset 0 0 14px ${theme.accent}22, 0 0 8px ${theme.accent}22` : theme.id==='space' ? `inset 0 0 14px ${theme.accent}16` : undefined } as any} />
+            <textarea ref={postComposerRef} value={body} onChange={e=>setBody(e.target.value)} onFocus={()=>window.setTimeout(()=>postComposerRef.current?.scrollIntoView({behavior:'smooth',block:'center'}),120)} autoComplete="off" autoCorrect="on" autoCapitalize="sentences" spellCheck={true} inputMode="text" name="neighborly-community-post" data-lpignore="true" data-form-type="other" placeholder={composerPrompt} className="nkc-post-composer w-full rounded-xl p-3 min-h-[96px] text-base outline-none" data-theme={theme.id} style={{backgroundColor: theme.input, color: theme.text, border: `1px solid ${theme.border}`, '--nkc-composer-bg':theme.input, '--nkc-placeholder-color':theme.text, scrollMarginBottom:'180px', caretColor: theme.accent, boxShadow: theme.id==='pip-boy' ? `inset 0 0 14px ${theme.accent}22, 0 0 8px ${theme.accent}22` : theme.id==='space' ? `inset 0 0 14px ${theme.accent}16` : undefined } as any} />
             <div className="flex items-center gap-2 mt-3 min-w-0">
               <label htmlFor="file-input" className="shrink-0 cursor-pointer rounded-full border px-3 py-1.5 text-xs font-bold transition-colors hover:opacity-80" style={{borderColor:theme.border}}>Choose image</label>
               <input key={fileInputKey} ref={fileInputRef} id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="sr-only" />
@@ -1102,12 +1105,7 @@ export default function Page(){
             return (
             <div key={p.id} className="rounded-2xl p-4 border nkc-surface nkc-fade-in nkc-post-card" style={{backgroundColor:theme.card,borderColor:theme.border}}>
               <div className="flex justify-between gap-3"><div className="flex items-center gap-2 min-w-0"><div className="w-9 h-9 shrink-0 rounded-full overflow-hidden grid place-items-center font-black text-xs border" style={{backgroundColor:theme.input,borderColor:theme.border}}>{p.profiles?.avatar_url?<img src={p.profiles.avatar_url} alt="" className="w-full h-full object-cover"/>:(p.profiles?.full_name||p.author_name||'N').slice(0,1).toUpperCase()}</div><div><div className="flex items-center gap-1.5 flex-wrap"><p className="text-xs font-bold opacity-60">{(p.user_id||p.author_id)?<a href={`/dms?user=${p.user_id||p.author_id}`} className="hover:underline">{p.profiles?.full_name||p.author_name||'Neighbor'}</a>:(p.profiles?.full_name||p.author_name||'Neighbor')} · {p.category}</p>
-                  <div className="nkc-badges">
-                    {p.profiles?.is_founder&&<span className="nkc-badge founder">⭐ Founder</span>}
-                    {p.profiles?.is_admin&&<span className="nkc-badge moderator">🛡️ Moderator</span>}
-                    {topContributorIds.has(p.user_id||p.author_id)&&<span className="nkc-badge contributor">🔥 Top Contributor</span>}
-                    {p.profiles?.is_verified&&<span className="nkc-badge verified">✓ Verified</span>}
-                  </div></div>{scope==='kc'&&<p className="text-[11px] font-bold mt-1 opacity-45">📍 {neighborhoodName(p.neighborhood_id)}</p>}</div></div>
+                  </div>{scope==='kc'&&<p className="text-[11px] font-bold mt-1 opacity-45">📍 {neighborhoodName(p.neighborhood_id)}</p>}</div></div>
                 {canManage&&<details className="nkc-admin-menu relative shrink-0">
                   <summary className="nkc-admin-menu-trigger" aria-label="Post moderation menu">•••</summary>
                   <div className="nkc-admin-menu-panel" style={{backgroundColor:theme.card,borderColor:theme.border,color:theme.text}}>
@@ -1192,7 +1190,7 @@ export default function Page(){
           aria-label="Create post"
           title="Create post"
           className="nkc-bottom-nav-plus"
-          onClick={()=>{ if(!profile){ setShowJoin(true); return; } postComposerRef.current?.focus(); postComposerRef.current?.scrollIntoView({behavior:'smooth',block:'center'}); }}
+          onClick={()=>{ if(!profile){ setShowJoin(true); return; } postComposerRef.current?.scrollIntoView({behavior:'smooth',block:'start'}); window.setTimeout(()=>postComposerRef.current?.focus({preventScroll:true}),350); }}
           style={{backgroundColor:theme.accent,color:theme.pillTextActive,borderColor:theme.header,boxShadow:`0 8px 20px ${theme.accent}55`}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/></svg>
@@ -1211,13 +1209,13 @@ export default function Page(){
 
         <button
           type="button"
-          aria-label="Explore"
-          className={`nkc-bottom-nav-item ${showExplore?'is-active':''}`}
-          onClick={()=>{setShowJoin(false);setReportingPost(null);setShowExplore(true);setShowSettings(true);}}
+          aria-label="Settings"
+          className={`nkc-bottom-nav-item ${showSettings?'is-active':''}`}
+          onClick={()=>{setShowJoin(false);setReportingPost(null);setShowExplore(false);setShowSettings(true);}}
           style={showSettings?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{color:bottomInactiveColor}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="m15.8 8.2-2 5.6-5.6 2 2-5.6z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>
-          <span>Explore</span>
+          <span>Settings</span>
         </button>
       </nav>
 
@@ -1225,7 +1223,7 @@ export default function Page(){
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[1050] flex items-center justify-center p-2 sm:p-4 nkc-pop-in">
           <div className="rounded-[24px] w-full max-w-sm p-3 sm:p-5 border max-h-[90vh] overflow-y-auto nkc-settings-modal" style={{backgroundColor: '#15181f', borderColor: '#262a33'}}>
             <div className="flex justify-between items-center mb-3 sm:mb-4">
-              <h2 className="font-black text-white text-lg sm:text-xl">{showExplore?'Explore':'Settings'}</h2>
+              <h2 className="font-black text-white text-lg sm:text-xl">Settings</h2>
               <button 
                 onClick={()=>{setShowSettings(false);setShowExplore(false)}} 
                 className="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center text-sm hover:bg-white/20 transition-colors"
