@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/community';
 import { useAppTheme } from '../../lib/use-theme';
+import MobileBottomNav from '../components/MobileBottomNav';
 
 export default function MyProfilePage() {
   const [user, setUser] = useState<any>(null);
@@ -32,7 +33,8 @@ export default function MyProfilePage() {
         supabase.auth.getSession(),
       ]);
       const currentUser = session?.user || null;
-      setHoods(hoodsData || []);
+      const uniqueHoods=Array.from(new Map((hoodsData||[]).map((h:any)=>[`${String(h.name||'').trim().toLowerCase()}|${String(h.zip||'').trim()}`,h])).values());
+      setHoods(uniqueHoods);
       if (!currentUser) { setLoading(false); return; }
       setUser(currentUser);
 
@@ -142,7 +144,7 @@ export default function MyProfilePage() {
   const selectedHood = hoods.find(h => String(h.id) === String(neighborhoodId));
 
   return (
-    <main className="min-h-screen" style={{ backgroundColor: theme.bg, color: theme.text, colorScheme: theme.id === 'aim' ? 'light' : 'dark' }}>
+    <main className="min-h-screen nkc-subpage-with-nav" style={{ backgroundColor: theme.bg, color: theme.text, colorScheme: theme.id === 'aim' ? 'light' : 'dark' }}>
       <header className="border-b" style={{ backgroundColor: theme.header, borderColor: theme.border }}>
         <div className="max-w-3xl mx-auto px-5 py-5 flex items-center justify-between gap-3">
           <div>
@@ -215,6 +217,7 @@ export default function MyProfilePage() {
       </div>
 
       {saved && <div className="fixed left-1/2 -translate-x-1/2 bottom-6 z-50 rounded-full px-5 py-3 shadow-xl font-bold text-sm" style={{ backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}` }}>✓ Profile saved</div>}
+      <MobileBottomNav theme={theme}/>
     </main>
   );
 }

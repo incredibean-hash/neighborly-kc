@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
+import Link from 'next/link';
 import { track } from '@vercel/analytics';
 import { supabase } from '../lib/community';
 import { THEMES, DEFAULT_THEME_ID } from '../lib/themes';
@@ -202,6 +203,21 @@ export default function Page(){
   },[showJoin,trackSignupEvent]);
 
   useEffect(()=>{
+    const params=new URLSearchParams(window.location.search);
+    const category=params.get('category');
+    if(category && CATS.includes(category)){
+      setCat(category);
+      setPostCategory(category);
+      window.requestAnimationFrame(()=>document.getElementById('composer')?.scrollIntoView({behavior:'auto',block:'center'}));
+    }
+    if(params.get('compose')==='1') window.requestAnimationFrame(()=>postComposerRef.current?.scrollIntoView({behavior:'auto',block:'center'}));
+    if(params.get('explore')==='1'){
+      setShowExplore(true);
+      setShowSettings(true);
+    }
+  },[]);
+
+  useEffect(()=>{
     document.documentElement.style.backgroundColor=theme.bg;
     document.body.style.backgroundColor=theme.bg;
     const themeMeta=document.querySelector('meta[name="theme-color"]');
@@ -316,7 +332,7 @@ export default function Page(){
         text:'continue_with',
         shape:'pill',
         logo_alignment:'left',
-        width:window.innerWidth < 640 ? Math.max(200,Math.min(272,window.innerWidth-112)) : 320
+        width:window.innerWidth < 640 ? Math.max(240,Math.min(300,window.innerWidth-72)) : 320
       });
     };
 
@@ -346,6 +362,7 @@ export default function Page(){
       email: target,
       options: {
         shouldCreateUser: true,
+        emailRedirectTo: `${window.location.origin}/`,
         data: { full_name: name.trim(), street_address: '', zip: joinZip.trim() },
       },
     });
@@ -354,8 +371,8 @@ export default function Page(){
       setEmailAuthMessage(/database error saving new user/i.test(msg) ? 'Supabase is blocking new accounts right now. Run the included Supabase auth login fix, then try again.' : msg);
     } else {
       setEmailCodeSent(true);
-      trackSignupEvent('Login Code Sent','email');
-      setEmailAuthMessage(`Check ${target}. We emailed a 6-digit sign-in code. If your email also shows a Sign In link, you can tap that instead.`);
+      trackSignupEvent('Login Link Sent','email');
+      setEmailAuthMessage(`Check ${target}. We emailed you a secure sign-in link.`);
     }
     setEmailAuthLoading(false);
   };
@@ -563,12 +580,11 @@ export default function Page(){
     const next=THEMES[id] ? id : DEFAULT_THEME_ID;
     setThemeId(next);
     localStorage.setItem('nkc_theme', next);
-    setCat('All');
+    window.dispatchEvent(new Event('nkc-theme-change'));
     setShowExplore(false);
     setShowThemePicker(false);
     setShowSettings(false);
-    void loadPublicFeed();
-  }, [loadPublicFeed]);
+  }, []);
 
   useEffect(()=>{
     let alive=true;
@@ -666,6 +682,14 @@ export default function Page(){
         : scope==='kc'
           ? 'What should Kansas City know?'
           : `What’s happening in ${cur?.name || 'your neighborhood'}?`;
+
+  const chooseCategory = (category:string, postingCategory=category) => {
+    setCat(category);
+    if(postingCategory !== 'All') setPostCategory(postingCategory);
+    setShowExplore(false);
+    setShowSettings(false);
+    window.requestAnimationFrame(()=>postComposerRef.current?.scrollIntoView({behavior:'smooth',block:'center'}));
+  };
   
   const contributorCounts = useMemo(() => {
     return posts.reduce((acc:any,p:any)=>{
@@ -994,9 +1018,9 @@ export default function Page(){
           {profile
             ? <button type="button" onClick={signOut} className="nkc-mobile-account-btn">↪ <span>Sign out</span></button>
             : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-mobile-account-btn">👤 <span>Join free</span></button>}
-          <a href="/dms" className="nkc-mobile-account-btn">💬 <span>Messages</span></a>
+          <Link href="/dms" className="nkc-mobile-account-btn">💬 <span>Messages</span></Link>
           {profile
-            ? <a href="/profile" className="nkc-mobile-account-btn">🙂 <span>Profile</span></a>
+            ? <Link href="/profile" className="nkc-mobile-account-btn">🙂 <span>Profile</span></Link>
             : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-mobile-account-btn">🙂 <span>Profile</span></button>}
           <button type="button" onClick={()=>setShowSettings(true)} className="nkc-mobile-account-btn">🎨 <span>Themes</span></button>
         </div>
@@ -1011,9 +1035,9 @@ export default function Page(){
             {profile
               ? <button type="button" onClick={signOut} className="nkc-header-control">↪ Sign out</button>
               : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-header-control">👤 Join free</button>}
-            <a href="/dms" className="nkc-header-control">💬 Messages</a>
+            <Link href="/dms" className="nkc-header-control">💬 Messages</Link>
             {profile
-              ? <a href="/profile" className="nkc-header-control">🙂 Profile</a>
+              ? <Link href="/profile" className="nkc-header-control">🙂 Profile</Link>
               : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-header-control">🙂 Profile</button>}
             <button type="button" onClick={()=>setShowSettings(true)} className="nkc-header-control">🎨 Themes</button>
           </div>
@@ -1037,7 +1061,7 @@ export default function Page(){
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-8 grid grid-cols-1 lg:grid-cols-[220px_1fr_300px] gap-4 sm:gap-6 nkc-page-content">
         <aside className="rounded-2xl p-3 h-fit border hidden lg:block" style={{backgroundColor: theme.card, borderColor: theme.border}}>
           <p className="text-xs font-bold px-3 py-2 opacity-40">FILTER</p>
-          {CATS.map(c=><button key={c} onClick={()=>setCat(c)} className="w-full text-left px-3 py-2.5 rounded-xl text-sm transition-colors" style={{backgroundColor: cat===c? theme.accent : 'transparent', color: cat===c? theme.pillTextActive : theme.text}}>{c}</button>)}
+          {CATS.map(c=><button key={c} onClick={()=>c==='All'?setCat('All'):chooseCategory(c)} className="w-full text-left px-3 py-2.5 rounded-xl text-sm transition-colors" style={{backgroundColor: cat===c? theme.accent : 'transparent', color: cat===c? theme.pillTextActive : theme.text}}>{c}</button>)}
         </aside>
 
         <main className="space-y-3">
@@ -1051,7 +1075,7 @@ export default function Page(){
             <button type="button" onClick={()=>setShowJoin(true)} className="nkc-welcome-cta mt-5 w-full sm:w-auto rounded-full px-6 py-3 font-black text-sm" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>Join NeighborlyKC — Free</button>
             <p className="mt-3 text-[11px] font-semibold opacity-60">Your exact address is never displayed publicly.</p>
           </section>}
-          <div className="rounded-2xl p-4 border nkc-surface nkc-fade-in" style={{backgroundColor: theme.card, borderColor: theme.border}}>
+          <div id="composer" className="rounded-2xl p-4 border nkc-surface nkc-fade-in" style={{backgroundColor: theme.card, borderColor: theme.border}}>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
               <div><p className="text-xs font-black uppercase tracking-wider opacity-50">Neighborly KC Network</p><h2 className="text-xl font-black">{scope==='local'?cur?.name:'All Kansas City'}</h2><p className="text-xs opacity-55">{scope==='local'?'Your neighborhood and nearby local conversation':'Everyone inside the 40-mile Neighborly KC network'}</p></div>
               <div className="nkc-scope-switch flex rounded-full p-0.5 gap-0.5" style={{backgroundColor:theme.input,border:`1px solid ${theme.border}`}}>
@@ -1060,7 +1084,7 @@ export default function Page(){
               </div>
             </div>
             <div className="mb-2 rounded-xl px-3 py-2 text-xs font-bold border" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>📍 Posting to: <span style={{color:theme.accent}}>{scope==='kc'?'All Kansas City':cur?.name || 'your neighborhood'}</span></div>
-            <textarea ref={postComposerRef} value={body} onChange={e=>setBody(e.target.value)} onFocus={()=>window.setTimeout(()=>postComposerRef.current?.scrollIntoView({behavior:'smooth',block:'center'}),120)} autoComplete="off" autoCorrect="on" autoCapitalize="sentences" spellCheck={true} inputMode="text" name="neighborly-community-post" data-lpignore="true" data-form-type="other" placeholder={composerPrompt} className="nkc-post-composer w-full rounded-xl p-3 min-h-[96px] text-base outline-none" data-theme={theme.id} style={{backgroundColor: theme.input, color: theme.text, border: `1px solid ${theme.border}`, scrollMarginBottom:'180px', caretColor: theme.accent, boxShadow: theme.id==='pip-boy' ? `inset 0 0 14px ${theme.accent}22, 0 0 8px ${theme.accent}22` : theme.id==='space' ? `inset 0 0 14px ${theme.accent}16` : undefined }} />
+            <textarea ref={postComposerRef} value={body} onChange={e=>setBody(e.target.value)} onFocus={()=>window.setTimeout(()=>postComposerRef.current?.scrollIntoView({behavior:'smooth',block:'center'}),120)} autoComplete="off" autoCorrect="on" autoCapitalize="sentences" spellCheck={true} inputMode="text" name="neighborly-community-post" data-lpignore="true" data-form-type="other" placeholder={composerPrompt} className="nkc-post-composer w-full rounded-xl p-3 min-h-[96px] text-base outline-none" data-theme={theme.id} style={{backgroundColor: theme.input, color: theme.text, border: `1px solid ${theme.border}`, '--nkc-placeholder-color':theme.text, scrollMarginBottom:'180px', caretColor: theme.accent, boxShadow: theme.id==='pip-boy' ? `inset 0 0 14px ${theme.accent}22, 0 0 8px ${theme.accent}22` : theme.id==='space' ? `inset 0 0 14px ${theme.accent}16` : undefined } as any} />
             <div className="flex items-center gap-2 mt-3 min-w-0">
               <label htmlFor="file-input" className="shrink-0 cursor-pointer rounded-full border px-3 py-1.5 text-xs font-bold transition-colors hover:opacity-80" style={{borderColor:theme.border}}>Choose image</label>
               <input key={fileInputKey} ref={fileInputRef} id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="sr-only" />
@@ -1156,7 +1180,7 @@ export default function Page(){
           type="button"
           aria-label="Safety"
           className={`nkc-bottom-nav-item ${cat==='Safety Alert'?'is-active':''}`}
-          onClick={()=>{setCat('Safety Alert');setPostCategory('Safety Alert');setShowExplore(false);window.scrollTo({top:0,behavior:'smooth'});}}
+          onClick={()=>chooseCategory('Safety Alert')}
           style={cat==='Safety Alert'?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{color:bottomInactiveColor}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 6v5c0 5.2-3.4 8.5-8 10-4.6-1.5-8-4.8-8-10V6z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="m9 12 2 2 4-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -1178,7 +1202,7 @@ export default function Page(){
           type="button"
           aria-label="For Sale"
           className={`nkc-bottom-nav-item ${cat==='For Sale & Free'?'is-active':''}`}
-          onClick={()=>{setCat('For Sale & Free');setPostCategory('For Sale & Free');setShowExplore(false);window.scrollTo({top:0,behavior:'smooth'});}}
+          onClick={()=>chooseCategory('For Sale & Free')}
           style={cat==='For Sale & Free'?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{color:bottomInactiveColor}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5 12 4l8 4.5v8L12 21l-8-4.5z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M9 11h6M9 14h4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
@@ -1220,9 +1244,9 @@ export default function Page(){
             </button>
 
             {showExplore&&<div className="nkc-explore-links mt-3 grid grid-cols-2 gap-2">
-              <a href="/dms" className="rounded-2xl border border-white/15 bg-white/10 px-3 py-3 text-center text-sm font-bold text-white">💬 Messages</a>
-              <a href="/people" className="rounded-2xl border border-white/15 bg-white/10 px-3 py-3 text-center text-sm font-bold text-white">👥 People</a>
-              <a href="/connections" className="rounded-2xl border border-white/15 bg-white/10 px-3 py-3 text-center text-sm font-bold text-white">🤝 Connections</a>
+              <Link href="/dms" className="rounded-2xl border border-white/15 bg-white/10 px-3 py-3 text-center text-sm font-bold text-white">💬 Messages</Link>
+              <Link href="/people" className="rounded-2xl border border-white/15 bg-white/10 px-3 py-3 text-center text-sm font-bold text-white">👥 People</Link>
+              <Link href="/connections" className="rounded-2xl border border-white/15 bg-white/10 px-3 py-3 text-center text-sm font-bold text-white">🤝 Connections</Link>
               <button type="button" onClick={()=>setShowThemePicker(true)} className="rounded-2xl border border-white/15 bg-white/10 px-3 py-3 text-center text-sm font-bold text-white">🎨 Themes</button>
             </div>}
             
@@ -1238,6 +1262,7 @@ export default function Page(){
                     key={id} 
                     type="button" 
                     aria-label={`Use ${t.name} theme`} 
+                    data-theme-choice={id}
                     onClick={()=>setTheme(id)} 
                     className={`nkc-theme-choice relative aspect-square w-full overflow-hidden rounded-lg sm:rounded-xl border-2 transition-all hover:scale-105 active:scale-95 ${active?'is-active':''}`} 
                     style={{
@@ -1262,7 +1287,7 @@ export default function Page(){
               </div>
             </div>}
             
-            {profile&&<a href="/profile" onClick={()=>setShowSettings(false)} className="mt-3 sm:mt-4 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center text-sm sm:text-base">👤 My Profile</a>}
+            {profile&&<Link href="/profile" onClick={()=>setShowSettings(false)} className="mt-3 sm:mt-4 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center text-sm sm:text-base">👤 My Profile</Link>}
             
             <button onClick={()=>{if(!profile){setShowJoin(true);return;}setShowFeedback(true)}} className="mt-2 w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-sm sm:text-base">💬 Leave Feedback</button>
             
@@ -1297,7 +1322,7 @@ export default function Page(){
       {(postSuccess || toast) && <div role="status" aria-live="polite" className="fixed left-1/2 -translate-x-1/2 bottom-[86px] sm:bottom-6 z-[120] rounded-2xl px-5 py-3 shadow-xl font-bold text-sm nkc-pop-in max-w-[calc(100vw-32px)] text-center" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}>{postSuccess?'✓ Post published':toast}</div>}
 
       {showJoin && (
-        <div className="nkc-auth-overlay fixed inset-0 bg-black/70 backdrop-blur-md z-[900] flex items-center justify-center p-4">
+        <div className="nkc-auth-overlay fixed inset-0 bg-black/70 backdrop-blur-md z-[1200] flex items-center justify-center p-4">
           <div className="nkc-auth-card rounded-[28px] w-full max-w-sm p-6 shadow-2xl border" style={{backgroundColor: theme.card, borderColor: theme.border, '--nkc-auth-muted':theme.subtext} as any}>
             <h2 className="font-black text-xl">Join NeighborlyKC</h2><p className="text-xs opacity-70 mt-1">Connect with neighbors across the Kansas City area.</p>
             <div className="nkc-auth-google mt-5 min-h-[44px] flex items-center justify-center">
@@ -1305,17 +1330,15 @@ export default function Page(){
                 ? <div className="w-full bg-white border-2 border-black text-black py-3.5 rounded-full font-bold text-sm text-center">Signing in…</div>
                 : <div ref={googleButtonRef} className="nkc-google-button-slot flex justify-center w-full" aria-label="Continue with Google" />}
             </div>
-            <div className="nkc-auth-divider-row flex items-center gap-3 my-5"><div className="h-px flex-1" style={{backgroundColor:theme.border}}></div><span className="nkc-auth-divider text-xs font-bold">OR EMAIL CODE</span><div className="h-px flex-1" style={{backgroundColor:theme.border}}></div></div>
+            <div className="nkc-auth-divider-row flex items-center gap-3 my-5"><div className="h-px flex-1" style={{backgroundColor:theme.border}}></div><span className="nkc-auth-divider text-xs font-bold">OR EMAIL LINK</span><div className="h-px flex-1" style={{backgroundColor:theme.border}}></div></div>
             <div className="space-y-3">
               <input value={name} onChange={e=>setName(e.target.value)} placeholder="Full name (optional)" className="nkc-themed-field w-full border rounded-xl px-4 py-3 text-sm outline-none" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}/>
               <input value={email} onChange={e=>setEmail(e.target.value)} inputMode="email" autoComplete="email" placeholder="Email address" className="nkc-themed-field w-full border rounded-xl px-4 py-3 text-sm outline-none" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}/>
               {!emailCodeSent && <input value={joinZip} onChange={e=>setJoinZip(e.target.value.replace(/\D/g,'').slice(0,5))} inputMode="numeric" autoComplete="postal-code" maxLength={5} placeholder="KC-area ZIP code (optional)" className="nkc-themed-field w-full border rounded-xl px-4 py-3 text-sm outline-none" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}/>}
               {!emailCodeSent && <p className="px-1 text-[11px] leading-4 font-semibold opacity-65">Your ZIP helps us find nearby conversations. Your exact address is never shown publicly.</p>}
-              {emailCodeSent && <input value={emailCode} onChange={e=>setEmailCode(e.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="Enter the 6-digit code" className="nkc-themed-field w-full border rounded-xl px-4 py-3 text-center tracking-[0.45em] font-black text-lg outline-none" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}/>}
-              {emailCodeSent && <div className="rounded-xl p-3 text-xs leading-5" style={{backgroundColor:theme.input,color:theme.text}}><b>Check your email</b><br/>Use the 6-digit code in the message. If a Sign In link is provided, tapping the link will also finish login.</div>}
+              {emailCodeSent && <div className="rounded-xl p-3 text-xs leading-5" style={{backgroundColor:theme.input,color:theme.text}}><b>Check your email</b><br/>Tap the secure sign-in link we sent you. You can close this window after opening the link.</div>}
               {emailAuthMessage && <p className="text-xs font-semibold text-center opacity-70">{emailAuthMessage}</p>}
-              <div className="nkc-auth-buttons flex gap-2 pt-2"><button type="button" onClick={()=>setShowJoin(false)} className="flex-1 py-3 rounded-full font-bold text-sm" style={{backgroundColor:'#f8f5ee',color:'#1f2937'}}>Cancel</button>{emailCodeSent ? <button type="button" disabled={emailAuthLoading} onClick={verifyEmailLoginCode} className="nkc-auth-action flex-1 py-3 rounded-full font-bold text-sm" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{emailAuthLoading?'Checking…':'Verify & Sign In'}</button> : <button type="button" disabled={emailAuthLoading||!email.trim()} onClick={sendEmailLoginCode} className="nkc-auth-action flex-1 py-3 rounded-full font-bold text-sm" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{emailAuthLoading?'Sending…':'Email Me a Code'}</button>}</div>
-              {emailCodeSent && <button type="button" disabled={emailAuthLoading} onClick={sendEmailLoginCode} className="w-full text-xs font-bold underline opacity-60">Send a new code</button>}
+              <div className="nkc-auth-buttons flex gap-2 pt-2"><button type="button" onClick={()=>setShowJoin(false)} className="flex-1 py-3 rounded-full font-bold text-sm" style={{backgroundColor:'#f8f5ee',color:'#1f2937'}}>Cancel</button><button type="button" disabled={emailAuthLoading||!email.trim()} onClick={sendEmailLoginCode} className="nkc-auth-action flex-1 py-3 rounded-full font-bold text-sm" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{emailAuthLoading?'Sending…':emailCodeSent?'Email Link Again':'Email Me a Link'}</button></div>
             </div>
           </div>
         </div>
