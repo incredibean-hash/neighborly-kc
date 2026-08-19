@@ -675,4 +675,9 @@ input::placeholder,textarea::placeholder{color:currentColor!important;opacity:.7
   .nkc-mobile-top-row{height:68px!important}
   .nkc-mobile-theme-mark{width:60px!important;height:60px!important;flex-basis:60px!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important;clip-path:polygon(50% 96%,10% 59%,3% 46%,0 32%,3% 18%,11% 7%,22% 2%,34% 3%,43% 8%,50% 17%,57% 8%,66% 3%,78% 2%,89% 7%,97% 18%,100% 32%,97% 46%,90% 59%)}
   .nkc-mobile-theme-mark img{width:100%!important;height:100%!important;object-fit:cover!important;object-position:center!important;transform:scale(1.15)!important;background:transparent!important;filter:drop-shadow(0 0 5px color-mix(in srgb,var(--nkc-nav-accent,currentColor) 45%,transparent))}
+
+  /* Keep the wordmark in the space between the theme heart and action icons. */
+  .nkc-mobile-brand{flex:1 1 auto!important;width:auto!important;max-width:calc(100% - 68px)!important;gap:8px!important;overflow:hidden!important}
+  .nkc-mobile-wordmark{position:static!important;left:auto!important;top:auto!important;transform:none!important;flex:1 1 auto!important;justify-content:center!important;font-size:clamp(18px,5.4vw,23px)!important;letter-spacing:-.9px!important;overflow:hidden!important}
+  .nkc-mobile-top-icons{flex:0 0 auto!important;margin-left:4px!important}
 }
