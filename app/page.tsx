@@ -214,10 +214,10 @@ export default function Page(){
   useEffect(()=>{
     const restorePageScroll=()=>{
       document.documentElement.style.overflowY='auto';
-      document.documentElement.style.touchAction='pan-y';
+      document.documentElement.style.touchAction='pan-y pinch-zoom';
       document.body.style.overflowY='visible';
       document.body.style.position='static';
-      document.body.style.touchAction='pan-y';
+      document.body.style.touchAction='pan-y pinch-zoom';
     };
     const onVisibility=()=>{if(document.visibilityState==='visible')restorePageScroll();};
     restorePageScroll();
