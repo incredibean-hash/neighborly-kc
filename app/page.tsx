@@ -14,7 +14,9 @@ const colorLuminance=(hex:string)=>{
   return .2126*channels[0]+.7152*channels[1]+.0722*channels[2];
 };
 const contrastRatio=(a:string,b:string)=>{const x=colorLuminance(a),y=colorLuminance(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05)};
-const themedNavColor=(theme:any)=>[theme.accent,theme.text,theme.pillTextActive,'#ffffff','#000000'].filter(Boolean).sort((a,b)=>contrastRatio(theme.header,b)-contrastRatio(theme.header,a))[0];
+const themedNavColor=(theme:any)=>contrastRatio(theme.header,theme.accent)>=2.2
+  ? theme.accent
+  : [theme.text,theme.pillTextActive,'#ffffff','#000000'].filter(Boolean).sort((a,b)=>contrastRatio(theme.header,b)-contrastRatio(theme.header,a))[0];
 
 // A PKCE authorization code may only be redeemed once. React Strict Mode mounts
 // effects twice in development, and a fast double render can do the same in
@@ -168,7 +170,6 @@ export default function Page(){
   const headerImage = theme.headerImage || '/neighborly-kc-header-banner.png';
   const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brooks Heights', zip:'64155', id: '5fb249cb-1667-475b-ab8c-43e1df245ace', slug:'meadow-brooks-heights'};
   const navThemeColor = themedNavColor(theme);
-  const bottomInactiveColor = navThemeColor;
 
   // Apply the saved theme before the browser paints the app. Using a normal
   // effect here lets the default theme flash first, which makes the whole
@@ -1029,11 +1030,11 @@ export default function Page(){
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden nkc-app-shell" style={{backgroundColor: theme.bg, color: theme.text, colorScheme: theme.id==='aim' ? 'light' : 'dark'}}>
-      <header className="nkc-mobile-top-header sm:hidden sticky top-0 z-40 border-b" style={{backgroundColor:theme.header,color:navThemeColor,borderColor:theme.border,'--nkc-nav-accent':navThemeColor,'--nkc-nav-border':theme.border} as any}>
+      <header className="nkc-mobile-top-header sm:hidden z-40 border-b" style={{backgroundColor:theme.header,color:navThemeColor,borderColor:theme.border,'--nkc-nav-accent':navThemeColor,'--nkc-nav-border':theme.border} as any}>
         <div className="nkc-mobile-top-row">
           <button type="button" className="nkc-mobile-brand" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})} aria-label="NeighborlyKC home">
-            <img src="/icon-192.png" alt="" />
-            <span>NeighborlyKC</span>
+            <span className="nkc-mobile-theme-mark"><img src={theme.themeButtonImage || '/icon-192.png'} alt="" /></span>
+            <span className="nkc-mobile-wordmark"><span>Neighborly</span><b style={{color:theme.accent}}>KC</b></span>
           </button>
           <div className="nkc-mobile-top-icons">
             <Link href="/people" className="nkc-mobile-icon" aria-label="Search people"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.6" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="m16 16 4.2 4.2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg></Link>
@@ -1180,13 +1181,13 @@ export default function Page(){
       <nav
         className="nkc-mobile-actions nkc-mobile-bottom-nav"
         aria-label="Mobile navigation"
-        style={{backgroundColor:theme.header,color:bottomInactiveColor,borderColor:theme.border,'--nkc-bottom-inactive':bottomInactiveColor} as any}
+        style={{backgroundColor:theme.header,color:navThemeColor,borderColor:theme.border,'--nkc-bottom-inactive':navThemeColor,'--nkc-bottom-glow':theme.accent} as any}
       >
         <Link
           href="/dms"
           aria-label="Messages"
           className="nkc-bottom-nav-item"
-          style={{color:bottomInactiveColor}}
+          style={{color:navThemeColor}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h16v11H9l-5 3v-14Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M8 9h8M8 12.5h5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/></svg>
           <span>Messages</span>
@@ -1208,7 +1209,7 @@ export default function Page(){
           aria-label="Settings"
           className={`nkc-bottom-nav-item ${showSettings?'is-active':''}`}
           onClick={()=>{setShowJoin(false);setReportingPost(null);setShowExplore(false);setShowSettings(true);}}
-          style={showSettings?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{color:bottomInactiveColor}}
+          style={showSettings?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{color:navThemeColor}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.7 3.6h4.6l.6 2.1 1.8 1 2.1-.5 2.3 4-1.5 1.6v2.1l1.5 1.6-2.3 4-2.1-.5-1.8 1-.6 2.1H9.7L9.1 20l-1.8-1-2.1.5-2.3-4 1.5-1.6v-2.1L2.9 10l2.3-4 2.1.5 1.8-1z" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinejoin="round"/><circle cx="12" cy="12.8" r="2.7" fill="none" stroke="currentColor" strokeWidth="1.7"/></svg>
           <span>Settings</span>
