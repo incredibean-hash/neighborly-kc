@@ -316,7 +316,7 @@ export default function Page(){
         text:'continue_with',
         shape:'pill',
         logo_alignment:'left',
-        width:window.innerWidth < 640 ? Math.max(220,Math.min(296,window.innerWidth-80)) : 320
+        width:window.innerWidth < 640 ? Math.max(200,Math.min(272,window.innerWidth-112)) : 320
       });
     };
 
@@ -657,6 +657,15 @@ export default function Page(){
   }, [cat, scopedPosts]);
 
   const neighborhoodName = useCallback((id:any) => hoods.find((h:any)=>String(h.id)===String(id))?.name || cur?.name || 'Kansas City', [hoods, cur?.name]);
+  const composerPrompt = !profile
+    ? 'Join Neighborly KC to post…'
+    : cat==='Safety Alert'
+      ? 'Share a safety alert with Kansas City…'
+      : cat==='For Sale & Free'
+        ? 'Describe what you are selling or giving away…'
+        : scope==='kc'
+          ? 'What should Kansas City know?'
+          : `What’s happening in ${cur?.name || 'your neighborhood'}?`;
   
   const contributorCounts = useMemo(() => {
     return posts.reduce((acc:any,p:any)=>{
@@ -1051,7 +1060,7 @@ export default function Page(){
               </div>
             </div>
             <div className="mb-2 rounded-xl px-3 py-2 text-xs font-bold border" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>📍 Posting to: <span style={{color:theme.accent}}>{scope==='kc'?'All Kansas City':cur?.name || 'your neighborhood'}</span></div>
-            <textarea ref={postComposerRef} value={body} onChange={e=>setBody(e.target.value)} onFocus={()=>window.setTimeout(()=>postComposerRef.current?.scrollIntoView({behavior:'smooth',block:'center'}),120)} autoComplete="off" autoCorrect="on" autoCapitalize="sentences" spellCheck={true} inputMode="text" name="neighborly-post" data-lpignore="true" placeholder={profile?(scope==='kc'?'What should Kansas City know?':`What's up in ${cur?.name}?`):'Join Neighborly KC to post...'} className="nkc-post-composer w-full rounded-xl p-3 min-h-[80px] text-sm outline-none" data-theme={theme.id} style={{backgroundColor: theme.input, color: theme.text, border: `1px solid ${theme.border}`, scrollMarginBottom:'180px', caretColor: theme.accent, boxShadow: theme.id==='pip-boy' ? `inset 0 0 14px ${theme.accent}22, 0 0 8px ${theme.accent}22` : theme.id==='space' ? `inset 0 0 14px ${theme.accent}16` : undefined }} />
+            <textarea ref={postComposerRef} value={body} onChange={e=>setBody(e.target.value)} onFocus={()=>window.setTimeout(()=>postComposerRef.current?.scrollIntoView({behavior:'smooth',block:'center'}),120)} autoComplete="off" autoCorrect="on" autoCapitalize="sentences" spellCheck={true} inputMode="text" name="neighborly-community-post" data-lpignore="true" data-form-type="other" placeholder={composerPrompt} className="nkc-post-composer w-full rounded-xl p-3 min-h-[96px] text-base outline-none" data-theme={theme.id} style={{backgroundColor: theme.input, color: theme.text, border: `1px solid ${theme.border}`, scrollMarginBottom:'180px', caretColor: theme.accent, boxShadow: theme.id==='pip-boy' ? `inset 0 0 14px ${theme.accent}22, 0 0 8px ${theme.accent}22` : theme.id==='space' ? `inset 0 0 14px ${theme.accent}16` : undefined }} />
             <div className="flex items-center gap-2 mt-3 min-w-0">
               <label htmlFor="file-input" className="shrink-0 cursor-pointer rounded-full border px-3 py-1.5 text-xs font-bold transition-colors hover:opacity-80" style={{borderColor:theme.border}}>Choose image</label>
               <input key={fileInputKey} ref={fileInputRef} id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="sr-only" />
@@ -1136,7 +1145,7 @@ export default function Page(){
           type="button"
           aria-label="Feed"
           className={`nkc-bottom-nav-item ${cat==='All'?'is-active':''}`}
-          onClick={()=>{setCat('All');setShowExplore(false);window.scrollTo({top:0,behavior:'smooth'});}}
+          onClick={()=>{setCat('All');setPostCategory('General');setShowExplore(false);window.scrollTo({top:0,behavior:'smooth'});}}
           style={cat==='All'?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{color:bottomInactiveColor}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>
@@ -1147,7 +1156,7 @@ export default function Page(){
           type="button"
           aria-label="Safety"
           className={`nkc-bottom-nav-item ${cat==='Safety Alert'?'is-active':''}`}
-          onClick={()=>{setCat('Safety Alert');setShowExplore(false);window.scrollTo({top:0,behavior:'smooth'});}}
+          onClick={()=>{setCat('Safety Alert');setPostCategory('Safety Alert');setShowExplore(false);window.scrollTo({top:0,behavior:'smooth'});}}
           style={cat==='Safety Alert'?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{color:bottomInactiveColor}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 6v5c0 5.2-3.4 8.5-8 10-4.6-1.5-8-4.8-8-10V6z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="m9 12 2 2 4-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -1169,7 +1178,7 @@ export default function Page(){
           type="button"
           aria-label="For Sale"
           className={`nkc-bottom-nav-item ${cat==='For Sale & Free'?'is-active':''}`}
-          onClick={()=>{setCat('For Sale & Free');setShowExplore(false);window.scrollTo({top:0,behavior:'smooth'});}}
+          onClick={()=>{setCat('For Sale & Free');setPostCategory('For Sale & Free');setShowExplore(false);window.scrollTo({top:0,behavior:'smooth'});}}
           style={cat==='For Sale & Free'?{backgroundColor:theme.pillActive,color:theme.pillTextActive}:{color:bottomInactiveColor}}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5 12 4l8 4.5v8L12 21l-8-4.5z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M9 11h6M9 14h4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
@@ -1209,6 +1218,13 @@ export default function Page(){
               <span>🎨 Themes</span>
               <span className="text-white/60">{showThemePicker?'▲':'▼'}</span>
             </button>
+
+            {showExplore&&<div className="nkc-explore-links mt-3 grid grid-cols-2 gap-2">
+              <a href="/dms" className="rounded-2xl border border-white/15 bg-white/10 px-3 py-3 text-center text-sm font-bold text-white">💬 Messages</a>
+              <a href="/people" className="rounded-2xl border border-white/15 bg-white/10 px-3 py-3 text-center text-sm font-bold text-white">👥 People</a>
+              <a href="/connections" className="rounded-2xl border border-white/15 bg-white/10 px-3 py-3 text-center text-sm font-bold text-white">🤝 Connections</a>
+              <button type="button" onClick={()=>setShowThemePicker(true)} className="rounded-2xl border border-white/15 bg-white/10 px-3 py-3 text-center text-sm font-bold text-white">🎨 Themes</button>
+            </div>}
             
             {showThemePicker && <div className="mt-3">
               <p className="text-[8px] sm:text-[10px] font-black tracking-widest uppercase text-white/40 mb-2 text-center sm:text-left">

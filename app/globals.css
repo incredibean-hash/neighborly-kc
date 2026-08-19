@@ -425,3 +425,36 @@ body{overflow-y:visible;touch-action:pan-y pinch-zoom}
   .nkc-forecast-day>strong{font-size:14px}
   .nkc-badge{font-size:7px;padding:2px 5px}
 }
+
+/* 2026 mobile stability pass: one final responsive layer prevents older,
+   overlapping component rules from pushing controls beyond the viewport. */
+.nkc-messages-header-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.nkc-messages-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0}
+.nkc-person-avatar{width:40px;height:40px;flex:0 0 40px;border-radius:999px;overflow:hidden;display:grid;place-items:center;font-weight:950}
+.nkc-person-avatar img{display:block;width:100%;height:100%;object-fit:cover}
+.nkc-person-avatar-lg{width:48px;height:48px;flex-basis:48px;font-size:18px}
+.nkc-explore-links a,.nkc-explore-links button{min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+
+@media(max-width:639px){
+  main,header,section,nav,aside,footer,form,div{max-width:100%}
+  .nkc-page-content{margin-inline:auto!important;padding-inline:10px!important}
+  .nkc-surface,.nkc-post-card{min-width:0;width:100%;overflow:hidden}
+  .nkc-post-composer{display:block;width:100%!important;max-width:100%!important;min-width:0!important;font-size:16px!important;line-height:1.45!important;padding:13px!important;opacity:1!important;-webkit-text-fill-color:currentColor}
+  .nkc-post-composer::placeholder{opacity:.68!important;-webkit-text-fill-color:currentColor}
+  .nkc-scope-switch{max-width:100%!important}
+  .nkc-mobile-account-row{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));width:100%;gap:4px;padding:5px 6px}
+  .nkc-mobile-account-btn{width:100%;font-size:9px;padding-inline:2px;overflow:hidden;text-overflow:ellipsis}
+  .nkc-mobile-bottom-nav{box-sizing:border-box;width:100%!important;max-width:100%!important;height:68px;padding:6px 5px calc(6px + env(safe-area-inset-bottom));gap:2px}
+  .nkc-bottom-nav-item{min-width:0;max-width:70px;height:48px;padding:3px 1px;font-size:9px}
+  .nkc-bottom-nav-plus{flex-basis:54px;width:54px;height:54px;margin-top:-15px}
+  .nkc-settings-modal{box-sizing:border-box;width:calc(100vw - 20px)!important;max-width:380px!important;max-height:calc(100dvh - 24px)!important;margin:auto;padding:14px!important;overscroll-behavior:contain}
+  .nkc-auth-card{width:calc(100vw - 24px)!important;max-width:360px!important;margin:auto!important}
+  .nkc-auth-google{display:flex!important;justify-content:center!important;width:100%!important;max-width:100%!important}
+  .nkc-google-button-slot{width:min(272px,calc(100vw - 112px))!important;max-width:100%!important;margin-inline:auto!important}
+  .nkc-google-button-slot>div,.nkc-google-button-slot iframe{width:100%!important;max-width:100%!important}
+  .nkc-messages-header{padding:12px!important}
+  .nkc-messages-header-row{align-items:flex-start;flex-direction:column;gap:9px}
+  .nkc-messages-header-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);width:100%;gap:7px}
+  .nkc-messages-header-actions>*{min-width:0!important;width:100%;padding:8px 6px!important;text-align:center;font-size:11px!important;overflow:hidden;text-overflow:ellipsis}
+  [role="status"].fixed{left:16px!important;right:16px!important;bottom:calc(82px + env(safe-area-inset-bottom))!important;width:auto!important;max-width:none!important;transform:none!important;margin:0!important}
+}
