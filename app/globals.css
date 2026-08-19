@@ -352,14 +352,11 @@ body{overflow-y:visible;touch-action:pan-y pinch-zoom}
   }
 }
 
-/* Keep feed post media consistent so the first three image posts line up cleanly. */
-.nkc-post-image-frame{aspect-ratio:16/9;background:#eaf1fb;}
-.nkc-post-image{display:block;object-fit:cover;}
-@media (min-width:640px){
-  .nkc-post-card .nkc-post-image-frame{max-height:360px;}
-}
+/* Center uploaded photos and preserve their complete natural composition. */
+.nkc-post-image-frame{display:flex;align-items:center;justify-content:center;width:100%;}
+.nkc-post-image{display:block;width:100%;height:auto;max-height:min(68vh,560px);margin-inline:auto;object-fit:contain;object-position:center;pointer-events:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;}
 @media (max-width:639px){
-  .nkc-post-image-frame{aspect-ratio:16/10;}
+  .nkc-post-image{max-height:min(62vh,480px);}
 }
 
 /* Theme picker cards supplied by Neighborly KC. */
