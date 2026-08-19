@@ -159,6 +159,7 @@ export default function Page(){
   const [reportSending,setReportSending]=useState(false);
 
   const theme = THEMES[themeId] || THEMES['royals'];
+  const headerHeartImage = theme.headerImage as string | undefined;
   const cur = hoods.find((x:any)=>x.slug==hood) || hoods[0] || {name:'Meadow Brooks Heights', zip:'64155', id: '5fb249cb-1667-475b-ab8c-43e1df245ace', slug:'meadow-brooks-heights'};
   const bottomInactiveColor = theme.id==='aim' ? '#111111' : theme.id==='pip-boy' ? theme.text : '#ffffff';
 
@@ -1031,8 +1032,10 @@ export default function Page(){
       <header className="nkc-compact-feed-header" style={{backgroundColor:theme.header,color:theme.id==='aim'?'#111':'#fff',borderColor:theme.border,'--nkc-header-accent':theme.accent} as any}>
         <div className="nkc-compact-header-row">
           <button type="button" className="nkc-compact-brand" aria-label="NeighborlyKC home" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})}>
-            <span className="nkc-compact-heart" style={{color:theme.accent,boxShadow:`0 0 14px ${theme.accent}55`}} aria-hidden="true">
-              <svg viewBox="0 0 48 48"><path className="nkc-heart-outline" d="M24 41S7 31.7 7 18.5C7 11.9 11.4 8 16.8 8c3.4 0 5.9 1.7 7.2 4.1C25.3 9.7 27.8 8 31.2 8 36.6 8 41 11.9 41 18.5 41 31.7 24 41 24 41Z"/><path className="nkc-heart-house" d="m16.5 23.5 7.5-6 7.5 6v8.2h-5.1v-5.4h-4.8v5.4h-5.1Z"/></svg>
+            <span className="nkc-compact-heart" style={{color:theme.accent,backgroundColor:theme.header,borderColor:theme.accent,boxShadow:`0 5px 0 ${theme.border}, 0 8px 18px ${theme.accent}66`}} aria-hidden="true">
+              {headerHeartImage
+                ? <img src={headerHeartImage} alt="" className="nkc-old-header-heart" draggable="false" />
+                : <svg viewBox="0 0 48 48"><path className="nkc-heart-outline" d="M24 41S7 31.7 7 18.5C7 11.9 11.4 8 16.8 8c3.4 0 5.9 1.7 7.2 4.1C25.3 9.7 27.8 8 31.2 8 36.6 8 41 11.9 41 18.5 41 31.7 24 41 24 41Z"/><path className="nkc-heart-house" d="m16.5 23.5 7.5-6 7.5 6v8.2h-5.1v-5.4h-4.8v5.4h-5.1Z"/></svg>}
             </span>
             <span>NeighborlyKC</span>
           </button>
