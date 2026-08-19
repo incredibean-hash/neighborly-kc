@@ -1070,12 +1070,6 @@ export default function Page(){
           <span>What’s happening in KC?</span>
           <span className="nkc-mobile-whats-plus" style={{color:theme.accent}}>＋</span>
         </button>
-        <nav className="nkc-mobile-tabs" aria-label="Feed views" style={{borderColor:theme.border}}>
-          <button type="button" className={`nkc-mobile-tab ${scope==='kc'&&cat==='All'?'is-active':''}`} onClick={()=>{setScope('kc');setCat('All')}} style={{'--nkc-tab-accent':theme.accent} as any}>All</button>
-          <button type="button" className={`nkc-mobile-tab ${scope==='local'&&cat==='All'?'is-active':''}`} onClick={()=>{setScope('local');setCat('All')}} style={{'--nkc-tab-accent':theme.accent} as any}>Nearby</button>
-          <Link href="/connections" className="nkc-mobile-tab">Following</Link>
-          <Link href="/people" className="nkc-mobile-tab">Groups</Link>
-        </nav>
       </header>
 
       <header className="hidden sm:block relative z-40 overflow-hidden border-b nkc-main-header" style={{backgroundColor: theme.header, borderColor: 'rgba(255,255,255,.12)'}}>
