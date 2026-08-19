@@ -8,6 +8,15 @@ import { THEMES, DEFAULT_THEME_ID } from '../lib/themes';
 const CATS = ['All','General','For Sale & Free','Safety Alert','Recommendation','Event','Lost & Found'];
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '493019301743-e2djce6rmlpntl05terd0uopslij1gtu.apps.googleusercontent.com';
 
+// Google sign-in can fail or open a blank page inside social-media and other
+// embedded app browsers. Detect the common in-app browser identifiers so the
+// user gets useful instructions before the Google account chooser opens.
+const isEmbeddedAppBrowser=()=>{
+  if(typeof navigator==='undefined') return false;
+  const ua=navigator.userAgent || '';
+  return /FBAN|FBAV|FB_IAB|MessengerForiOS|Instagram|LinkedInApp|Snapchat|TikTok|Twitter|Line\/|;\s*wv\)|\bwv\b/i.test(ua);
+};
+
 const colorLuminance=(hex:string)=>{
   const value=(hex||'#000000').replace('#','').slice(0,6).padEnd(6,'0');
   const channels=[0,2,4].map(i=>parseInt(value.slice(i,i+2),16)/255).map(v=>v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4));
@@ -166,6 +175,8 @@ export default function Page(){
   const editFileInputRef=useRef<HTMLInputElement>(null);
   const googleButtonRef=useRef<HTMLDivElement>(null);
   const [googleLoading,setGoogleLoading]=useState(false);
+  const [embeddedBrowser,setEmbeddedBrowser]=useState(false);
+  const [browserLinkCopied,setBrowserLinkCopied]=useState(false);
   const [emailCodeSent,setEmailCodeSent]=useState(false);
   const [emailCode,setEmailCode]=useState('');
   const [emailAuthLoading,setEmailAuthLoading]=useState(false);
@@ -237,6 +248,14 @@ export default function Page(){
       setEmailAuthMessage('');
     }
   },[showJoin,trackSignupEvent]);
+
+  useEffect(()=>{
+    setEmbeddedBrowser(isEmbeddedAppBrowser());
+  },[]);
+
+  useEffect(()=>{
+    if(!showJoin) setBrowserLinkCopied(false);
+  },[showJoin]);
 
   useEffect(()=>{
     const params=new URLSearchParams(window.location.search);
@@ -348,7 +367,7 @@ export default function Page(){
   // Supabase. This keeps the account chooser on Google/NeighborlyKC and avoids
   // advertising the raw project-id.supabase.co callback domain.
   useEffect(()=>{
-    if(!showJoin) return;
+    if(!showJoin || embeddedBrowser) return;
     let cancelled=false;
 
     const renderGoogleButton=()=>{
@@ -407,7 +426,18 @@ export default function Page(){
       document.head.appendChild(script);
     }
     return()=>{cancelled=true;existing?.removeEventListener('load',renderGoogleButton);};
-  },[showJoin,resetMobileViewAfterSignIn,trackSignupEvent]);
+  },[showJoin,embeddedBrowser,resetMobileViewAfterSignIn,trackSignupEvent]);
+
+  const copyRegularBrowserLink = async () => {
+    const address=`${window.location.origin}/`;
+    try{
+      await navigator.clipboard.writeText(address);
+      setBrowserLinkCopied(true);
+      window.setTimeout(()=>setBrowserLinkCopied(false),3000);
+    }catch{
+      setEmailAuthMessage(`Open ${address} in your regular browser.`);
+    }
+  };
 
   const sendEmailLoginCode = async () => {
     const target = email.trim().toLowerCase();
@@ -1399,11 +1429,18 @@ export default function Page(){
           <div className="nkc-auth-card rounded-[28px] w-full max-w-sm p-6 shadow-2xl border" style={{backgroundColor: theme.card, borderColor: theme.border, '--nkc-auth-muted':theme.subtext} as any}>
             <h2 className="font-black text-xl">Join NeighborlyKC</h2><p className="text-xs opacity-70 mt-1">Connect with neighbors across the Kansas City area.</p>
             <div className="nkc-auth-google mt-5 min-h-[44px] flex items-center justify-center">
-              {googleLoading
+              {embeddedBrowser
+                ? <div role="alert" className="w-full rounded-2xl border p-4 text-left" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>
+                    <h3 className="font-black text-base">Open NeighborlyKC in your regular browser</h3>
+                    <p className="mt-2 text-xs leading-5 opacity-80">Google sign-in cannot reliably finish inside Facebook, Messenger, Instagram, or another app&apos;s built-in browser.</p>
+                    <p className="mt-2 text-xs leading-5 font-semibold">Tap this app&apos;s menu (usually <b>•••</b>), then choose <b>Open in browser</b>, <b>Open in Safari</b>, or <b>Open in Chrome</b>. You can use Safari, Chrome, Firefox, Edge, Samsung Internet, or whichever regular browser you prefer.</p>
+                    <button type="button" onClick={copyRegularBrowserLink} className="mt-3 w-full py-2.5 rounded-full font-black text-sm" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{browserLinkCopied?'✓ Link copied':'Copy NeighborlyKC link'}</button>
+                  </div>
+                : googleLoading
                 ? <div className="w-full bg-white border-2 border-black text-black py-3.5 rounded-full font-bold text-sm text-center">Signing in…</div>
                 : <div ref={googleButtonRef} className="nkc-google-button-slot flex justify-center w-full" aria-label="Continue with Google" />}
             </div>
-            <div className="nkc-auth-divider-row flex items-center gap-3 my-5"><div className="h-px flex-1" style={{backgroundColor:theme.border}}></div><span className="nkc-auth-divider text-xs font-bold">OR EMAIL LINK</span><div className="h-px flex-1" style={{backgroundColor:theme.border}}></div></div>
+            <div className="nkc-auth-divider-row flex items-center gap-3 my-5"><div className="h-px flex-1" style={{backgroundColor:theme.border}}></div><span className="nkc-auth-divider text-xs font-bold">{embeddedBrowser?'OR USE EMAIL INSTEAD':'OR EMAIL LINK'}</span><div className="h-px flex-1" style={{backgroundColor:theme.border}}></div></div>
             <div className="space-y-3">
               <input value={name} onChange={e=>setName(e.target.value)} placeholder="Full name (optional)" className="nkc-themed-field w-full border rounded-xl px-4 py-3 text-sm outline-none" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}/>
               <input value={email} onChange={e=>setEmail(e.target.value)} inputMode="email" autoComplete="email" placeholder="Email address" className="nkc-themed-field w-full border rounded-xl px-4 py-3 text-sm outline-none" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}/>
