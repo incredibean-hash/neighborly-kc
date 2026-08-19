@@ -1162,6 +1162,7 @@ export default function Page(){
 
       <nav
         className="nkc-mobile-actions nkc-mobile-bottom-nav"
+        data-theme={theme.id}
         aria-label="Mobile navigation"
         style={{backgroundColor:theme.header,color:bottomInactiveColor,borderColor:theme.border,'--nkc-bottom-inactive':bottomInactiveColor} as any}
       >

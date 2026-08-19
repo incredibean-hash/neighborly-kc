@@ -240,6 +240,42 @@ body{overflow-y:visible;touch-action:pan-y pinch-zoom}
 .nkc-bottom-nav-plus svg,.nkc-bottom-nav-orb-item svg{width:28px;height:28px;display:block}
 .nkc-bottom-nav-orb-item.is-active{outline:2px solid currentColor;outline-offset:3px}
 .nkc-bottom-nav-item:active,.nkc-bottom-nav-plus:active,.nkc-bottom-nav-orb-item:active{transform:scale(.94)}
+
+/* Theme artwork for the mobile control deck. These layered CSS textures keep
+   the navigation sharp on every screen without adding another image download. */
+.nkc-mobile-bottom-nav[data-theme]{isolation:isolate;overflow:visible;background-size:cover;background-position:center}
+.nkc-mobile-bottom-nav[data-theme]::before,.nkc-mobile-bottom-nav[data-theme]::after{content:"";position:absolute;pointer-events:none;z-index:0}
+.nkc-mobile-bottom-nav[data-theme]>*{position:relative;z-index:1}
+.nkc-mobile-bottom-nav[data-theme="royals"]{background-image:radial-gradient(circle at 12% 28%,#fff 0 1px,transparent 2px),radial-gradient(circle at 78% 62%,#7dd3fc 0 1.5px,transparent 2.5px),linear-gradient(135deg,#061b3c,#004b93 52%,#082e5d)}
+.nkc-mobile-bottom-nav[data-theme="chiefs"]{background-image:linear-gradient(28deg,transparent 46%,rgba(255,255,255,.16) 47% 49%,transparent 50%),linear-gradient(135deg,#2a0000,#b40824 55%,#5f0011)}
+.nkc-mobile-bottom-nav[data-theme="sporting"]{background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.055) 0 34px,transparent 34px 68px),linear-gradient(135deg,#061524,#123f62)}
+.nkc-mobile-bottom-nav[data-theme="kc-current"]{background-image:radial-gradient(ellipse at 20% 100%,transparent 0 28%,rgba(255,255,255,.13) 29% 31%,transparent 32%),radial-gradient(ellipse at 80% 100%,transparent 0 30%,rgba(255,255,255,.1) 31% 33%,transparent 34%),linear-gradient(135deg,#041f28,#007f91 55%,#013946)}
+.nkc-mobile-bottom-nav[data-theme="space"]{background-image:radial-gradient(circle at 10% 25%,#fff 0 1px,transparent 1.7px),radial-gradient(circle at 35% 70%,#bfa8ff 0 1px,transparent 2px),radial-gradient(circle at 78% 24%,#fff 0 1.2px,transparent 2px),radial-gradient(circle at 92% 72%,#7dd3fc 0 1px,transparent 2px),linear-gradient(135deg,#080413,#35105b 55%,#090625)}
+.nkc-mobile-bottom-nav[data-theme="kcpd"]{background-image:linear-gradient(90deg,transparent 0 12%,rgba(73,160,255,.32) 20%,transparent 36%,rgba(255,255,255,.12) 50%,transparent 64%,rgba(73,160,255,.32) 80%,transparent 88%),linear-gradient(#06111f,#102b4b)}
+.nkc-mobile-bottom-nav[data-theme="kcfd"]{background-image:repeating-linear-gradient(135deg,rgba(255,205,47,.16) 0 10px,transparent 10px 22px),linear-gradient(135deg,#260000,#8d0e0e)}
+.nkc-mobile-bottom-nav[data-theme="army"]{background-image:radial-gradient(ellipse at 12% 30%,#31451f 0 12%,transparent 13%),radial-gradient(ellipse at 43% 72%,#536136 0 14%,transparent 15%),radial-gradient(ellipse at 82% 28%,#26341b 0 16%,transparent 17%),linear-gradient(135deg,#11180d,#3f4b29)}
+.nkc-mobile-bottom-nav[data-theme="navy"]{background-image:radial-gradient(circle at 12px 12px,#d7b45a 0 2px,transparent 2.5px),radial-gradient(circle at calc(100% - 12px) 12px,#d7b45a 0 2px,transparent 2.5px),linear-gradient(135deg,#020b18,#092951)}
+.nkc-mobile-bottom-nav[data-theme="marines"]{background-image:linear-gradient(90deg,transparent,rgba(238,190,73,.14),transparent),linear-gradient(135deg,#180202,#650a0a)}
+.nkc-mobile-bottom-nav[data-theme="air-force"]{background-image:linear-gradient(90deg,transparent 48%,rgba(142,220,255,.2) 49% 51%,transparent 52%),repeating-linear-gradient(90deg,transparent 0 48px,rgba(255,255,255,.06) 48px 50px),linear-gradient(#06101f,#073c68)}
+.nkc-mobile-bottom-nav[data-theme="cowtown"]{background-image:radial-gradient(circle at 8px 8px,#d9a15e 0 1px,transparent 1.7px),repeating-linear-gradient(90deg,transparent 0 18px,rgba(255,190,112,.04) 18px 20px),linear-gradient(135deg,#180d08,#5b301b)}
+.nkc-mobile-bottom-nav[data-theme="kc-bbq"]{background-image:radial-gradient(circle at 16% 70%,#ff8a1f 0 1px,transparent 2px),radial-gradient(circle at 72% 30%,#ff421e 0 1.5px,transparent 2.5px),radial-gradient(circle at 88% 76%,#ffc35a 0 1px,transparent 2px),linear-gradient(135deg,#120202,#571008 58%,#160303)}
+.nkc-mobile-bottom-nav[data-theme="city-fountains"]{background-image:radial-gradient(ellipse at 20% 120%,transparent 0 30%,rgba(75,240,255,.28) 31% 33%,transparent 34%),radial-gradient(ellipse at 70% 120%,transparent 0 38%,rgba(75,240,255,.2) 39% 41%,transparent 42%),linear-gradient(135deg,#01202d,#006276)}
+.nkc-mobile-bottom-nav[data-theme="aim"]{background-image:linear-gradient(#f1efdb 0 9px,#47799d 9px 12px,#d8d5ba 12px 100%);box-shadow:inset 0 0 0 2px #f8f6df,0 -8px 24px rgba(0,0,0,.18)}
+
+/* Pip-Boy gets a full hardware treatment: olive casing, CRT scan lines,
+   corner fasteners, glowing dial buttons and a model plate. */
+.nkc-mobile-bottom-nav[data-theme="pip-boy"]{
+  height:76px;
+  padding-bottom:calc(14px + env(safe-area-inset-bottom));
+  border-top:3px solid #6e7c3a!important;
+  background-color:#101607!important;
+  background-image:radial-gradient(circle at 12px 12px,#a5b45d 0 2px,#303a18 2.5px 4px,transparent 4.5px),radial-gradient(circle at calc(100% - 12px) 12px,#a5b45d 0 2px,#303a18 2.5px 4px,transparent 4.5px),repeating-linear-gradient(0deg,rgba(103,255,64,.035) 0 1px,transparent 1px 4px),linear-gradient(180deg,#313d19,#111807 55%,#263313)!important;
+  box-shadow:inset 0 2px 0 #89984b,inset 0 -5px 0 #080c04,0 -10px 26px rgba(32,255,40,.14)!important;
+}
+.nkc-mobile-bottom-nav[data-theme="pip-boy"]::before{inset:7px 34px 12px;border:1px solid rgba(157,255,94,.18);border-radius:10px;box-shadow:inset 0 0 12px rgba(56,255,43,.08)}
+.nkc-mobile-bottom-nav[data-theme="pip-boy"]::after{content:"PIP-BOY 3000";left:50%;bottom:2px;transform:translateX(-50%);width:max-content;padding:1px 8px;border:1px solid #56642d;border-radius:3px;background:#1b240d;color:#9cff66;font-family:monospace;font-size:7px;font-weight:900;letter-spacing:.15em;text-shadow:0 0 5px #4cff35}
+.nkc-mobile-bottom-nav[data-theme="pip-boy"] .nkc-bottom-nav-plus,.nkc-mobile-bottom-nav[data-theme="pip-boy"] .nkc-bottom-nav-orb-item{background:radial-gradient(circle at 38% 32%,#263519,#0b1206 68%)!important;color:#a7ff6f!important;border-color:#73833d!important;box-shadow:inset 0 0 0 3px #17210c,inset 0 0 13px rgba(92,255,61,.18),0 5px 13px #000,0 0 10px rgba(75,255,47,.18)!important;text-shadow:0 0 6px #5cff3d}
+.nkc-mobile-bottom-nav[data-theme="pip-boy"] .nkc-bottom-nav-plus svg,.nkc-mobile-bottom-nav[data-theme="pip-boy"] .nkc-bottom-nav-orb-item svg{filter:drop-shadow(0 0 3px #65ff47)}
 @media (min-width:640px){.nkc-mobile-bottom-nav{display:none!important}}
 @media (max-width:639px){
   .nkc-mobile-bottom-nav{
