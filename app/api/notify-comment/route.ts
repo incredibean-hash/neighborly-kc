@@ -12,8 +12,10 @@ export async function POST(req:Request){
   const {postId,commentId}=await req.json();
   const admin=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,process.env.SUPABASE_SERVICE_ROLE_KEY!,{auth:{persistSession:false}});
   const [{data:post,error:postError},{data:comment,error:commentError}]=await Promise.all([
-   admin.from('posts').select('id,user_id,author_id,body,content').eq('id',String(postId||'')).maybeSingle(),
-   admin.from('comments').select('id,post_id,author_id,author_name,body,content,created_at').eq('id',String(commentId||'')).maybeSingle()
+   // Select the stored rows without naming optional legacy columns. Some
+   // NeighborlyKC databases use `body`, while older tables use `content`.
+   admin.from('posts').select('*').eq('id',String(postId||'')).maybeSingle(),
+   admin.from('comments').select('*').eq('id',String(commentId||'')).maybeSingle()
   ]);
   if(postError||commentError){console.error('notify-comment lookup error:',postError||commentError);return NextResponse.json({error:'Could not verify the comment'},{status:500});}
   if(!post||!comment||comment.post_id!==post.id||comment.author_id!==user.id)return NextResponse.json({error:'Comment not found'},{status:404});
