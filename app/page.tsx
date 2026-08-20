@@ -668,9 +668,9 @@ export default function Page(){
     setThemeId(next);
     localStorage.setItem('nkc_theme', next);
     window.dispatchEvent(new Event('nkc-theme-change'));
-    // Keep Settings open until the user deliberately presses Done. Closing
-    // the overlay during the same mobile tap can create a click-through onto
-    // controls underneath and make a theme change appear to sign the user out.
+    // Close only the theme picker. Settings remains open behind it so a mobile
+    // tap cannot click through to controls underneath or sign the user out.
+    setShowThemePicker(false);
   }, []);
 
   useEffect(()=>{
@@ -1326,7 +1326,7 @@ export default function Page(){
             <div className="flex justify-between items-center mb-3 sm:mb-4">
               <h2 className="font-black text-white text-lg sm:text-xl">Settings</h2>
               <button 
-                onClick={()=>{setShowSettings(false);setShowExplore(false)}} 
+                onClick={()=>{setShowSettings(false);setShowThemePicker(false);setShowExplore(false)}} 
                 className="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center text-sm hover:bg-white/20 transition-colors"
               >
                 ✕
@@ -1335,11 +1335,11 @@ export default function Page(){
             
             <button 
               type="button" 
-              onClick={()=>setShowThemePicker(v=>!v)} 
+              onClick={()=>setShowThemePicker(true)} 
               className="w-full flex items-center justify-between py-3 px-4 rounded-2xl border border-white/15 bg-white/10 text-white font-bold text-sm sm:text-base"
             >
               <span>🎨 Themes</span>
-              <span className="text-white/60">{showThemePicker?'▲':'▼'}</span>
+              <span className="text-white/60">›</span>
             </button>
 
             {showExplore&&<div className="nkc-explore-links mt-3 grid grid-cols-2 gap-2">
@@ -1347,43 +1347,6 @@ export default function Page(){
               <Link href="/people" className="rounded-2xl border border-white/15 bg-white/10 px-3 py-3 text-center text-sm font-bold text-white">👥 People</Link>
               <Link href="/connections" className="rounded-2xl border border-white/15 bg-white/10 px-3 py-3 text-center text-sm font-bold text-white">🤝 Connections</Link>
               <button type="button" onClick={()=>setShowThemePicker(true)} className="rounded-2xl border border-white/15 bg-white/10 px-3 py-3 text-center text-sm font-bold text-white">🎨 Themes</button>
-            </div>}
-            
-            {showThemePicker && <div className="mt-3">
-              <p className="text-[8px] sm:text-[10px] font-black tracking-widest uppercase text-white/40 mb-2 text-center sm:text-left">
-                Choose your Neighborly KC look · tap a theme to apply & close
-              </p>
-              <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
-                {['aim','sporting','royals','chiefs','pip-boy','space','kc-current','kcpd','kcfd','army','navy','marines','air-force','cowtown','kc-bbq','city-fountains'].map(id=>{ 
-                  const t=THEMES[id]; 
-                  const active=themeId===id; 
-                  return <button 
-                    key={id} 
-                    type="button" 
-                    aria-label={`Use ${t.name} theme`} 
-                    data-theme-choice={id}
-                    onClick={(event)=>{event.preventDefault();event.stopPropagation();setTheme(id)}} 
-                    className={`nkc-theme-choice relative aspect-square w-full overflow-hidden rounded-lg sm:rounded-xl border-2 transition-all hover:scale-105 active:scale-95 ${active?'is-active':''}`} 
-                    style={{
-                      borderColor: active ? t.accent : 'rgba(255,255,255,0.15)',
-                      boxShadow: active ? `0 0 0 2px ${t.accent}55` : 'none'
-                    }}
-                  >
-                    {t.themeButtonImage ? 
-                      <img 
-                        src={t.themeButtonImage} 
-                        alt={t.name} 
-                        className="w-full h-full object-cover" 
-                        loading="lazy"
-                      /> :
-                      <div className="nkc-theme-choice-fallback w-full h-full flex items-center justify-center p-1 text-center" style={{background:`linear-gradient(135deg,${t.header},${t.accent})`}}>
-                        <span className="text-white text-[8px] sm:text-[10px] font-bold leading-tight">{t.name}</span>
-                      </div>
-                    }
-                    {active && <span className="absolute top-0.5 right-0.5 w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center text-[8px] sm:text-xs font-bold shadow-lg" style={{backgroundColor:t.accent,color:t.pillTextActive}}>✓</span>}
-                  </button>
-                })}
-              </div>
             </div>}
             
             {profile
@@ -1396,7 +1359,42 @@ export default function Page(){
             
             {profile&&<button type="button" onClick={signOut} className="mt-2 w-full py-3 rounded-full border border-red-300/20 bg-red-500/10 text-red-200 font-bold text-sm sm:text-base">🚪 Sign out</button>}
             
-            <button type="button" onClick={()=>{setShowSettings(false);setShowExplore(false)}} className="mt-2 w-full py-3 rounded-full bg-white text-black font-bold text-sm sm:text-base">Done</button>
+            <button type="button" onClick={()=>{setShowSettings(false);setShowThemePicker(false);setShowExplore(false)}} className="mt-2 w-full py-3 rounded-full bg-white text-black font-bold text-sm sm:text-base">Done</button>
+          </div>
+        </div>
+      )}
+
+      {showThemePicker && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-[1100] flex items-center justify-center p-3 sm:p-5 nkc-pop-in" role="dialog" aria-modal="true" aria-labelledby="theme-picker-title">
+          <div className="rounded-[28px] w-full max-w-lg max-h-[92vh] overflow-y-auto p-4 sm:p-6 border nkc-settings-modal" style={{backgroundColor:'#15181f',borderColor:'#262a33'}}>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[.16em] text-white/45">NeighborlyKC</p>
+                <h2 id="theme-picker-title" className="mt-1 font-black text-white text-xl sm:text-2xl">Choose your theme</h2>
+              </div>
+              <button type="button" onClick={()=>setShowThemePicker(false)} className="w-9 h-9 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors" aria-label="Close theme picker">✕</button>
+            </div>
+            <p className="mt-2 text-xs leading-5 text-white/65">Pick a NeighborlyKC look. Your choice saves automatically.</p>
+            <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
+              {['aim','sporting','royals','chiefs','pip-boy','space','kc-current','kcpd','kcfd','army','navy','marines','air-force','cowtown','kc-bbq','city-fountains'].map(id=>{
+                const t=THEMES[id];
+                const active=themeId===id;
+                return <button
+                  key={id}
+                  type="button"
+                  aria-label={`Use ${t.name} theme`}
+                  data-theme-choice={id}
+                  onClick={(event)=>{event.preventDefault();event.stopPropagation();setTheme(id)}}
+                  className={`nkc-theme-choice relative aspect-square w-full overflow-hidden rounded-xl border-2 transition-all hover:scale-105 active:scale-95 ${active?'is-active':''}`}
+                  style={{borderColor:active?t.accent:'rgba(255,255,255,0.15)',boxShadow:active?`0 0 0 2px ${t.accent}55`:'none'}}
+                >
+                  {t.themeButtonImage
+                    ? <img src={t.themeButtonImage} alt={t.name} className="w-full h-full object-cover" loading="lazy" />
+                    : <div className="nkc-theme-choice-fallback w-full h-full flex items-center justify-center p-1 text-center" style={{background:`linear-gradient(135deg,${t.header},${t.accent})`}}><span className="text-white text-[8px] sm:text-[10px] font-bold leading-tight">{t.name}</span></div>}
+                  {active && <span className="absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shadow-lg" style={{backgroundColor:t.accent,color:t.pillTextActive}}>✓</span>}
+                </button>
+              })}
+            </div>
           </div>
         </div>
       )}
