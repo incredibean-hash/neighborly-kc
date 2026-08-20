@@ -42,5 +42,8 @@ export async function authorizeRealtime() {
   return false;
 }
 
-export const displayName = (profile: any) =>
-  profile?.full_name || profile?.email?.split('@')[0] || 'Neighbor';
+export const displayName = (profile: any) => {
+  const name = typeof profile?.full_name === 'string' ? profile.full_name.trim() : '';
+  if (name && name.toLowerCase() !== 'neighbor') return name;
+  return profile?.email?.split('@')[0] || 'Neighbor';
+};

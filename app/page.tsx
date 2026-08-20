@@ -27,6 +27,12 @@ const themedNavColor=(theme:any)=>contrastRatio(theme.header,theme.accent)>=2.2
   ? theme.accent
   : [theme.text,theme.pillTextActive,'#ffffff','#000000'].filter(Boolean).sort((a,b)=>contrastRatio(theme.header,b)-contrastRatio(theme.header,a))[0];
 
+const linkifyText=(value:any)=>String(value||'').split(/(https?:\/\/[^\s<]+)/gi).map((part,index)=>
+  /^https?:\/\//i.test(part)
+    ? <a key={index} href={part} target="_blank" rel="noopener noreferrer" className="underline break-all font-semibold hover:opacity-75" onClick={event=>event.stopPropagation()}>{part}</a>
+    : part
+);
+
 // Header-only colors sampled from the matching heart artwork. These do not
 // affect the bottom navigation, cards, composer, or the rest of each theme.
 const heartHeaderPalette=(theme:any)=>({
@@ -96,7 +102,7 @@ async function withTimeout<T>(promise: PromiseLike<T>, ms = 30000): Promise<T> {
 
 async function syncCommunityProfile(user:any, fallback?:any){
   if(!user) return null;
-  const selectCols='id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder,is_verified';
+  const selectCols='id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder,is_verified,founder_number';
   const { data: existingRows, error: lookupError } = await supabase
     .from('profiles')
     .select(selectCols)
@@ -354,7 +360,15 @@ export default function Page(){
     if(!postIds.length) return;
     const {data:com}=await supabase.from('comments').select('*').in('post_id', postIds).order('created_at',{ascending:false});
     if(com){
-      const g: Record<string,any[]> = {}; com.forEach((c:any)=>{ if(!g[c.post_id]) g[c.post_id]=[]; g[c.post_id].push(c); });
+      const authorIds=[...new Set(com.map((comment:any)=>comment.author_id).filter(Boolean))];
+      const {data:commentProfiles}=authorIds.length?await supabase.from('profiles').select('auth_user_id,full_name,email').in('auth_user_id',authorIds):{data:[]};
+      const names=new Map((commentProfiles||[]).map((person:any)=>[person.auth_user_id,person]));
+      const namedComments=com.map((comment:any)=>{
+        const person=names.get(comment.author_id);
+        const realName=person?.full_name?.trim();
+        return person&&realName&&realName.toLowerCase()!=='neighbor'?{...comment,author_name:realName}:comment;
+      });
+      const g: Record<string,any[]> = {}; namedComments.forEach((c:any)=>{ if(!g[c.post_id]) g[c.post_id]=[]; g[c.post_id].push(c); });
       setComments(g);
       const cIds=com.map((c:any)=>c.id);
       if(cIds.length){ const {data:cl}=await supabase.from('likes').select('*').in('comment_id', cIds); if(cl){ const cg: Record<string,any[]> = {}; cl.forEach((l:any)=>{ if(!cg[l.comment_id]) cg[l.comment_id]=[]; cg[l.comment_id].push(l); }); setCLikes(cg); } }
@@ -617,7 +631,7 @@ export default function Page(){
     const ids=[...new Set(rawPosts.map((x:any)=>x.user_id || x.author_id).filter(Boolean))];
     let profileMap=new Map<string,any>();
     if(ids.length){
-      const {data:postProfiles}=await supabase.from('profiles').select('auth_user_id,full_name,avatar_url,is_admin,is_founder,is_verified').in('auth_user_id',ids);
+      const {data:postProfiles}=await supabase.from('profiles').select('auth_user_id,full_name,email,avatar_url,is_admin,is_founder,is_verified,founder_number').in('auth_user_id',ids);
       profileMap=new Map((postProfiles||[]).map((x:any)=>[x.auth_user_id,x]));
     }
     const enrichedPosts=rawPosts.map((x:any)=>({...x,profiles:profileMap.get(x.user_id || x.author_id)||x.profiles||null}));
@@ -733,6 +747,8 @@ export default function Page(){
         if(error.code==='23505') throw new Error('You already reported this post.');
         throw error;
       }
+      const {data:{session}}=await supabase.auth.getSession();
+      if(session?.access_token) void fetch('/api/notify-report',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({postId:reportingPost.id})}).catch(()=>{});
       setReportingPost(null);setReportDetails('');setReportReason('Harassment or bullying');
       setToast('✓ Report sent to moderators');window.setTimeout(()=>setToast(''),3000);
     }catch(e:any){alert(e.message||'Could not submit report.');}
@@ -1120,6 +1136,7 @@ export default function Page(){
             <img src={headerImage} alt="Neighborly KC" className="nkc-header-banner" draggable="false" />
           </button>
           <div className="nkc-header-controls" aria-label="Account control">
+            <button type="button" onClick={()=>{setShowExplore(false);setShowSettings(true)}} className="nkc-header-control" style={{backgroundColor:theme.pillActive,color:theme.pillTextActive,borderColor:theme.border}}>⚙ Settings</button>
             {profile
               ? <button type="button" onClick={signOut} className="nkc-header-control" style={{backgroundColor:theme.pillActive,color:theme.pillTextActive,borderColor:theme.border}}>↪ Sign out</button>
               : <button type="button" onClick={()=>setShowJoin(true)} className="nkc-header-control" style={{backgroundColor:theme.pillActive,color:theme.pillTextActive,borderColor:theme.border}}>👤 Sign in</button>}
@@ -1144,7 +1161,9 @@ export default function Page(){
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-8 grid grid-cols-1 lg:grid-cols-[220px_1fr_300px] gap-4 sm:gap-6 nkc-page-content">
         <aside className="rounded-2xl p-3 h-fit border hidden lg:block" style={{backgroundColor: theme.card, borderColor: theme.border}}>
           <p className="text-xs font-bold px-3 py-2 opacity-40">FILTER</p>
-          {CATS.map(c=><button key={c} onClick={()=>c==='All'?setCat('All'):chooseCategory(c)} className="w-full text-left px-3 py-2.5 rounded-xl text-sm transition-colors" style={{backgroundColor: cat===c? theme.accent : 'transparent', color: cat===c? theme.pillTextActive : theme.text}}>{c}</button>)}
+          {CATS.map(c=>c==='For Sale & Free'
+            ? <Link key={c} href="/forsale" className="block w-full text-left px-3 py-2.5 rounded-xl text-sm transition-colors" style={{color:theme.text}}>{c}</Link>
+            : <button key={c} onClick={()=>c==='All'?setCat('All'):chooseCategory(c)} className="w-full text-left px-3 py-2.5 rounded-xl text-sm transition-colors" style={{backgroundColor: cat===c? theme.accent : 'transparent', color: cat===c? theme.pillTextActive : theme.text}}>{c}</button>)}
         </aside>
 
         <main className="space-y-3">
@@ -1354,8 +1373,9 @@ export default function Page(){
               : <button type="button" onClick={()=>{setShowSettings(false);setShowJoin(true)}} className="mt-3 sm:mt-4 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center text-sm sm:text-base">👤 Profile · Sign in</button>}
 
             {profile&&<Link href="/dms" onClick={()=>setShowSettings(false)} className="mt-2 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center text-sm sm:text-base">💬 Messages</Link>}
+            <Link href="/forsale" onClick={()=>setShowSettings(false)} className="mt-2 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center text-sm sm:text-base">🏷️ For Sale &amp; Free</Link>
             
-            <button onClick={()=>{if(!profile){setShowJoin(true);return;}setShowFeedback(true)}} className="mt-2 w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-sm sm:text-base">💬 Leave Feedback</button>
+            <button onClick={()=>{if(!profile){setShowSettings(false);setShowJoin(true);return;}setShowSettings(false);setShowThemePicker(false);setShowExplore(false);setShowFeedback(true)}} className="mt-2 w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-sm sm:text-base">💬 Leave Feedback</button>
             
             {profile&&<button type="button" onClick={signOut} className="mt-2 w-full py-3 rounded-full border border-red-300/20 bg-red-500/10 text-red-200 font-bold text-sm sm:text-base">🚪 Sign out</button>}
             

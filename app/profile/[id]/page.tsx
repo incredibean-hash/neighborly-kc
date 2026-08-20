@@ -5,6 +5,11 @@ import { useParams } from 'next/navigation';
 import { supabase, displayName } from '../../../lib/community';
 import { useAppTheme } from '../../../lib/use-theme';
 
+function FounderBadge({number}:{number?:number}){
+  const label=`FOUNDER #${String(number||1).padStart(3,'0')}`;
+  return <span className="relative inline-flex h-10 w-16 shrink-0 overflow-hidden rounded-full border-2 border-yellow-300 shadow" title={label}><img src="/og-founder-gold.png" alt={label} className="h-full w-full object-cover"/><span className="absolute inset-x-0 bottom-0 bg-black/85 py-0.5 text-center text-[7px] font-black tracking-tight text-yellow-200">#{String(number||1).padStart(3,'0')}</span></span>;
+}
+
 export default function ProfilePage(){
   const theme=useAppTheme();
   const params=useParams<{id:string}>();
@@ -29,7 +34,7 @@ export default function ProfilePage(){
     // Accept either the auth UUID or the profile row UUID in the public URL.
     // Older Neighborly KC data used the profile id as the route id, while the
     // current app normally uses auth_user_id.
-    const profileCols='id,auth_user_id,full_name,email,zip,street_address,avatar_url,is_verified,is_founder,is_admin';
+    const profileCols='id,auth_user_id,full_name,email,zip,street_address,avatar_url,is_verified,is_founder,is_admin,founder_number';
     let pr:any=null;
     const byAuth=await supabase.from('profiles').select(profileCols).eq('auth_user_id',id).maybeSingle();
     pr=byAuth.data||null;
@@ -72,7 +77,7 @@ export default function ProfilePage(){
     // Update by the profile row's own primary key. The old code matched on
     // auth_user_id, which updated zero rows (and then threw on .single()) for
     // legacy rows where auth_user_id was never backfilled.
-    const cols='id,auth_user_id,full_name,email,zip,street_address,avatar_url,is_verified,is_founder,is_admin';
+    const cols='id,auth_user_id,full_name,email,zip,street_address,avatar_url,is_verified,is_founder,is_admin,founder_number';
     const {error}=await supabase.from('profiles').update({full_name:name.trim(),zip:zip.trim()}).eq('id',p.id);
     if(error){alert('Could not save profile: '+error.message);setSaving(false);return;}
     // Read the row back separately so a restrictive SELECT policy cannot make a
@@ -109,7 +114,7 @@ export default function ProfilePage(){
         {!editing?<div className="flex flex-col sm:flex-row gap-5 items-start">
           <div className="w-20 h-20 shrink-0 rounded-full overflow-hidden grid place-items-center text-3xl font-black border-2" style={{backgroundColor:theme.input,borderColor:theme.border}}>{p.avatar_url?<img src={p.avatar_url} alt={displayName(p)} className="w-full h-full object-cover"/>:displayName(p).slice(0,1).toUpperCase()}</div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap"><h1 className="text-3xl font-black">{displayName(p)}</h1>{p.is_founder&&<span className="nkc-badge founder">⭐ Founder</span>}{p.is_admin&&<span className="nkc-badge moderator">🛡️ Moderator</span>}{p.is_verified&&<span className="nkc-badge verified">✓ Verified</span>}{posts.length>=5&&<span className="nkc-badge contributor">🔥 Top Contributor</span>}</div>
+            <div className="flex items-center gap-2 flex-wrap"><h1 className="text-3xl font-black">{displayName(p)}</h1>{p.is_founder&&<FounderBadge number={p.founder_number}/>} {p.is_admin&&<span className="nkc-badge moderator">🛡️ Moderator</span>}{p.is_verified&&<span className="nkc-badge verified">✓ Verified</span>}{posts.length>=5&&<span className="nkc-badge contributor">🔥 Top Contributor</span>}</div>
             <p className="opacity-60 mt-1">📍 Kansas City {p.zip?`• ${p.zip}`:''}</p>
             <p className="text-sm mt-3 opacity-70">Neighborly KC member</p>
           </div>

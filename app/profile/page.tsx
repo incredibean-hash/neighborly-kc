@@ -7,6 +7,11 @@ import { supabase } from '../../lib/community';
 import { useAppTheme } from '../../lib/use-theme';
 import MobileBottomNav from '../components/MobileBottomNav';
 
+function FounderBadge({number}:{number?:number}){
+  const label=`FOUNDER #${String(number||1).padStart(3,'0')}`;
+  return <span className="relative inline-flex h-10 w-16 shrink-0 overflow-hidden rounded-full border-2 border-yellow-300 shadow" title={label}><img src="/og-founder-gold.png" alt={label} className="h-full w-full object-cover"/><span className="absolute inset-x-0 bottom-0 bg-black/85 py-0.5 text-center text-[7px] font-black tracking-tight text-yellow-200">#{String(number||1).padStart(3,'0')}</span></span>;
+}
+
 export default function MyProfilePage() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
@@ -38,7 +43,7 @@ export default function MyProfilePage() {
       if (!currentUser) { setLoading(false); return; }
       setUser(currentUser);
 
-      const profileCols = 'id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder';
+      const profileCols = 'id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder,founder_number';
       let existing:any = null;
       const byAuth = await supabase.from('profiles').select(profileCols).eq('auth_user_id', currentUser.id).order('id',{ascending:true}).limit(1);
       existing = byAuth.data?.[0] || null;
@@ -93,7 +98,7 @@ export default function MyProfilePage() {
       let data:any = null;
       let error:any = null;
       if (profile?.id) {
-        ({ data, error } = await supabase.from('profiles').update(payload).eq('id', profile.id).select('id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder').single());
+        ({ data, error } = await supabase.from('profiles').update(payload).eq('id', profile.id).select('id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder,founder_number').single());
       } else {
         // This NeighborlyKC schema links profiles.id directly to auth.users.id.
         // A random UUID violates profiles_id_fkey for first-time profile saves.
@@ -101,13 +106,13 @@ export default function MyProfilePage() {
         ({ data, error } = await supabase
           .from('profiles')
           .insert({ id: profileId, ...payload })
-          .select('id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder')
+          .select('id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder,founder_number')
           .single());
         if(error && (error.code === '23505' || /duplicate/i.test(error.message || ''))){
           const retry = await supabase.from('profiles').select('id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder').eq('auth_user_id',user.id).order('id',{ascending:true}).limit(1);
           const row = retry.data?.[0];
           if(row?.id){
-            const updated = await supabase.from('profiles').update(payload).eq('id',row.id).select('id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder').single();
+            const updated = await supabase.from('profiles').update(payload).eq('id',row.id).select('id,auth_user_id,full_name,email,street_address,zip,neighborhood_id,avatar_url,is_admin,is_founder,founder_number').single();
             data = updated.data; error = updated.error;
           }
         }
@@ -170,7 +175,7 @@ export default function MyProfilePage() {
             </div>
             <div>
               <p className="text-xs uppercase tracking-widest font-black opacity-45">Neighborly KC member</p>
-              <div className="flex items-center gap-2 flex-wrap"><h2 className="text-xl font-black">{name || 'Your name'}</h2>{profile?.is_founder&&<span className="nkc-badge founder">⭐ Founder</span>}{profile?.is_admin&&<span className="nkc-badge moderator">🛡️ Moderator</span>}</div>
+              <div className="flex items-center gap-2 flex-wrap"><h2 className="text-xl font-black">{name || 'Your name'}</h2>{profile?.is_founder&&<FounderBadge number={profile.founder_number}/>} {profile?.is_admin&&<span className="nkc-badge moderator">🛡️ Moderator</span>}</div>
               <p className="text-sm opacity-55">{selectedHood?.name || 'Choose your neighborhood below'}</p>
               <p className="text-xs opacity-45 mt-1">Tap 📷 to add your photo. It can appear next to your posts.</p>
             </div>
