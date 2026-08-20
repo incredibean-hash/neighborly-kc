@@ -1099,7 +1099,7 @@ export default function Page(){
       <header className="nkc-mobile-top-header sm:hidden z-40 border-b" style={{backgroundColor:theme.header,color:heartHeader.primary,borderColor:theme.accent,'--nkc-nav-accent':heartHeader.primary,'--nkc-nav-border':theme.accent,'--nkc-bottom-glow':theme.accent,'--nkc-bottom-surface':theme.card} as any}>
         <div className="nkc-mobile-top-row">
           <button type="button" className="nkc-mobile-brand" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})} aria-label="NeighborlyKC home">
-            <span className="nkc-mobile-theme-mark"><img src={theme.themeButtonImage || '/icon-192.png'} alt="" /></span>
+            <span className="nkc-mobile-theme-mark"><img src={theme.heartLogoImage || theme.themeButtonImage || '/icon-192.png'} alt="" /></span>
             <span className="nkc-mobile-wordmark"><span style={{color:heartHeader.secondary}}>Neighborly</span><b style={{color:heartHeader.primary}}>KC</b></span>
           </button>
           <div className="nkc-mobile-top-icons">
