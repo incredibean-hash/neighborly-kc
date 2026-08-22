@@ -1469,7 +1469,7 @@ export default function Page(){
             </div>
             <p className="mt-2 text-xs leading-5 text-white/65">Pick a NeighborlyKC look. Your choice saves automatically.</p>
             <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
-              {['aim','sporting','royals','chiefs','pip-boy','space','kc-current','kcpd','kcfd','army','navy','marines','air-force','cowtown','kc-bbq','city-fountains'].map(id=>{
+              {['aim','sporting','royals','chiefs','pip-boy','space','kc-current','kcpd','kcfd','army','navy','marines','air-force','cowtown','kc-bbq','18th-vine','river-market','city-fountains'].map(id=>{
                 const t=THEMES[id];
                 const active=themeId===id;
                 return <button
