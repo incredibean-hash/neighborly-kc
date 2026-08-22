@@ -984,3 +984,32 @@ input::placeholder,textarea::placeholder{color:currentColor!important;opacity:.7
     font-size:1.9rem !important;
   }
 }
+
+
+/* Approved KCFD header treatment — keep the header live, not a flattened image. */
+[data-theme="kcfd"] .nkc-mobile-header,
+.nkc-mobile-header[data-theme="kcfd"]{
+  background:linear-gradient(180deg,#a90d24 0%,#8f091d 58%,#750716 100%) !important;
+  border-bottom:2px solid #d79a2b !important;
+}
+
+.nkc-mobile-wordmark{
+  font-size:clamp(1.75rem,7vw,2.25rem) !important;
+  line-height:1.28 !important;
+  padding-top:.08em !important;
+  padding-bottom:.18em !important;
+  overflow:visible !important;
+  letter-spacing:-0.045em;
+}
+
+[data-theme="kcfd"] .nkc-mobile-wordmark,
+.nkc-mobile-header[data-theme="kcfd"] .nkc-mobile-wordmark{
+  text-shadow:0 3px 2px rgba(0,0,0,.55),0 0 8px rgba(255,188,70,.12);
+}
+
+@media(max-width:420px){
+  .nkc-mobile-wordmark{
+    font-size:1.9rem !important;
+    line-height:1.3 !important;
+  }
+}
