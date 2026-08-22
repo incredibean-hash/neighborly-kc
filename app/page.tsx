@@ -965,7 +965,15 @@ export default function Page(){
     } else {
       const { data, error } = await supabase.from('likes').insert({comment_id:commentId, author_name:profile.full_name, author_id:authorId}).select().single();
       if(error) return alert('Could not like this comment: ' + error.message);
-      if(data) setCLikes(prev=>({...prev, [commentId]:[...(prev[commentId]||[]), data]}));
+      if(data) {
+        setCLikes(prev=>({...prev, [commentId]:[...(prev[commentId]||[]), data]}));
+        const {data:{session}}=await supabase.auth.getSession();
+        if(session?.access_token) void fetch('/api/notify-reaction',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`},
+          body:JSON.stringify({commentId})
+        }).catch(()=>{});
+      }
     }
   };
 
