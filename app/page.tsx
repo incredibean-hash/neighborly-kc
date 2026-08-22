@@ -1422,9 +1422,9 @@ export default function Page(){
 
       {showSettings && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[1050] flex items-center justify-center p-2 sm:p-4 nkc-pop-in">
-          <div className="rounded-[24px] w-full max-w-sm p-3 sm:p-5 border max-h-[90vh] overflow-y-auto nkc-settings-modal" style={{backgroundColor: '#15181f', borderColor: '#262a33'}}>
+          <div className="rounded-[24px] w-full max-w-sm p-3 sm:p-5 border max-h-[90vh] overflow-y-auto nkc-settings-modal" style={{backgroundColor:theme.card,borderColor:theme.border,color:theme.text}}>
             <div className="flex justify-between items-center mb-3 sm:mb-4">
-              <h2 className="font-black text-white text-lg sm:text-xl">Settings</h2>
+              <h2 className="font-black text-lg sm:text-xl" style={{color:theme.text}}>Settings</h2>
               <button 
                 onClick={()=>{setShowSettings(false);setShowThemePicker(false);setShowExplore(false)}} 
                 className="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center text-sm hover:bg-white/20 transition-colors"
@@ -1436,10 +1436,10 @@ export default function Page(){
             <button 
               type="button" 
               onClick={()=>setShowThemePicker(true)} 
-              className="w-full flex items-center justify-between py-3 px-4 rounded-2xl border border-white/15 bg-white/10 text-white font-bold text-sm sm:text-base"
+              className="w-full flex items-center justify-between py-3 px-4 rounded-2xl border font-bold text-sm sm:text-base" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}
             >
               <span>🎨 Themes</span>
-              <span className="text-white/60">›</span>
+              <span className="opacity-60">›</span>
             </button>
 
             {showExplore&&<div className="nkc-explore-links mt-3 grid grid-cols-2 gap-2">
@@ -1450,31 +1450,31 @@ export default function Page(){
             </div>}
             
             {profile
-              ? <Link href="/profile" onClick={()=>setShowSettings(false)} className="mt-3 sm:mt-4 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center text-sm sm:text-base">👤 My Profile</Link>
-              : <button type="button" onClick={()=>{setShowSettings(false);setShowJoin(true)}} className="mt-3 sm:mt-4 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center text-sm sm:text-base">👤 Profile · Sign in</button>}
+              ? <Link href="/profile" onClick={()=>setShowSettings(false)} className="mt-3 sm:mt-4 block w-full py-3 rounded-full border font-bold text-center text-sm sm:text-base" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>👤 My Profile</Link>
+              : <button type="button" onClick={()=>{setShowSettings(false);setShowJoin(true)}} className="mt-3 sm:mt-4 block w-full py-3 rounded-full border font-bold text-center text-sm sm:text-base" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>👤 Profile · Sign in</button>}
 
-            {profile&&<Link href="/dms" onClick={()=>setShowSettings(false)} className="mt-2 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center text-sm sm:text-base">💬 Messages</Link>}
+            {profile&&<Link href="/dms" onClick={()=>setShowSettings(false)} className="mt-2 block w-full py-3 rounded-full border font-bold text-center text-sm sm:text-base" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>💬 Messages</Link>}
             
-            <button onClick={()=>{if(!profile){setShowSettings(false);setShowJoin(true);return;}setShowSettings(false);setShowThemePicker(false);setShowExplore(false);setShowFeedback(true)}} className="mt-2 w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-sm sm:text-base">💬 Leave Feedback</button>
+            <button onClick={()=>{if(!profile){setShowSettings(false);setShowJoin(true);return;}setShowSettings(false);setShowThemePicker(false);setShowExplore(false);setShowFeedback(true)}} className="mt-2 w-full py-3 rounded-full border font-bold text-sm sm:text-base" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>💬 Leave Feedback</button>
             
-            {profile&&<button type="button" onClick={signOut} className="mt-2 w-full py-3 rounded-full border border-red-300/20 bg-red-500/10 text-red-200 font-bold text-sm sm:text-base">🚪 Sign out</button>}
+            {profile&&<button type="button" onClick={signOut} className="mt-2 w-full py-3 rounded-full border font-bold text-sm sm:text-base" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>🚪 Sign out</button>}
             
-            <button type="button" onClick={()=>{setShowSettings(false);setShowThemePicker(false);setShowExplore(false)}} className="mt-2 w-full py-3 rounded-full bg-white text-black font-bold text-sm sm:text-base">Done</button>
+            <button type="button" onClick={()=>{setShowSettings(false);setShowThemePicker(false);setShowExplore(false)}} className="mt-2 w-full py-3 rounded-full font-bold text-sm sm:text-base" style={{backgroundColor:theme.pillActive,color:theme.pillTextActive}}>Done</button>
           </div>
         </div>
       )}
 
       {showThemePicker && (
         <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-[1100] flex items-center justify-center p-3 sm:p-5 nkc-pop-in" role="dialog" aria-modal="true" aria-labelledby="theme-picker-title">
-          <div className="rounded-[28px] w-full max-w-lg max-h-[92vh] overflow-y-auto p-4 sm:p-6 border nkc-settings-modal" style={{backgroundColor:'#15181f',borderColor:'#262a33'}}>
+          <div className="rounded-[28px] w-full max-w-lg max-h-[92vh] overflow-y-auto p-4 sm:p-6 border nkc-settings-modal" style={{backgroundColor:theme.card,borderColor:theme.border,color:theme.text}}>
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[.16em] text-white/45">NeighborlyKC</p>
-                <h2 id="theme-picker-title" className="mt-1 font-black text-white text-xl sm:text-2xl">Choose your theme</h2>
+                <p className="text-[10px] font-black uppercase tracking-[.16em] opacity-45">NeighborlyKC</p>
+                <h2 id="theme-picker-title" className="mt-1 font-black text-xl sm:text-2xl">Choose your theme</h2>
               </div>
               <button type="button" onClick={()=>setShowThemePicker(false)} className="w-9 h-9 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors" aria-label="Close theme picker">✕</button>
             </div>
-            <p className="mt-2 text-xs leading-5 text-white/65">Pick a NeighborlyKC look. Your choice saves automatically.</p>
+            <p className="mt-2 text-xs leading-5 opacity-65">Pick a NeighborlyKC look. Your choice saves automatically.</p>
             <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
               {['aim','sporting','royals','chiefs','pip-boy','space','kc-current','kcpd','kcfd','army','navy','marines','air-force','cowtown','kc-bbq','18th-vine','river-market','city-fountains'].map(id=>{
                 const t=THEMES[id];
