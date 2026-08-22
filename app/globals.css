@@ -717,37 +717,104 @@ input::placeholder,textarea::placeholder{color:currentColor!important;opacity:.7
   .nkc-radar-image{max-height:300px}
 }
 
-/* Pip-Boy individual icon pack */
-.nkc-pipboy-icon{display:block;object-fit:contain;object-position:center;max-width:100%;max-height:100%;pointer-events:none;user-select:none}
-.nkc-pipboy-nav-icon{width:42px!important;height:42px!important}
-.nkc-pipboy-plus-icon{width:58px!important;height:58px!important}
-.nkc-pipboy-post-actions button{display:flex;align-items:center;gap:5px}
-.nkc-pipboy-action-icon{width:34px!important;height:34px!important;flex:0 0 34px}
-.nkc-pipboy-action-icon.is-active{filter:brightness(1.18) drop-shadow(0 0 5px rgba(100,255,145,.55))}
-.nkc-pipboy-create-header{width:54px!important;height:54px!important;margin:0 auto 2px}
+
+
+/* Pip-Boy bottom navigation: three character icons only, no rings. */
+.nkc-pipboy-icon{
+  display:block;
+  object-fit:contain;
+  object-position:center;
+  pointer-events:none;
+  user-select:none;
+}
+
+.nkc-mobile-bottom-nav[data-theme="pip-boy"]{
+  background:linear-gradient(180deg,rgba(0,20,5,.96),rgba(0,10,3,.99)) !important;
+}
+
+.nkc-mobile-bottom-nav[data-theme="pip-boy"] .nkc-bottom-nav-orb-item,
+.nkc-mobile-bottom-nav[data-theme="pip-boy"] .nkc-bottom-nav-plus{
+  background:transparent !important;
+  border:0 !important;
+  box-shadow:none !important;
+  overflow:visible !important;
+}
+
+.nkc-mobile-bottom-nav[data-theme="pip-boy"] .nkc-bottom-nav-orb-item::before,
+.nkc-mobile-bottom-nav[data-theme="pip-boy"] .nkc-bottom-nav-plus::before{
+  display:none !important;
+  content:none !important;
+}
+
+.nkc-mobile-bottom-nav[data-theme="pip-boy"] .nkc-pipboy-nav-icon,
+.nkc-mobile-bottom-nav[data-theme="pip-boy"] .nkc-pipboy-plus-icon{
+  width:72px !important;
+  height:72px !important;
+  max-width:none !important;
+  filter:
+    drop-shadow(0 0 3px rgba(160,255,90,.95))
+    drop-shadow(0 0 9px rgba(80,255,90,.7))
+    drop-shadow(0 0 16px rgba(40,255,80,.35));
+  transition:transform .15s ease,filter .15s ease;
+}
+
+.nkc-mobile-bottom-nav[data-theme="pip-boy"] .nkc-bottom-nav-plus .nkc-pipboy-plus-icon{
+  width:78px !important;
+  height:78px !important;
+}
+
+.nkc-mobile-bottom-nav[data-theme="pip-boy"] .nkc-bottom-nav-orb-item:active .nkc-pipboy-nav-icon,
+.nkc-mobile-bottom-nav[data-theme="pip-boy"] .nkc-bottom-nav-plus:active .nkc-pipboy-plus-icon{
+  transform:scale(.94);
+  filter:
+    brightness(1.15)
+    drop-shadow(0 0 5px rgba(190,255,110,1))
+    drop-shadow(0 0 12px rgba(80,255,90,.9));
+}
+
+.nkc-pipboy-post-actions button{
+  display:flex;
+  align-items:center;
+  gap:5px;
+}
+.nkc-pipboy-action-icon{
+  width:34px!important;
+  height:34px!important;
+  flex:0 0 34px;
+}
+.nkc-pipboy-action-icon.is-active{
+  filter:brightness(1.18) drop-shadow(0 0 5px rgba(100,255,145,.55));
+}
+.nkc-pipboy-create-header{
+  width:54px!important;
+  height:54px!important;
+  margin:0 auto 2px;
+}
+
 @media(max-width:640px){
-  .nkc-mobile-bottom-nav[data-theme="pip-boy"] .nkc-bottom-nav-orb-item{
-    overflow:hidden;
-    padding:5px!important;
+  .nkc-mobile-bottom-nav[data-theme="pip-boy"]{
+    min-height:108px;
+    padding-top:8px !important;
+    padding-bottom:8px !important;
   }
+
+  .nkc-mobile-bottom-nav[data-theme="pip-boy"] .nkc-bottom-nav-orb-item,
   .nkc-mobile-bottom-nav[data-theme="pip-boy"] .nkc-bottom-nav-plus{
-    overflow:hidden;
-    padding:7px!important;
+    width:92px !important;
+    height:92px !important;
+    padding:0 !important;
   }
+
   .nkc-mobile-bottom-nav[data-theme="pip-boy"] .nkc-pipboy-nav-icon{
-    width:100%!important;
-    height:100%!important;
-    object-fit:contain!important;
-    transform:scale(.82);
-    transform-origin:center;
+    width:78px !important;
+    height:78px !important;
   }
+
   .nkc-mobile-bottom-nav[data-theme="pip-boy"] .nkc-pipboy-plus-icon{
-    width:100%!important;
-    height:100%!important;
-    object-fit:contain!important;
-    transform:scale(.78);
-    transform-origin:center;
+    width:84px !important;
+    height:84px !important;
   }
+
   .nkc-pipboy-action-icon{
     width:30px!important;
     height:30px!important;
