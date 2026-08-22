@@ -716,3 +716,13 @@ input::placeholder,textarea::placeholder{color:currentColor!important;opacity:.7
   .nkc-radar-title span{text-align:left}
   .nkc-radar-image{max-height:300px}
 }
+
+/* Pip-Boy individual icon pack */
+.nkc-pipboy-icon{display:block;object-fit:contain;object-position:center;max-width:100%;max-height:100%;pointer-events:none;user-select:none}
+.nkc-pipboy-nav-icon{width:42px!important;height:42px!important}
+.nkc-pipboy-plus-icon{width:58px!important;height:58px!important}
+.nkc-pipboy-post-actions button{display:flex;align-items:center;gap:5px}
+.nkc-pipboy-action-icon{width:34px!important;height:34px!important;flex:0 0 34px}
+.nkc-pipboy-action-icon.is-active{filter:brightness(1.18) drop-shadow(0 0 5px rgba(100,255,145,.55))}
+.nkc-pipboy-create-header{width:54px!important;height:54px!important;margin:0 auto 2px}
+@media(max-width:640px){.nkc-pipboy-nav-icon{width:38px!important;height:38px!important}.nkc-pipboy-plus-icon{width:54px!important;height:54px!important}.nkc-pipboy-action-icon{width:30px!important;height:30px!important;flex-basis:30px}}
