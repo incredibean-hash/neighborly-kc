@@ -793,26 +793,26 @@ input::placeholder,textarea::placeholder{color:currentColor!important;opacity:.7
 
 @media(max-width:640px){
   .nkc-mobile-bottom-nav[data-theme="pip-boy"]{
-    min-height:108px;
+    min-height:100px;
     padding-top:8px !important;
     padding-bottom:8px !important;
   }
 
   .nkc-mobile-bottom-nav[data-theme="pip-boy"] .nkc-bottom-nav-orb-item,
   .nkc-mobile-bottom-nav[data-theme="pip-boy"] .nkc-bottom-nav-plus{
-    width:92px !important;
-    height:92px !important;
+    width:86px !important;
+    height:86px !important;
     padding:0 !important;
   }
 
   .nkc-mobile-bottom-nav[data-theme="pip-boy"] .nkc-pipboy-nav-icon{
-    width:78px !important;
-    height:78px !important;
+    width:72px !important;
+    height:72px !important;
   }
 
   .nkc-mobile-bottom-nav[data-theme="pip-boy"] .nkc-pipboy-plus-icon{
-    width:84px !important;
-    height:84px !important;
+    width:78px !important;
+    height:78px !important;
   }
 
   .nkc-pipboy-action-icon{
