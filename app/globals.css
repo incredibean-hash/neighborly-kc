@@ -821,3 +821,96 @@ input::placeholder,textarea::placeholder{color:currentColor!important;opacity:.7
     flex-basis:30px;
   }
 }
+
+
+/* KCFD + KCBBQ custom icon themes */
+.nkc-theme-art-icon{
+  display:block;
+  object-fit:contain;
+  object-position:center;
+  pointer-events:none;
+  user-select:none;
+}
+
+.nkc-mobile-bottom-nav[data-theme="kcfd"] .nkc-bottom-nav-orb-item,
+.nkc-mobile-bottom-nav[data-theme="kcfd"] .nkc-bottom-nav-plus,
+.nkc-mobile-bottom-nav[data-theme="kc-bbq"] .nkc-bottom-nav-orb-item,
+.nkc-mobile-bottom-nav[data-theme="kc-bbq"] .nkc-bottom-nav-plus{
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+  overflow:visible!important;
+}
+.nkc-mobile-bottom-nav[data-theme="kcfd"] .nkc-bottom-nav-orb-item::before,
+.nkc-mobile-bottom-nav[data-theme="kcfd"] .nkc-bottom-nav-plus::before,
+.nkc-mobile-bottom-nav[data-theme="kc-bbq"] .nkc-bottom-nav-orb-item::before,
+.nkc-mobile-bottom-nav[data-theme="kc-bbq"] .nkc-bottom-nav-plus::before{
+  display:none!important;
+  content:none!important;
+}
+
+.nkc-mobile-bottom-nav[data-theme="kcfd"] .nkc-custom-theme-nav-icon,
+.nkc-mobile-bottom-nav[data-theme="kcfd"] .nkc-custom-theme-plus-icon{
+  width:72px!important;
+  height:72px!important;
+  max-width:none!important;
+  filter:drop-shadow(0 0 4px rgba(255,110,70,.95)) drop-shadow(0 0 10px rgba(255,55,35,.55));
+}
+.nkc-mobile-bottom-nav[data-theme="kc-bbq"] .nkc-custom-theme-nav-icon,
+.nkc-mobile-bottom-nav[data-theme="kc-bbq"] .nkc-custom-theme-plus-icon{
+  width:72px!important;
+  height:72px!important;
+  max-width:none!important;
+  filter:drop-shadow(0 0 4px rgba(255,145,65,.95)) drop-shadow(0 0 10px rgba(255,95,25,.55));
+}
+
+.nkc-custom-theme-post-actions button{
+  display:flex;
+  align-items:center;
+  gap:5px;
+}
+.nkc-custom-theme-action-icon{
+  width:34px!important;
+  height:34px!important;
+  flex:0 0 34px;
+}
+.nkc-custom-theme-action-icon.is-active{
+  filter:brightness(1.16) drop-shadow(0 0 6px currentColor);
+}
+.nkc-custom-theme-create-header{
+  width:54px!important;
+  height:54px!important;
+  margin:0 auto 2px;
+}
+
+@media(max-width:640px){
+  .nkc-mobile-bottom-nav[data-theme="kcfd"],
+  .nkc-mobile-bottom-nav[data-theme="kc-bbq"]{
+    min-height:100px;
+    padding-top:8px!important;
+    padding-bottom:8px!important;
+  }
+  .nkc-mobile-bottom-nav[data-theme="kcfd"] .nkc-bottom-nav-orb-item,
+  .nkc-mobile-bottom-nav[data-theme="kcfd"] .nkc-bottom-nav-plus,
+  .nkc-mobile-bottom-nav[data-theme="kc-bbq"] .nkc-bottom-nav-orb-item,
+  .nkc-mobile-bottom-nav[data-theme="kc-bbq"] .nkc-bottom-nav-plus{
+    width:86px!important;
+    height:86px!important;
+    padding:0!important;
+  }
+  .nkc-mobile-bottom-nav[data-theme="kcfd"] .nkc-custom-theme-nav-icon,
+  .nkc-mobile-bottom-nav[data-theme="kc-bbq"] .nkc-custom-theme-nav-icon{
+    width:72px!important;
+    height:72px!important;
+  }
+  .nkc-mobile-bottom-nav[data-theme="kcfd"] .nkc-custom-theme-plus-icon,
+  .nkc-mobile-bottom-nav[data-theme="kc-bbq"] .nkc-custom-theme-plus-icon{
+    width:78px!important;
+    height:78px!important;
+  }
+  .nkc-custom-theme-action-icon{
+    width:30px!important;
+    height:30px!important;
+    flex-basis:30px;
+  }
+}
