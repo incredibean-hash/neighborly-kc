@@ -1,7 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
 import { supabase, displayName } from '../../lib/community';
 import { useAppTheme } from '../../lib/use-theme';
 import MobileBottomNav from '../components/MobileBottomNav';
@@ -24,10 +23,9 @@ function cleanBody(item:any){
 
 export default function ForSalePage(){
   const theme=useAppTheme();
-  const searchParams=useSearchParams();
   const [user,setUser]=useState<any>(null),[profile,setProfile]=useState<any>(null),[items,setItems]=useState<any[]>([]);
   const [filter,setFilter]=useState<'All'|'Free'|'For Sale'>('All'),[query,setQuery]=useState('');
-  const [showCreate,setShowCreate]=useState(searchParams.get('create')==='1');
+  const [showCreate,setShowCreate]=useState(false);
   const [kind,setKind]=useState<'For Sale'|'Free'>('For Sale'),[title,setTitle]=useState(''),[price,setPrice]=useState(''),[condition,setCondition]=useState('Good'),[itemCategory,setItemCategory]=useState('Other'),[text,setText]=useState('');
   const [file,setFile]=useState<File|null>(null),[sending,setSending]=useState(false),[notice,setNotice]=useState('');
   const load=async()=>{
@@ -42,7 +40,7 @@ export default function ForSalePage(){
     const byId=new Map((people||[]).map((person:any)=>[person.auth_user_id,person]));
     setItems(rows.map((post:any)=>({...post,profiles:byId.get(post.user_id||post.author_id)})));
   };
-  useEffect(()=>{void load()},[]);
+  useEffect(()=>{void load(); if(typeof window!=='undefined'){const params=new URLSearchParams(window.location.search);if(params.get('create')==='1')setShowCreate(true);}},[]);
   const visible=useMemo(()=>items.filter(item=>{
     const k=listingKind(item);
     if(filter!=='All'&&k!==filter)return false;
