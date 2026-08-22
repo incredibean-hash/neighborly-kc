@@ -969,3 +969,18 @@ input::placeholder,textarea::placeholder{color:currentColor!important;opacity:.7
     object-fit:contain !important;
   }
 }
+
+
+
+
+/* Larger NeighborlyKC wordmark in the mobile header. */
+.nkc-mobile-wordmark{
+  font-size:clamp(1.75rem,7vw,2.25rem) !important;
+  line-height:.95 !important;
+  letter-spacing:-0.045em;
+}
+@media(max-width:420px){
+  .nkc-mobile-wordmark{
+    font-size:1.9rem !important;
+  }
+}
