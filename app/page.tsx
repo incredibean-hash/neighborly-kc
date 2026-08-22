@@ -1322,7 +1322,7 @@ export default function Page(){
           <main className="nkc-create-post-content">
             <section className="nkc-create-post-card" style={{backgroundColor:theme.card,borderColor:theme.border}}>
               <label htmlFor="full-post-category" className="nkc-create-post-label">Post category</label>
-              <select id="full-post-category" value={postCategory} onChange={e=>setPostCategory(e.target.value)} className="nkc-create-post-select" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>
+              <select id="full-post-category" value={postCategory} onChange={e=>{const next=e.target.value;if(next==='For Sale & Free'){setShowCreatePost(false);window.location.href='/forsale?create=1';return;}setPostCategory(next)}} className="nkc-create-post-select" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>
                 {CATS.filter(c=>c!=='All').map(c=><option key={c} value={c}>{c}</option>)}
               </select>
 
@@ -1385,7 +1385,6 @@ export default function Page(){
               : <button type="button" onClick={()=>{setShowSettings(false);setShowJoin(true)}} className="mt-3 sm:mt-4 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center text-sm sm:text-base">👤 Profile · Sign in</button>}
 
             {profile&&<Link href="/dms" onClick={()=>setShowSettings(false)} className="mt-2 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center text-sm sm:text-base">💬 Messages</Link>}
-            <Link href="/forsale" onClick={()=>setShowSettings(false)} className="mt-2 block w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-center text-sm sm:text-base">🏷️ For Sale &amp; Free</Link>
             
             <button onClick={()=>{if(!profile){setShowSettings(false);setShowJoin(true);return;}setShowSettings(false);setShowThemePicker(false);setShowExplore(false);setShowFeedback(true)}} className="mt-2 w-full py-3 rounded-full border border-white/15 bg-white/10 text-white font-bold text-sm sm:text-base">💬 Leave Feedback</button>
             
