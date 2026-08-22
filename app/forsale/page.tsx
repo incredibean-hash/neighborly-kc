@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { supabase, displayName } from '../../lib/community';
 import { useAppTheme } from '../../lib/use-theme';
@@ -7,6 +7,7 @@ import MobileBottomNav from '../components/MobileBottomNav';
 
 const CONDITIONS=['New','Like New','Good','Fair','For Parts'];
 const ITEM_CATEGORIES=['Furniture','Electronics','Home & Garden','Clothing','Kids & Baby','Sports & Outdoors','Tools','Auto','Collectibles','Other'];
+const GOOGLE_CLIENT_ID=process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '493019301743-e2djce6rmlpntl05terd0uopslij1gtu.apps.googleusercontent.com';
 
 async function prepareImage(file:File){
   if(!file.type.startsWith('image/'))throw new Error('Please choose an image.');
@@ -28,6 +29,8 @@ export default function ForSalePage(){
   const [showCreate,setShowCreate]=useState(false);
   const [kind,setKind]=useState<'For Sale'|'Free'>('For Sale'),[title,setTitle]=useState(''),[price,setPrice]=useState(''),[condition,setCondition]=useState('Good'),[itemCategory,setItemCategory]=useState('Other'),[text,setText]=useState('');
   const [file,setFile]=useState<File|null>(null),[sending,setSending]=useState(false),[notice,setNotice]=useState('');
+  const [authEmail,setAuthEmail]=useState(''),[authCode,setAuthCode]=useState(''),[authSent,setAuthSent]=useState(false),[authLoading,setAuthLoading]=useState(false),[authMessage,setAuthMessage]=useState('');
+  const googleButtonRef=useRef<HTMLDivElement|null>(null);
   const load=async()=>{
     const {data:{session}}=await supabase.auth.getSession(); const nextUser=session?.user||null; setUser(nextUser);
     const [{data:posts},{data:mine}]=await Promise.all([
@@ -41,6 +44,69 @@ export default function ForSalePage(){
     setItems(rows.map((post:any)=>({...post,profiles:byId.get(post.user_id||post.author_id)})));
   };
   useEffect(()=>{void load(); if(typeof window!=='undefined'){const params=new URLSearchParams(window.location.search);if(params.get('create')==='1')setShowCreate(true);}},[]);
+  useEffect(()=>{
+    if(user || !showCreate)return;
+    let cancelled=false;
+    const renderGoogleButton=()=>{
+      const google=(window as any).google;
+      if(cancelled||!google?.accounts?.id||!googleButtonRef.current)return;
+      googleButtonRef.current.innerHTML='';
+      google.accounts.id.initialize({
+        client_id:GOOGLE_CLIENT_ID,
+        callback:async(response:any)=>{
+          if(!response?.credential)return;
+          setAuthLoading(true);setAuthMessage('');
+          const {data,error}=await supabase.auth.signInWithIdToken({provider:'google',token:response.credential});
+          if(error){setAuthMessage(error.message||'Google sign in could not complete.');setAuthLoading(false);return;}
+          if(data.user){
+            setUser(data.user);
+            const {data:mine}=await supabase.from('profiles').select('auth_user_id,full_name,email,avatar_url').eq('auth_user_id',data.user.id).maybeSingle();
+            setProfile(mine||null);
+            setAuthMessage('Signed in. Your listing is still here.');
+          }
+          setAuthLoading(false);
+        }
+      });
+      google.accounts.id.renderButton(googleButtonRef.current,{
+        type:'standard',theme:'outline',size:'large',text:'continue_with',shape:'pill',logo_alignment:'left',
+        width:Math.max(240,Math.min(320,window.innerWidth-80))
+      });
+    };
+    const existing=document.getElementById('google-identity-services');
+    if((window as any).google?.accounts?.id)renderGoogleButton();
+    else if(existing)existing.addEventListener('load',renderGoogleButton,{once:true});
+    else{
+      const script=document.createElement('script');
+      script.id='google-identity-services';script.src='https://accounts.google.com/gsi/client';script.async=true;script.defer=true;
+      script.onload=renderGoogleButton;script.onerror=()=>setAuthMessage('Could not load Google sign in. Use email instead.');
+      document.head.appendChild(script);
+    }
+    return()=>{cancelled=true;existing?.removeEventListener('load',renderGoogleButton);};
+  },[user,showCreate]);
+
+  const sendSignInCode=async()=>{
+    const email=authEmail.trim().toLowerCase();
+    if(!email)return setAuthMessage('Enter your email address.');
+    setAuthLoading(true);setAuthMessage('');
+    const {error}=await supabase.auth.signInWithOtp({email,options:{shouldCreateUser:true}});
+    if(error)setAuthMessage(error.message||'Could not send the sign-in code.');
+    else{setAuthSent(true);setAuthMessage(`Check ${email} for your sign-in code.`);}
+    setAuthLoading(false);
+  };
+
+  const verifySignInCode=async()=>{
+    const email=authEmail.trim().toLowerCase(),token=authCode.replace(/\D/g,'').slice(0,6);
+    if(token.length!==6)return setAuthMessage('Enter the 6-digit code from your email.');
+    setAuthLoading(true);setAuthMessage('');
+    const {data,error}=await supabase.auth.verifyOtp({email,token,type:'email'});
+    if(error)setAuthMessage(error.message||'That code is invalid or expired.');
+    else if(data.user){
+      setUser(data.user);
+      const {data:mine}=await supabase.from('profiles').select('auth_user_id,full_name,email,avatar_url').eq('auth_user_id',data.user.id).maybeSingle();
+      setProfile(mine||null);setAuthCode('');setAuthSent(false);setAuthMessage('Signed in. Your listing is still here.');
+    }
+    setAuthLoading(false);
+  };
   const visible=useMemo(()=>items.filter(item=>{
     const k=listingKind(item);
     if(filter!=='All'&&k!==filter)return false;
@@ -49,7 +115,7 @@ export default function ForSalePage(){
   }),[items,filter,query]);
 
   const submit=async()=>{
-    if(!user)return setNotice('Sign in from the feed before creating a listing.');
+    if(!user){setAuthMessage('Sign in below to post. Your listing will stay here.');return;}
     if(!title.trim())return setNotice('Add an item name.');
     if(kind==='For Sale'&&(!price.trim()||Number(price)<0))return setNotice('Add a price.');
     if(!text.trim()&&!file)return setNotice('Add a description or photo.');
@@ -87,7 +153,18 @@ export default function ForSalePage(){
         <div className="grid sm:grid-cols-2 gap-2 mt-3"><div><label className="block text-xs font-black uppercase opacity-70">Condition</label><select value={condition} onChange={e=>setCondition(e.target.value)} className="mt-1 w-full rounded-xl px-3 py-3" style={{backgroundColor:theme.input,color:theme.text,border:`1px solid ${theme.border}`}}>{CONDITIONS.map(v=><option key={v}>{v}</option>)}</select></div><div><label className="block text-xs font-black uppercase opacity-70">Category</label><select value={itemCategory} onChange={e=>setItemCategory(e.target.value)} className="mt-1 w-full rounded-xl px-3 py-3" style={{backgroundColor:theme.input,color:theme.text,border:`1px solid ${theme.border}`}}>{ITEM_CATEGORIES.map(v=><option key={v}>{v}</option>)}</select></div></div>
         <label className="block mt-3 text-xs font-black uppercase opacity-70">Description</label><textarea value={text} onChange={e=>setText(e.target.value)} placeholder="Describe the item and anything your neighbor should know about pickup." className="mt-1 min-h-[110px] w-full rounded-xl p-3 outline-none" style={{backgroundColor:theme.input,color:theme.text,border:`1px solid ${theme.border}`}}/>
         <label className="mt-3 block cursor-pointer rounded-xl border px-3 py-3 text-sm font-bold" style={{borderColor:theme.border}}>📷 Add photo<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={e=>setFile(e.target.files?.[0]||null)}/>{file&&<span className="ml-2 font-normal opacity-70">{file.name}</span>}</label>
-        <div className="mt-3 flex items-center justify-between gap-3"><p className="text-xs opacity-60">Shared with the NeighborlyKC community.</p><button disabled={sending} onClick={submit} className="rounded-full px-5 py-2 font-black disabled:opacity-50" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{sending?'Posting…':'Post item'}</button></div>{notice&&<p role="status" className="mt-2 text-sm font-bold">{notice}</p>}
+
+        {!user&&<div className="mt-4 rounded-2xl border p-4" style={{backgroundColor:theme.input,borderColor:theme.border}}>
+          <h3 className="font-black">Sign in to post</h3>
+          <p className="mt-1 text-xs opacity-70">Sign in right here. Everything you typed above stays put.</p>
+          <div ref={googleButtonRef} className="mt-3 flex min-h-[44px] justify-center"/>
+          <div className="my-3 flex items-center gap-2 text-[10px] font-black uppercase opacity-50"><span className="h-px flex-1" style={{backgroundColor:theme.border}}/><span>or email</span><span className="h-px flex-1" style={{backgroundColor:theme.border}}/></div>
+          <div className="flex gap-2"><input type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} placeholder="Email address" className="min-w-0 flex-1 rounded-xl px-3 py-3 outline-none" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}/><button type="button" disabled={authLoading} onClick={sendSignInCode} className="rounded-xl px-3 py-2 font-black disabled:opacity-50" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>Send code</button></div>
+          {authSent&&<div className="mt-2 flex gap-2"><input value={authCode} onChange={e=>setAuthCode(e.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" placeholder="6-digit code" className="min-w-0 flex-1 rounded-xl px-3 py-3 tracking-[.18em] outline-none" style={{backgroundColor:theme.card,color:theme.text,border:`1px solid ${theme.border}`}}/><button type="button" disabled={authLoading} onClick={verifySignInCode} className="rounded-xl px-3 py-2 font-black disabled:opacity-50" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>Sign in</button></div>}
+          {authMessage&&<p role="status" className="mt-2 text-sm font-bold">{authMessage}</p>}
+        </div>}
+
+        <div className="mt-3 flex items-center justify-between gap-3"><p className="text-xs opacity-60">{user?'Ready to post to NeighborlyKC.':'Sign in above when you are ready to post.'}</p><button disabled={sending||!user} onClick={submit} className="rounded-full px-5 py-2 font-black disabled:opacity-50" style={{backgroundColor:theme.accent,color:theme.pillTextActive}}>{sending?'Posting…':'Post item'}</button></div>{notice&&<p role="status" className="mt-2 text-sm font-bold">{notice}</p>}
       </section>}
 
       {visible.map(item=>{const k=listingKind(item);const lines=cleanBody(item).split('\n');return <article key={item.id} className="rounded-2xl border overflow-hidden" style={{backgroundColor:theme.card,borderColor:theme.border}}>{item.image_url&&<img src={item.image_url} alt={lines[0]||'Listing'} className="max-h-[520px] w-full object-cover"/>}<div className="p-4"><div className="flex items-start justify-between gap-3"><div><span className="text-[10px] font-black uppercase tracking-wider opacity-60">{k}</span><h2 className="text-lg font-black">{lines[0]||'Listing'}</h2></div>{lines[1]&&<strong className="text-lg" style={{color:theme.accent}}>{lines[1]}</strong>}</div><p className="mt-2 text-sm opacity-75 whitespace-pre-wrap">{lines.slice(2).join(' · ')}</p><div className="mt-3 flex justify-between gap-3 text-xs opacity-60"><b>{displayName(item.profiles||{full_name:item.author_name})}</b><span>{new Date(item.created_at).toLocaleDateString()}</span></div></div></article>})}
