@@ -1013,3 +1013,41 @@ input::placeholder,textarea::placeholder{color:currentColor!important;opacity:.7
     line-height:1.3 !important;
   }
 }
+
+
+/* Final KCFD nav cleanup: artwork only, no box/ring shadow behind icons. */
+@media(max-width:640px){
+  .nkc-mobile-bottom-nav[data-theme="kcfd"] .nkc-bottom-nav-orb-item,
+  .nkc-mobile-bottom-nav[data-theme="kcfd"] .nkc-bottom-nav-plus{
+    background:none !important;
+    background-color:transparent !important;
+    border:none !important;
+    outline:none !important;
+    box-shadow:none !important;
+    filter:none !important;
+    border-radius:0 !important;
+    overflow:visible !important;
+  }
+
+  .nkc-mobile-bottom-nav[data-theme="kcfd"] .nkc-bottom-nav-orb-item::before,
+  .nkc-mobile-bottom-nav[data-theme="kcfd"] .nkc-bottom-nav-orb-item::after,
+  .nkc-mobile-bottom-nav[data-theme="kcfd"] .nkc-bottom-nav-plus::before,
+  .nkc-mobile-bottom-nav[data-theme="kcfd"] .nkc-bottom-nav-plus::after{
+    content:none !important;
+    display:none !important;
+    background:none !important;
+    border:0 !important;
+    box-shadow:none !important;
+  }
+
+  .nkc-mobile-bottom-nav[data-theme="kcfd"] .nkc-custom-theme-nav-icon,
+  .nkc-mobile-bottom-nav[data-theme="kcfd"] .nkc-custom-theme-plus-icon{
+    background:transparent !important;
+    border:0 !important;
+    box-shadow:none !important;
+    border-radius:0 !important;
+    filter:
+      drop-shadow(0 0 3px rgba(255,195,70,.85))
+      drop-shadow(0 0 8px rgba(210,20,48,.55)) !important;
+  }
+}
