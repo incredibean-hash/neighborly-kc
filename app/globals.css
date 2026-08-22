@@ -686,3 +686,33 @@ input::placeholder,textarea::placeholder{color:currentColor!important;opacity:.7
   .nkc-mobile-wordmark{position:static!important;left:auto!important;top:auto!important;transform:none!important;flex:1 1 auto!important;justify-content:center!important;font-size:clamp(18px,5.4vw,23px)!important;letter-spacing:-.9px!important;overflow:hidden!important}
   .nkc-mobile-top-icons{flex:0 0 auto!important;margin-left:4px!important}
 }
+
+/* NWS forecast details + expandable Kansas City precipitation/radar panel */
+.nkc-nws-source{font-size:9px;opacity:.55;margin-left:5px;letter-spacing:.04em}
+.nkc-forecast-day{cursor:pointer;color:inherit;font-family:inherit;text-align:left}
+.nkc-forecast-day-active{outline:2px solid currentColor;outline-offset:-2px}
+.nkc-forecast-rain{grid-column:1 / span 2;font-size:10px;font-weight:900;opacity:.75;margin-top:1px}
+.nkc-precip-panel{margin-top:9px;border:1px solid;border-radius:18px;padding:12px;overflow:hidden}
+.nkc-precip-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
+.nkc-precip-panel-head>div{display:flex;flex-direction:column;gap:3px;font-size:12px}
+.nkc-precip-panel-head span{font-size:10px;opacity:.65}
+.nkc-precip-panel-head button{border:0;background:transparent;color:inherit;font-size:24px;line-height:20px;cursor:pointer;opacity:.65}
+.nkc-hourly-precip{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;padding:1px 1px 9px}
+.nkc-hourly-precip::-webkit-scrollbar{display:none}
+.nkc-hourly-precip-item{flex:0 0 64px;border:1px solid rgba(127,127,127,.25);border-radius:13px;padding:7px 5px;display:flex;flex-direction:column;align-items:center;gap:3px;font-style:normal}
+.nkc-hourly-precip-item b{font-size:9px;opacity:.65}
+.nkc-hourly-precip-item span{font-size:17px}
+.nkc-hourly-precip-item strong{font-size:13px}
+.nkc-hourly-precip-item em{font-size:9px;font-style:normal;font-weight:900;opacity:.72}
+.nkc-radar-title{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:4px 1px 7px;font-size:11px}
+.nkc-radar-title span{font-size:9px;opacity:.55;text-align:right}
+.nkc-radar-link{display:block;border-radius:14px;overflow:hidden;background:#111;line-height:0}
+.nkc-radar-image{display:block;width:100%;max-height:390px;object-fit:cover}
+.nkc-weather-credit{text-align:right;font-size:9px;font-weight:700;opacity:.5;margin-top:6px}
+@media (max-width:640px){
+  .nkc-forecast-rain{font-size:9px}
+  .nkc-precip-panel{padding:9px;margin-top:8px;border-radius:16px}
+  .nkc-radar-title{align-items:flex-start;flex-direction:column;gap:2px}
+  .nkc-radar-title span{text-align:left}
+  .nkc-radar-image{max-height:300px}
+}

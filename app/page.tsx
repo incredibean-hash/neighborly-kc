@@ -195,8 +195,10 @@ export default function Page(){
   const postComposerRef = useRef<HTMLTextAreaElement>(null);
   const fullPostComposerRef = useRef<HTMLTextAreaElement>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
-  const [weather,setWeather]=useState<{temp:number;feels:number;precip:number;code:number}|null>(null);
-  const [forecast,setForecast]=useState<{date:string;high:number;low:number;code:number}[]>([]);
+  const [weather,setWeather]=useState<{temp:number;precip:number;summary:string}|null>(null);
+  const [forecast,setForecast]=useState<{date:string;high:number;low:number;precip:number;summary:string;hours:{time:string;temp:number;precip:number;summary:string;wind:string}[]}[]>([]);
+  const [expandedWeatherDay,setExpandedWeatherDay]=useState<string|null>(null);
+  const [radarUrl,setRadarUrl]=useState('https://radar.weather.gov/ridge/standard/KEAX_loop.gif');
   const [neighborCount,setNeighborCount]=useState<number|null>(null);
   const [blockedUsers,setBlockedUsers]=useState<Set<string>>(new Set());
   const [isLoading,setIsLoading]=useState(true);
@@ -691,18 +693,12 @@ export default function Page(){
     let alive=true;
     const loadWeather=async()=>{
       try{
-        const res=await fetch('https://api.open-meteo.com/v1/forecast?latitude=39.0997&longitude=-94.5786&current=temperature_2m,apparent_temperature,precipitation,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=America%2FChicago&forecast_days=7',{cache:'no-store'});
+        const res=await fetch('/api/weather',{cache:'no-store'});
         if(!res.ok) throw new Error('weather request failed');
         const data=await res.json();
-        const c=data?.current;
-        const d=data?.daily;
-        if(alive && c) setWeather({temp:Number(c.temperature_2m),feels:Number(c.apparent_temperature),precip:Number(c.precipitation),code:Number(c.weather_code)});
-        if(alive && d?.time) setForecast(d.time.slice(0,7).map((date:string,i:number)=>({
-          date,
-          high:Number(d.temperature_2m_max?.[i]),
-          low:Number(d.temperature_2m_min?.[i]),
-          code:Number(d.weather_code?.[i])
-        })).filter((x:any)=>Number.isFinite(x.high)&&Number.isFinite(x.low)));
+        if(alive && data?.current) setWeather(data.current);
+        if(alive && Array.isArray(data?.forecast)) setForecast(data.forecast);
+        if(alive && data?.radarUrl) setRadarUrl(data.radarUrl);
       }catch{}
     };
     loadWeather();
@@ -810,7 +806,8 @@ export default function Page(){
       .map(([id])=>id));
   }, [contributorCounts]);
 
-  const weatherEmoji = (code:number) => code===0?'☀️':code<=3?'🌤️':code<=48?'🌫️':code<=67?'🌧️':code<=77?'❄️':code<=82?'🌦️':'⛈️';
+  const weatherEmoji = (summary:string) => { const x=(summary||'').toLowerCase(); return x.includes('thunder')?'⛈️':x.includes('snow')||x.includes('sleet')?'❄️':x.includes('rain')||x.includes('shower')?'🌧️':x.includes('fog')?'🌫️':x.includes('cloud')||x.includes('overcast')?'☁️':x.includes('partly')||x.includes('mostly sunny')?'🌤️':'☀️'; };
+  const weatherHour = (iso:string) => new Date(iso).toLocaleTimeString('en-US',{hour:'numeric'});
   const forecastDay = (date:string,i:number) => i===0?'Today':new Date(`${date}T12:00:00`).toLocaleDateString('en-US',{weekday:'short'});
   const isAdmin = Boolean(profile?.is_admin || profile?.is_founder);
   const POST_LIMIT_24H = 5;
@@ -1155,14 +1152,21 @@ export default function Page(){
       <section className="nkc-forecast-banner" aria-label="7 day Kansas City forecast" style={{backgroundColor:theme.input,color:theme.text,borderColor:theme.border}}>
         <div className="nkc-forecast-inner">
           <div className="nkc-forecast-title">
-            <span>🌤️ <b>KC 7-DAY FORECAST</b></span>
-            {weather && <span className="nkc-forecast-now">Now {Math.round(weather.temp)}° · feels {Math.round(weather.feels)}°</span>}
+            <span>🌤️ <b>KC 7-DAY FORECAST</b> <small className="nkc-nws-source">NWS</small></span>
+            {weather && <span className="nkc-forecast-now">Now {Math.round(weather.temp)}° · 💧 {Math.round(weather.precip)}%</span>}
           </div>
           <div className="nkc-forecast-days">
-            {forecast.length ? forecast.map((f,i)=><div key={f.date} className="nkc-forecast-day" style={{backgroundColor:theme.card,borderColor:theme.border}}>
-              <b>{forecastDay(f.date,i)}</b><span className="nkc-forecast-icon">{weatherEmoji(f.code)}</span><strong>{Math.round(f.high)}°</strong><span className="nkc-forecast-low">{Math.round(f.low)}°</span>
-            </div>) : <div className="nkc-forecast-loading">Loading Kansas City forecast…</div>}
+            {forecast.length ? forecast.map((f,i)=><button type="button" key={f.date} onClick={()=>setExpandedWeatherDay(expandedWeatherDay===f.date?null:f.date)} aria-expanded={expandedWeatherDay===f.date} className={`nkc-forecast-day ${expandedWeatherDay===f.date?'nkc-forecast-day-active':''}`} style={{backgroundColor:theme.card,borderColor:theme.border,color:theme.text}}>
+              <b>{forecastDay(f.date,i)}</b><span className="nkc-forecast-icon">{weatherEmoji(f.summary)}</span><strong>{Math.round(f.high)}°</strong><span className="nkc-forecast-low">{Math.round(f.low)}°</span><span className="nkc-forecast-rain">💧 {Math.round(f.precip)}%</span>
+            </button>) : <div className="nkc-forecast-loading">Loading National Weather Service forecast…</div>}
           </div>
+          {expandedWeatherDay && (()=>{ const day=forecast.find(f=>f.date===expandedWeatherDay); if(!day) return null; return <div className="nkc-precip-panel" style={{backgroundColor:theme.card,borderColor:theme.border}}>
+            <div className="nkc-precip-panel-head"><div><b>💧 {forecastDay(day.date,forecast.findIndex(f=>f.date===day.date))} precipitation</b><span>{day.summary}</span></div><button type="button" onClick={()=>setExpandedWeatherDay(null)} aria-label="Close precipitation details">×</button></div>
+            <div className="nkc-hourly-precip">{day.hours.map(h=><div key={h.time} className="nkc-hourly-precip-item"><b>{weatherHour(h.time)}</b><span>{weatherEmoji(h.summary)}</span><strong>{Math.round(h.temp)}°</strong><em>💧 {Math.round(h.precip)}%</em></div>)}</div>
+            <div className="nkc-radar-title"><b>Live Kansas City radar</b><span>Animated NWS KEAX radar · current conditions</span></div>
+            <a href="https://radar.weather.gov/station/KEAX/standard" target="_blank" rel="noreferrer" className="nkc-radar-link" aria-label="Open full National Weather Service Kansas City radar"><img src={`${radarUrl}?t=${Math.floor(Date.now()/600000)}`} alt="Animated National Weather Service Kansas City radar" className="nkc-radar-image" /></a>
+            <div className="nkc-weather-credit">Forecast & radar: NOAA / National Weather Service</div>
+          </div> })()}
         </div>
       </section>
 
