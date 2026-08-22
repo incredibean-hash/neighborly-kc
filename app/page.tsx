@@ -935,16 +935,53 @@ export default function Page(){
     const { data: { user } } = await supabase.auth.getUser();
     const authorId = user?.id || profile?.user_id;
     if(!authorId) return setShowJoin(true);
-    const list = likes[postId] || [];
-    const myLike = list.find((l:any)=>l.author_id===authorId || l.author_name===profile.full_name);
-    if(myLike){
-      const { error } = await supabase.from('likes').delete().eq('id', myLike.id);
-      if(error) return alert('Could not update like: ' + error.message);
-      setLikes(prev=>({...prev, [postId]:(prev[postId]||[]).filter((x:any)=>x.id!==myLike.id)}));
-    } else {
-      const { data, error } = await supabase.from('likes').insert({post_id:postId, author_name:profile.full_name, author_id:authorId}).select().single();
-      if(error) return alert('Could not like this post: ' + error.message);
-      if(data) { setLikes(prev=>({...prev, [postId]:[...(prev[postId]||[]), data]})); const {data:{session}}=await supabase.auth.getSession(); if(session?.access_token) void fetch('/api/notify-reaction',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`},body:JSON.stringify({postId})}).catch(()=>{}); }
+
+    // The local likes list can be stale after refresh/realtime timing. Check the
+    // database before inserting so an existing like becomes an unlike instead
+    // of tripping the one-like-per-user constraint.
+    const localLike=(likes[postId]||[]).find((l:any)=>l.author_id===authorId);
+    const {data:storedLike,error:lookupError}=localLike
+      ? {data:localLike,error:null}
+      : await supabase.from('likes').select('*').eq('post_id',postId).eq('author_id',authorId).is('comment_id',null).maybeSingle();
+
+    if(lookupError) {
+      console.error('Like lookup error:', lookupError);
+      return;
+    }
+
+    if(storedLike){
+      const {error}=await supabase.from('likes').delete().eq('id',storedLike.id);
+      if(error){console.error('Unlike error:',error);return;}
+      setLikes(prev=>({...prev,[postId]:(prev[postId]||[]).filter((x:any)=>x.id!==storedLike.id&&x.author_id!==authorId)}));
+      return;
+    }
+
+    const {data,error}=await supabase.from('likes').insert({
+      post_id:postId,
+      author_name:profile.full_name,
+      author_id:authorId
+    }).select().single();
+
+    // If another click/device beat us to the insert, sync that existing row
+    // instead of showing the database constraint message to the user.
+    if(error){
+      if((error as any).code==='23505'){
+        const {data:existing}=await supabase.from('likes').select('*').eq('post_id',postId).eq('author_id',authorId).is('comment_id',null).maybeSingle();
+        if(existing)setLikes(prev=>({...prev,[postId]:[...(prev[postId]||[]).filter((x:any)=>x.author_id!==authorId),existing]}));
+        return;
+      }
+      console.error('Like error:',error);
+      return;
+    }
+
+    if(data){
+      setLikes(prev=>({...prev,[postId]:[...(prev[postId]||[]).filter((x:any)=>x.author_id!==authorId),data]}));
+      const {data:{session}}=await supabase.auth.getSession();
+      if(session?.access_token)void fetch('/api/notify-reaction',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`},
+        body:JSON.stringify({postId})
+      }).catch(()=>{});
     }
   };
 
@@ -953,24 +990,45 @@ export default function Page(){
     const { data: { user } } = await supabase.auth.getUser();
     const authorId = user?.id || profile?.user_id;
     if(!authorId) return setShowJoin(true);
-    const list = cLikes[commentId] || [];
-    const myLike = list.find((l:any)=>l.author_id===authorId || l.author_name===profile.full_name);
-    if(myLike){
-      const { error } = await supabase.from('likes').delete().eq('id', myLike.id);
-      if(error) return alert('Could not update like: ' + error.message);
-      setCLikes(prev=>({...prev, [commentId]:(prev[commentId]||[]).filter((x:any)=>x.id!==myLike.id)}));
-    } else {
-      const { data, error } = await supabase.from('likes').insert({comment_id:commentId, author_name:profile.full_name, author_id:authorId}).select().single();
-      if(error) return alert('Could not like this comment: ' + error.message);
-      if(data) {
-        setCLikes(prev=>({...prev, [commentId]:[...(prev[commentId]||[]), data]}));
-        const {data:{session}}=await supabase.auth.getSession();
-        if(session?.access_token) void fetch('/api/notify-reaction',{
-          method:'POST',
-          headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`},
-          body:JSON.stringify({commentId})
-        }).catch(()=>{});
+
+    const localLike=(cLikes[commentId]||[]).find((l:any)=>l.author_id===authorId);
+    const {data:storedLike,error:lookupError}=localLike
+      ? {data:localLike,error:null}
+      : await supabase.from('likes').select('*').eq('comment_id',commentId).eq('author_id',authorId).maybeSingle();
+
+    if(lookupError){console.error('Comment like lookup error:',lookupError);return;}
+
+    if(storedLike){
+      const {error}=await supabase.from('likes').delete().eq('id',storedLike.id);
+      if(error){console.error('Comment unlike error:',error);return;}
+      setCLikes(prev=>({...prev,[commentId]:(prev[commentId]||[]).filter((x:any)=>x.id!==storedLike.id&&x.author_id!==authorId)}));
+      return;
+    }
+
+    const {data,error}=await supabase.from('likes').insert({
+      comment_id:commentId,
+      author_name:profile.full_name,
+      author_id:authorId
+    }).select().single();
+
+    if(error){
+      if((error as any).code==='23505'){
+        const {data:existing}=await supabase.from('likes').select('*').eq('comment_id',commentId).eq('author_id',authorId).maybeSingle();
+        if(existing)setCLikes(prev=>({...prev,[commentId]:[...(prev[commentId]||[]).filter((x:any)=>x.author_id!==authorId),existing]}));
+        return;
       }
+      console.error('Comment like error:',error);
+      return;
+    }
+
+    if(data){
+      setCLikes(prev=>({...prev,[commentId]:[...(prev[commentId]||[]).filter((x:any)=>x.author_id!==authorId),data]}));
+      const {data:{session}}=await supabase.auth.getSession();
+      if(session?.access_token)void fetch('/api/notify-reaction',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`},
+        body:JSON.stringify({commentId})
+      }).catch(()=>{});
     }
   };
 
