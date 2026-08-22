@@ -914,3 +914,31 @@ input::placeholder,textarea::placeholder{color:currentColor!important;opacity:.7
     flex-basis:30px;
   }
 }
+
+
+/* KCFD mobile nav cleanup: transparent source art, even sizing, no clipping. */
+@media(max-width:640px){
+  .nkc-mobile-bottom-nav[data-theme="kcfd"]{
+    min-height:92px !important;
+    padding-top:5px !important;
+    padding-bottom:5px !important;
+  }
+  .nkc-mobile-bottom-nav[data-theme="kcfd"] .nkc-bottom-nav-orb-item,
+  .nkc-mobile-bottom-nav[data-theme="kcfd"] .nkc-bottom-nav-plus{
+    width:80px !important;
+    height:80px !important;
+    padding:2px !important;
+    overflow:visible !important;
+  }
+  .nkc-mobile-bottom-nav[data-theme="kcfd"] .nkc-custom-theme-nav-icon,
+  .nkc-mobile-bottom-nav[data-theme="kcfd"] .nkc-custom-theme-plus-icon{
+    width:68px !important;
+    height:68px !important;
+    object-fit:contain !important;
+    object-position:center !important;
+  }
+  .nkc-mobile-bottom-nav[data-theme="kcfd"] .nkc-custom-theme-plus-icon{
+    width:70px !important;
+    height:70px !important;
+  }
+}
