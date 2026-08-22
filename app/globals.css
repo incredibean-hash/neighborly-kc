@@ -942,3 +942,30 @@ input::placeholder,textarea::placeholder{color:currentColor!important;opacity:.7
     height:70px !important;
   }
 }
+
+
+/* KCFD detailed red/gold nav icons */
+@media(max-width:640px){
+  .nkc-mobile-bottom-nav[data-theme="kcfd"]{
+    min-height:98px !important;
+    padding-top:4px !important;
+    padding-bottom:4px !important;
+  }
+  .nkc-mobile-bottom-nav[data-theme="kcfd"] .nkc-bottom-nav-orb-item,
+  .nkc-mobile-bottom-nav[data-theme="kcfd"] .nkc-bottom-nav-plus{
+    width:86px !important;
+    height:86px !important;
+    padding:0 !important;
+    overflow:visible !important;
+  }
+  .nkc-mobile-bottom-nav[data-theme="kcfd"] .nkc-custom-theme-nav-icon{
+    width:76px !important;
+    height:76px !important;
+    object-fit:contain !important;
+  }
+  .nkc-mobile-bottom-nav[data-theme="kcfd"] .nkc-custom-theme-plus-icon{
+    width:80px !important;
+    height:80px !important;
+    object-fit:contain !important;
+  }
+}
